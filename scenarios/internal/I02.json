@@ -1,0 +1,44 @@
+{
+ "id": "I02",
+ "title": "QEMU accelerator module directory not found",
+ "setup": "mkdir -p vm && (cd vm && . \"$QNX_SDP/qnxsdp-env.sh\" >/dev/null && mkqnximage --type=qemu --arch=x86_64 --ssh-ident=none --noprompt >/dev/null 2>&1)",
+ "spec": {
+  "argv": [
+   "qd-boot",
+   "$QD_QEMU_ROOT/usr/bin/qemu-system-x86_64",
+   "-L",
+   "$QD_QEMU_ROOT/usr/share/qemu",
+   "-m",
+   "1G",
+   "-smp",
+   "2",
+   "-cpu",
+   "max",
+   "-nographic",
+   "-serial",
+   "mon:stdio",
+   "-kernel",
+   "vm/output/ifs.bin",
+   "-drive",
+   "file=vm/output/disk-qemu.vmdk,if=ide",
+   "-nic",
+   "none"
+  ],
+  "env": {
+   "LD_LIBRARY_PATH": "$QD_QEMU_ROOT/usr/lib/x86_64-linux-gnu"
+  },
+  "env_unset": [
+   "QEMU_MODULE_DIR"
+  ],
+  "timeout": 240,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "qemu_module_dir"
+ },
+ "source": [
+  "contest-kit/20261216_qnx-hackathon/사전점검_1114.md (our own 11/14 failures)"
+ ]
+}

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# qnx-doctor-target-run <binary>: put a binary into a fresh QEMU x86_64 QNX image, boot it, run it, print its output.
+# Uses the working QEMU from $QD_QEMU_ROOT. Exit code = the binary's exit code on the target (or 1 if it could not run).
+set -uo pipefail
+bin="$(readlink -f "$1")"; name="$(basename "$bin")"
+img="$(mktemp -d "${TMPDIR:-/tmp}/qd-img.XXXX")"
+mkdir -p "$img/local/snippets"
+printf '[perms=0755] /var/%s=%s\n' "$name" "$bin" > "$img/local/snippets/data_files.custom"
+(cd "$img" && mkqnximage --type=qemu --arch=x86_64 --ssh-ident=none --noprompt --clean >/dev/null 2>&1) || { echo "qnx-doctor-target-run: image build failed"; exit 1; }
+exec python3 "$(dirname "$0")/qd-target-exec" "$img" "/data/var/$name"

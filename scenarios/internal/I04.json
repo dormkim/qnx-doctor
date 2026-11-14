@@ -1,0 +1,32 @@
+{
+ "id": "I04",
+ "title": "Snippet added after first build is not applied without --clean",
+ "setup": "mkdir -p vm && (cd vm && . \"$QNX_SDP/qnxsdp-env.sh\" >/dev/null && mkqnximage --type=qemu --arch=x86_64 --ssh-ident=none --noprompt >/dev/null 2>&1) && echo hi > vm/hello_note.txt && printf '[perms=0644] /var/hello_note.txt=%s/vm/hello_note.txt\\n' \"$PWD\" > vm/local/snippets/data_files.custom",
+ "spec": {
+  "cwd": "vm",
+  "argv": [
+   "mkqnximage",
+   "--type=qemu",
+   "--arch=x86_64",
+   "--ssh-ident=none",
+   "--noprompt"
+  ],
+  "source_sdp": true,
+  "timeout": 300,
+  "success": {
+   "exit": 0,
+   "verify": [
+    "grep",
+    "-rqs",
+    "hello_note.txt",
+    "output/build"
+   ]
+  }
+ },
+ "truth": {
+  "cause": "stale_build_needs_clean"
+ },
+ "source": [
+  "contest-kit/20261216_qnx-hackathon/사전점검_1114.md (our own 11/14 failures)"
+ ]
+}

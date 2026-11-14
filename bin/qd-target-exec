@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""qd-target-exec <imgdir> <path-on-target>: boot the image in QEMU, log in, run the path, print output, exit with its status."""
+import os, re, select, subprocess, sys, time
+img, path = sys.argv[1], sys.argv[2]
+root = os.environ["QD_QEMU_ROOT"]
+env = dict(os.environ, QEMU_MODULE_DIR=f"{root}/usr/lib/x86_64-linux-gnu/qemu", LD_LIBRARY_PATH=f"{root}/usr/lib/x86_64-linux-gnu")
+args = [f"{root}/usr/bin/qemu-system-x86_64", "-L", f"{root}/usr/share/qemu", "-m", "1G", "-smp", "2", "-cpu", "max", "-nographic",
+        "-serial", "mon:stdio", "-kernel", f"{img}/output/ifs.bin", "-drive", f"file={img}/output/disk-qemu.vmdk,if=ide", "-nic", "none"]
+if os.access("/dev/kvm", os.W_OK): args += ["-enable-kvm"]
+p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+buf = b""
+def until(pats, t):
+    global buf
+    end = time.time() + t
+    while time.time() < end:
+        r, _, _ = select.select([p.stdout], [], [], 1)
+        if r:
+            c = os.read(p.stdout.fileno(), 4096)
+            if not c: return None
+            buf += c
+            for x in pats:
+                if re.search(x, buf): return x
+    return None
+hit = until([rb"login:", rb"# "], 240)
+if hit is None: print(buf.decode(errors="replace")[-2000:]); print("qd-target-exec: target did not boot"); p.kill(); sys.exit(1)
+if hit == rb"login:": p.stdin.write(b"root\n"); p.stdin.flush(); until([rb"# "], 30)
+until([rb"Starting Networking", rb"Startup complete"], 60); time.sleep(5)
+buf = b""
+p.stdin.write(f"{path}; echo QDRC=$?\n".encode()); p.stdin.flush()
+until([rb"\nQDRC=\d"], 30); time.sleep(1)
+r, _, _ = select.select([p.stdout], [], [], 1)
+if r: buf += os.read(p.stdout.fileno(), 4096)
+p.kill()
+out = buf.decode(errors="replace").replace("\r", "")
+print(out)
+rc = 1
+for line in out.splitlines():
+    if line.startswith("QDRC="):
+        try: rc = int(line[5:].strip())
+        except ValueError: pass
+sys.exit(rc)

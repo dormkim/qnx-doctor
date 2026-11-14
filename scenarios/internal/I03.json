@@ -1,0 +1,40 @@
+{
+ "id": "I03",
+ "title": "QEMU cannot load the PC BIOS",
+ "setup": "mkdir -p vm && (cd vm && . \"$QNX_SDP/qnxsdp-env.sh\" >/dev/null && mkqnximage --type=qemu --arch=x86_64 --ssh-ident=none --noprompt >/dev/null 2>&1)",
+ "spec": {
+  "argv": [
+   "qd-boot",
+   "$QD_QEMU_ROOT/usr/bin/qemu-system-x86_64",
+   "-m",
+   "1G",
+   "-smp",
+   "2",
+   "-cpu",
+   "max",
+   "-nographic",
+   "-serial",
+   "mon:stdio",
+   "-kernel",
+   "vm/output/ifs.bin",
+   "-drive",
+   "file=vm/output/disk-qemu.vmdk,if=ide",
+   "-nic",
+   "none"
+  ],
+  "env": {
+   "LD_LIBRARY_PATH": "$QD_QEMU_ROOT/usr/lib/x86_64-linux-gnu",
+   "QEMU_MODULE_DIR": "$QD_QEMU_ROOT/usr/lib/x86_64-linux-gnu/qemu"
+  },
+  "timeout": 240,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "qemu_bios_path"
+ },
+ "source": [
+  "contest-kit/20261216_qnx-hackathon/사전점검_1114.md (our own 11/14 failures)"
+ ]
+}
