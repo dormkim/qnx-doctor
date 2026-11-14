@@ -22,7 +22,7 @@ def _prefix(prog_path):
 
 def _find(root, name, kind="f"):
     try:
-        out = subprocess.run(["find", root, "-name", name, "-type", kind], capture_output=True, timeout=30, text=True).stdout
+        out = subprocess.run(["find", root, "-name", name, "(", "-type", "f", "-o", "-type", "l", ")"], capture_output=True, timeout=30, text=True).stdout
     except Exception:
         return None
     hits = [l for l in out.splitlines() if l]
