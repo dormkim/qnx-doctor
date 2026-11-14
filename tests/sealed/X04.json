@@ -1,0 +1,26 @@
+{
+ "id": "X04",
+ "title": "Socket program links without -lsocket",
+ "source": [
+  "https://community.qnx.com/sf/go/post120838",
+  "https://forums.openqnx.com/t/topic/2932"
+ ],
+ "setup": "printf \"#include <sys/socket.h>\\n#include <arpa/inet.h>\\nint main(){struct in_addr a;int s=socket(AF_INET,SOCK_STREAM,0);inet_pton(AF_INET,\\\"1.2.3.4\\\",&a);return s<0;}\\n\" > net.c",
+ "spec": {
+  "argv": [
+   "qcc",
+   "-Vgcc_ntox86_64",
+   "-o",
+   "net",
+   "net.c"
+  ],
+  "source_sdp": true,
+  "timeout": 60,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "missing_link_library"
+ }
+}

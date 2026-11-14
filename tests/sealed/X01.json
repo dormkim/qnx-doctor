@@ -1,0 +1,26 @@
+{
+ "id": "X01",
+ "title": "qcc not on PATH (SDP env not sourced)",
+ "source": [
+  "https://qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/envars.html",
+  "https://doc.rust-lang.org/nightly/rustc/platform-support/nto-qnx.html"
+ ],
+ "setup": "printf \"#include <stdio.h>\\nint main(){puts(\\\"hi\\\");return 0;}\\n\" > hello.c",
+ "spec": {
+  "argv": [
+   "qcc",
+   "-Vgcc_ntox86_64",
+   "-o",
+   "hello",
+   "hello.c"
+  ],
+  "source_sdp": false,
+  "timeout": 60,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "sdp_env_not_sourced"
+ }
+}

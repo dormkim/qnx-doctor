@@ -1,0 +1,25 @@
+{
+ "id": "X03",
+ "title": "Building for ARMv7 on QNX 8.0 (target dropped)",
+ "source": [
+  "https://deepwiki.com/qnx-ports/build-files/11-advanced-topics"
+ ],
+ "setup": "printf \"#include <stdio.h>\\nint main(){puts(\\\"hi\\\");return 0;}\\n\" > hello.c",
+ "spec": {
+  "argv": [
+   "qcc",
+   "-Vgcc_ntoarmv7le",
+   "-o",
+   "hello",
+   "hello.c"
+  ],
+  "source_sdp": true,
+  "timeout": 60,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "unsupported_target_variant"
+ }
+}

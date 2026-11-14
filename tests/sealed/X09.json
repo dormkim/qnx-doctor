@@ -1,0 +1,26 @@
+{
+ "id": "X09",
+ "title": "Snippet references a file outside the --repos search path",
+ "source": [
+  "https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/m/mkqnximage.html"
+ ],
+ "setup": "mkdir -p img/local/snippets extra && echo hi > extra/myfile.txt && printf '[perms=0644] /var/myfile.txt=myfile.txt\\n' > img/local/snippets/data_files.custom",
+ "spec": {
+  "cwd": "img",
+  "argv": [
+   "mkqnximage",
+   "--type=qemu",
+   "--arch=x86_64",
+   "--ssh-ident=none",
+   "--noprompt"
+  ],
+  "source_sdp": true,
+  "timeout": 300,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "file_not_in_repos"
+ }
+}

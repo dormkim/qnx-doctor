@@ -1,0 +1,26 @@
+{
+ "id": "X07",
+ "title": "mkqnximage VirtualBox image for aarch64 (unsupported combo)",
+ "source": [
+  "https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/m/mkqnximage.html"
+ ],
+ "setup": "mkdir -p img",
+ "spec": {
+  "cwd": "img",
+  "argv": [
+   "mkqnximage",
+   "--type=vbox",
+   "--arch=aarch64",
+   "--ssh-ident=none",
+   "--noprompt"
+  ],
+  "source_sdp": true,
+  "timeout": 300,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "mkqnximage_bad_combo"
+ }
+}

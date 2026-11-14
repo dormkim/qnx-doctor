@@ -1,0 +1,30 @@
+{
+ "id": "X02",
+ "title": "QNX_HOST/QNX_TARGET unset while qcc is on PATH",
+ "source": [
+  "https://qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/envars.html",
+  "https://deepwiki.com/qnx-ports/build-files/2.2-manual-build-environment-setup"
+ ],
+ "setup": "printf \"#include <stdio.h>\\nint main(){puts(\\\"hi\\\");return 0;}\\n\" > hello.c",
+ "spec": {
+  "argv": [
+   "qcc",
+   "-Vgcc_ntox86_64",
+   "-o",
+   "hello",
+   "hello.c"
+  ],
+  "source_sdp": true,
+  "env_unset": [
+   "QNX_HOST",
+   "QNX_TARGET"
+  ],
+  "timeout": 60,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "qnx_env_vars_missing"
+ }
+}

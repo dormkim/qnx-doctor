@@ -1,0 +1,25 @@
+{
+ "id": "X05",
+ "title": "Porting code that uses SA_RESTART",
+ "source": [
+  "https://deepwiki.com/qnx-ports/build-files/11-advanced-topics"
+ ],
+ "setup": "printf \"#include <signal.h>\\nint main(){struct sigaction sa={0};sa.sa_flags=SA_RESTART;return sigaction(SIGINT,&sa,0);}\\n\" > sig.c",
+ "spec": {
+  "argv": [
+   "qcc",
+   "-Vgcc_ntox86_64",
+   "-o",
+   "sig",
+   "sig.c"
+  ],
+  "source_sdp": true,
+  "timeout": 60,
+  "success": {
+   "exit": 0
+  }
+ },
+ "truth": {
+  "cause": "posix_feature_unsupported"
+ }
+}

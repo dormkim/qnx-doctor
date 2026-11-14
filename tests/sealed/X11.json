@@ -1,0 +1,23 @@
+{
+ "id": "X11",
+ "title": "Running an aarch64 binary on the x86_64 QEMU target",
+ "source": [
+  "https://forums.openqnx.com/t/topic/47601"
+ ],
+ "setup": "printf \"#include <stdio.h>\\nint main(){puts(\\\"hi\\\");return 0;}\\n\" > hello.c && (. \"$QNX_SDP/qnxsdp-env.sh\" >/dev/null && qcc -Vgcc_ntoaarch64le -o hello hello.c)",
+ "spec": {
+  "argv": [
+   "qnx-doctor-target-run",
+   "./hello"
+  ],
+  "source_sdp": true,
+  "timeout": 400,
+  "success": {
+   "exit": 0,
+   "expect_output": "hi"
+  }
+ },
+ "truth": {
+  "cause": "wrong_target_arch"
+ }
+}
