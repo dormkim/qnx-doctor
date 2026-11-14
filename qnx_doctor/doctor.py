@@ -56,7 +56,7 @@ def attempt(scenario, acts):
     return res, ("SOLVED (rerun ok)" if res.ok else f"still failing: {res.reason}; {tail(res.output, 6)}")
 
 
-def diagnose(scenario, use_ai=True, index=None, max_fixes=2):
+def diagnose(scenario, use_ai=True, index=None, max_fixes=2, use_rules=True):
     t0 = time.time()
     timeline, tried = [], []
     work = setup(scenario)
@@ -68,7 +68,7 @@ def diagnose(scenario, use_ai=True, index=None, max_fixes=2):
         return {"id": scenario["id"], "solved": None, "note": "command did not fail", "timeline": timeline}
     env = build_env(spec)
     # 1) rule table (works without AI)
-    sug = rules.suggest(expand(spec["argv"], env), first.output)
+    sug = rules.suggest(expand(spec["argv"], env), first.output) if use_rules else None
     if sug:
         cause, acts, why = sug
         res, msg = attempt(scenario, acts)

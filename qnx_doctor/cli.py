@@ -28,7 +28,7 @@ def _scenarios(paths):
 def main():
     ap = argparse.ArgumentParser(prog="qnx-doctor")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    b = sub.add_parser("bench"); b.add_argument("paths", nargs="+"); b.add_argument("--mode", choices=["rules", "ai"], default="ai"); b.add_argument("--out")
+    b = sub.add_parser("bench"); b.add_argument("paths", nargs="+"); b.add_argument("--mode", choices=["rules", "ai", "ai-only"], default="ai"); b.add_argument("--out")
     d = sub.add_parser("diagnose"); d.add_argument("scenario"); d.add_argument("--no-ai", action="store_true")
     sub.add_parser("index")
     a = ap.parse_args()
@@ -37,7 +37,8 @@ def main():
         from .docs import build
         print(len(build(sdp)), "docs indexed"); return
     index = None
-    use_ai = (a.cmd == "bench" and a.mode == "ai") or (a.cmd == "diagnose" and not a.no_ai)
+    use_ai = (a.cmd == "bench" and a.mode in ("ai", "ai-only")) or (a.cmd == "diagnose" and not a.no_ai)
+    use_rules = not (a.cmd == "bench" and a.mode == "ai-only")
     if use_ai:
         from .docs import Index
         index = Index(sdp)
@@ -45,8 +46,8 @@ def main():
     out = open(a.out, "a") if getattr(a, "out", None) else None
     solved = 0
     for s in scen:
-        r = diagnose(s, use_ai=use_ai, index=index)
-        r["mode"] = "ai" if use_ai else "rules"
+        r = diagnose(s, use_ai=use_ai, index=index, use_rules=use_rules)
+        r["mode"] = a.mode if a.cmd == "bench" else ("ai" if use_ai else "rules")
         solved += bool(r.get("solved"))
         print(json.dumps({k: r.get(k) for k in ("id", "mode", "solved", "by", "cause", "seconds")}, ensure_ascii=False), flush=True)
         if out:
