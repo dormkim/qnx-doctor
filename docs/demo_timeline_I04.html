@@ -1,0 +1,27 @@
+<!doctype html><meta charset=utf-8><title>qnx-doctor I04</title>
+<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;background:#0f1420;color:#e8ecf3;max-width:900px;margin:32px auto;padding:0 20px}
+ol{list-style:none;padding:0}li{border-left:3px solid #3b82f6;margin:0 0 18px;padding:6px 16px}.s{font-weight:700;font-size:18px}
+.h{color:#93c5fd}pre{white-space:pre-wrap;background:#161d2e;padding:10px;border-radius:6px;font-size:13px}</style>
+<h1>qnx-doctor · I04</h1><ol><li><div class=s>❌ symptom</div><div class=h>verify failed</div><pre>Nothing to do
+
+[verify failed: grep -rqs hello_note.txt output/build]</pre></li><li><div class=s>🔍 AI looks</div><div class=h>[&#x27;find&#x27;, &#x27;local&#x27;, &#x27;-maxdepth&#x27;, &#x27;3&#x27;]</div><pre>ata_files.custom
+local/snippets/ifs_start.custom
+local/valgrind.files
+local/opt_defaults
+local/opt_scripts
+local/misc_files
+local/misc_files/ssh_host_rsa_key
+local/misc_files/qtd_private_key.pem
+local/misc_files/ssh_host_rsa_key.pub
+local/misc_files/ssh_host_ed25519_key
+local/misc_files/ssh_host_ed25519_key.pub
+local/misc_files/shadow
+local/misc_files/qtd_public_key.pem
+local/misc_files/part.info
+</pre></li><li><div class=s>🔍 AI looks</div><div class=h>[&#x27;grep&#x27;, &#x27;-rn&#x27;, &#x27;hello_note&#x27;, &#x27;local/snippets&#x27;]</div><pre>local/snippets/data_files.custom:1:[perms=0644] /var/hello_note.txt=/tmp/qd-I04-b3nl77oy/vm/hello_note.txt
+</pre></li><li><div class=s>📚 QNX docs</div><div class=h>query: mkqnximage data_files.custom rebuild Nothing to do --build --clean</div><pre>com.qnx.doc.neutrino.utilities/topic/m/mkqnximage.html
+com.qnx.doc.neutrino.utilities/topic/m/mkbuild.html
+com.qnx.doc.security.system/topic/manual/mkqnximage_security.html</pre></li><li><div class=s>🛠 fix (data)</div><div class=h>cause = The snippet that adds hello_note.txt (local/snippets/data_files.custom) is already there, but mkqnximage did not notice the snippet change. It reused the existing build in output/ and reported &#x27;Nothing to do&#x27;, so the build files were never regenerated with the new entry.</div><pre>evidence: Output: &#x27;Nothing to do&#x27;. local/snippets/data_files.custom:1 contains &#x27;[perms=0644] /var/hello_note.txt=/tmp/qd-I04-b3nl77oy/vm/hello_note.txt&#x27;. The mkqnximage docs say: &#x27;--build Force a rebuild of the system image.&#x27; and &#x27;mkqnximage sometimes uses files from previous builds instead of regenerating them&#x27;.
+docs: com.qnx.doc.neutrino.utilities/topic/m/mkqnximage.html
+actions: [{&quot;type&quot;: &quot;add_args&quot;, &quot;args&quot;: [&quot;--build&quot;], &quot;position&quot;: &quot;end&quot;}]
+re-run: SOLVED (rerun ok)</pre></li><li><div class=s>⚖️ verdict</div><div class=h>✅ SOLVED — proven by re-run</div><pre>by: ai · 19 s</pre></li></ol>
