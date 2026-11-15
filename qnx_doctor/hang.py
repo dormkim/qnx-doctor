@@ -166,4 +166,5 @@ def apply_fix(scen_dir, acts):
 
 def diff(work_a, work_b, name):
     rc, out = _sh(["diff", "-ru", os.path.join(work_a, name), os.path.join(work_b, name)], work_a, base_env(), 30)
-    return out.replace(work_a + "/", "a/").replace(work_b + "/", "b/")[:4000]
+    out = out.replace(work_a + "/", "a/").replace(work_b + "/", "b/")
+    return re.sub(r"^((?:---|\+\+\+) \S+)\t.*$", r"\1", out, flags=re.M)[:4000]  # drop file timestamps
