@@ -1,0 +1,11 @@
+{
+  "_note": "Sealed 2026-11-15 before the hang collector/judge/AI prescriber were written or tuned. Do not edit to match results; a changed set needs a new seal.",
+  "_healthy": "A scenario is fixed only if, after the code fix and a rebuild, the re-run shows no wait cycle / chain in pidin AND the listed loop roles keep printing TICKs.",
+  "D01": {"kind": "deadlock", "members": ["d01a", "d01b"], "states": "both SEND-blocked on each other", "culprit": "D01/pingpong.c QD-CULPRIT", "fix": "do not MsgSend to a peer that sends to you: notify with MsgSendPulse (or receive on a separate thread)", "loop_logs": ["d01a"]},
+  "D02": {"kind": "deadlock", "members": ["d02a", "d02b", "d02c"], "states": "ring of three, all SEND-blocked", "culprit": "D02/stage.c QD-CULPRIT", "fix": "pass work with MsgSendPulse (or receive on a separate thread) so a stage never waits for the next one", "loop_logs": ["d02a"]},
+  "D03": {"kind": "deadlock", "members": ["server", "logger"], "chain": ["client REPLY-blocked on server"], "states": "server SEND-blocked on logger, logger SEND-blocked on server, client hangs behind", "culprit": "D03/svc.c QD-CULPRIT (logger)", "fix": "logger reports status with MsgSendPulse instead of a blocking MsgSend", "loop_logs": ["d03cli"]},
+  "D04": {"kind": "deadlock", "members": ["client", "server"], "states": "client REPLY-blocked on server, server SEND-blocked on client", "culprit": "D04/cb.c QD-CULPRIT", "fix": "reply first, then notify the client with MsgSendPulse (never a synchronous callback to a client waiting for your reply)", "loop_logs": ["d04cli"]},
+  "D05": {"kind": "priority_chain", "members": ["control(prio 30)", "server(prio 5)"], "states": "high-priority control REPLY-blocked on a READY low-priority server while middle-priority hogs run", "culprit": "D05/prio.c QD-CULPRIT (ChannelCreate(_NTO_CHF_FIXED_PRIORITY))", "fix": "create the channel without _NTO_CHF_FIXED_PRIORITY so the server inherits the client's priority", "loop_logs": ["d05ctl"]},
+  "D06": {"kind": "none", "members": [], "states": "client REPLY-blocked on a server that is sleeping on purpose; not a fault", "culprit": null, "fix": null, "loop_logs": ["d06cli"]},
+  "D07": {"kind": "none", "members": [], "states": "idle workers RECEIVE-blocked waiting for pulses; not a fault", "culprit": null, "fix": null, "loop_logs": ["d07w1"]}
+}
