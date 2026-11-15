@@ -20,7 +20,7 @@ import shutil
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMMON = os.path.join(HERE, "..", "sealed_hang", "common")
 SYL = "ka ri mo su te na vo li pe zu ga ho bi ne ru so ta mi ko re".split()
-GEN_VERSION = 1
+GEN_VERSION = 1  # 1 = sealed; later edits are compile fixes only (see git log), the draw sequence is unchanged
 
 
 def word(r, n=2):
@@ -85,8 +85,8 @@ def node_src(p, kind, a):
                 f"  if (!f || fscanf(f, \"%d %d\", &pid, &ch) != 2) exit(1);\n  fclose(f);\n  int {c} = ConnectAttach(0, pid, ch, _NTO_SIDE_CHANNEL, 0);\n" + p.loop(body) + "}\n")
     if kind == "hog":
         return (f"static void *spin_{p.ident('s')}(void *x) {{ time_t e = time(NULL) + (long)x; volatile long k = 0; while (time(NULL) < e) k++; return NULL; }}\n"
-                f"static void FN(const char *me, const char *nx) {{\n  (void)me; (void)nx;\n  setprio(0, {a['mid']});\n  pthread_t t[2];\n"
-                f"  for (int i = 0; i < 2; i++) pthread_create(&t[i], NULL, SPIN, (void *)20L);\n  for (int i = 0; i < 2; i++) pthread_join(t[i], NULL);\n}}\n")
+                f"static void FN(const char *me, const char *nx) {{\n  (void)me; (void)nx;\n  setprio(0, {a['mid']});\n  pthread_t t[2];\n  pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setinheritsched(&at, PTHREAD_INHERIT_SCHED);\n"
+                f"  for (int i = 0; i < 2; i++) pthread_create(&t[i], &at, SPIN, (void *)20L);\n  for (int i = 0; i < 2; i++) pthread_join(t[i], NULL);\n}}\n")
     raise ValueError(kind)
 
 

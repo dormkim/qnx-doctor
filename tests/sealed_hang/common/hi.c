@@ -2,5 +2,6 @@
  * own sleep/snapshot. Harness only — added before the first run of the set; labels unchanged. */
 #include <stdio.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/neutrino.h>
-int main(int argc, char **argv) { if (argc < 2) return 2; setprio(0, 50); execvp(argv[1], argv + 1); perror(argv[1]); return 1; }
+int main(int argc, char **argv) { if (argc < 2) return 2; pthread_setschedprio(pthread_self(), 50); execvp(argv[1], argv + 1); perror(argv[1]); return 1; }

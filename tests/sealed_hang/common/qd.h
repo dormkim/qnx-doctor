@@ -12,6 +12,9 @@
 #include <sys/iomsg.h>
 #include <sys/neutrino.h>
 #include <sys/dispatch.h>
+#include <pthread.h>
+/* QNX 8.0 has no setprio(); set the calling thread's priority (policy kept). Compile fix, 2026-11-15, before any run. */
+#define setprio(pid, prio) pthread_setschedprio(pthread_self(), (prio))
 
 #define QD_MSG 0x7000            /* application message type, outside the _IO_* range */
 typedef union { struct _pulse pulse; uint16_t type; struct { uint16_t type; int32_t v; } app; char raw[64]; } qd_msg_t;
