@@ -8,7 +8,7 @@ import argparse
 import html
 import json
 
-ICON = {"symptom": "❌ symptom", "rule": "📏 rule table", "probe": "🔍 AI looks", "docs": "📚 QNX docs",
+ICON = {"symptom": "❌ symptom", "graph": "🕸 wait graph (code)", "rule": "📏 rule table", "probe": "🔍 AI looks", "docs": "📚 QNX docs",
         "ai_fix": "🛠 fix (data)", "give_up": "🤷 gave up"}
 
 
@@ -24,13 +24,24 @@ def steps(r):
             out.append((ICON["probe"], t.get("cmd") or t.get("argv") or "", (t.get("out") or "")[:400]))
         elif k in ("docs", "search"):
             out.append((ICON["docs"], f"query: {t.get('query')}", "\n".join(t.get("hits", [])[:3]) if isinstance(t.get("hits"), list) else str(t.get("hits"))[:300]))
+        elif k == "graph":
+            out.append((ICON[k], f"verdict = {t.get('verdict')}", f"{t.get('graph')}\n" + "\n".join(t.get("lines") or [])))
+        elif k == "ai_fix" and "diff" in t:
+            c = t.get("culprit") or {}
+            body = f"culprit: {c.get('file')}: {c.get('line')}\nevidence: {t.get('evidence')}\ndocs: {', '.join(t.get('doc_refs') or [])}\n{t.get('diff')}\nre-run: {t.get('result')}"
+            if t.get("rerun_graph"):
+                body += f"\nre-run graph: {t['rerun_graph']} · TICKs: {t.get('rerun_ticks')}"
+            out.append((ICON[k], f"cause = {t.get('cause')}", body))
         elif k == "ai_fix":
             refs = ", ".join(t.get("doc_refs") or [])
             out.append((ICON[k], f"cause = {t.get('cause')}", f"evidence: {t.get('evidence')}\ndocs: {refs}\nactions: {json.dumps(t.get('actions'), ensure_ascii=False)}\nre-run: {t.get('result')}"))
         elif k == "give_up":
             out.append((ICON[k], "", str(t.get("why"))))
     verdict = "✅ SOLVED — proven by re-run" if r.get("solved") else ("— command did not fail" if r.get("solved") is None else "⛔ not solved (nothing claimed)")
-    out.append(("⚖️ verdict", verdict, f"by: {r.get('by')} · {r.get('seconds')} s"))
+    tail = f"by: {r.get('by')}" + (f" · {r['seconds']} s" if r.get("seconds") is not None else "")
+    if r.get("solved") is None and r.get("detected") is not None:
+        verdict = f"— {r.get('note')}"
+    out.append(("⚖️ verdict", verdict, tail))
     return out
 
 

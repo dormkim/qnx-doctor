@@ -30,9 +30,11 @@ def _client():
     return Anthropic()
 
 
-def _probe(argv, cwd, env):
+def _probe(argv, cwd, env, confine=False):
     if not argv or os.path.basename(argv[0]) not in PROBES:
         return f"probe refused: {argv[:1]} is not a read-only command"
+    if confine and any(a.startswith("/") or ".." in a.split("/") for a in argv[1:]):
+        return "probe refused: only paths inside the working directory"  # hang mode: the answer key lives outside
     try:
         p = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, timeout=30)
         return (p.stdout + p.stderr).decode(errors="replace")[-3000:] or "(no output)"
@@ -47,13 +49,13 @@ def _json(text):
     return json.loads(m.group(0))
 
 
-def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8):
+def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8, system: str = SYSTEM, confine: bool = False):
     """Run the look-around loop until the model proposes a diagnosis or gives up.
     Returns ("diagnosis", dict) | ("give_up", str). `log` collects visible steps for the timeline."""
     client = _client()
     messages = [{"role": "user", "content": context}]
     for _ in range(max_turns):
-        resp = client.messages.create(model=MODEL, max_tokens=4000, system=SYSTEM, messages=messages,
+        resp = client.messages.create(model=MODEL, max_tokens=4000, system=system, messages=messages,
                                       thinking={"type": "adaptive"})
         text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         messages.append({"role": "assistant", "content": resp.content})
@@ -64,7 +66,7 @@ def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8):
             continue
         if "probe" in step:
             argv = step["probe"].get("argv", [])
-            out = _probe(argv, cwd, env)
+            out = _probe(argv, cwd, env, confine)
             log.append({"kind": "probe", "argv": argv, "out": out[-400:]})
             messages.append({"role": "user", "content": f"probe output:\n{out}"})
         elif "search_docs" in step:

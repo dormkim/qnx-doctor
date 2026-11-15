@@ -3,6 +3,10 @@
   python3 -m qnx_doctor.cli bench <dir-or-files...> --mode rules|ai --out runs/x.jsonl
   python3 -m qnx_doctor.cli diagnose <scenario.json> [--no-ai]
   python3 -m qnx_doctor.cli index            # build the local QNX docs index once
+  python3 -m qnx_doctor.cli run [--no-ai] -- <cmd...>        # diagnose a failing build/boot command (fixes tried on a copy of .)
+  python3 -m qnx_doctor.cli hang [name|pid] --pidin FILE     # read-only: wait graph of a pidin capture
+  python3 -m qnx_doctor.cli hang [name|pid] --scenario DIR [--no-ai] [--out runs/x.jsonl]
+                                             # build → target → graph → AI fix (edit_file) → rebuild → rerun
 """
 import argparse
 import glob
@@ -25,24 +29,59 @@ def _scenarios(paths):
     return out
 
 
+def _run_scenario(a):
+    argv = a.cmd[1:] if a.cmd and a.cmd[0] == "--" else a.cmd
+    if not argv:
+        sys.exit("usage: qnx-doctor run -- <command...>")
+    return [{"id": "run", "copy_from": os.getcwd(), "spec": {"argv": argv, "cwd": ".", "timeout": 900}}]
+
+
+def _hang(a):
+    from . import waitgraph as wg
+    if a.pidin:
+        j = wg.judge(wg.parse(open(a.pidin).read()), a.target)
+        print(wg.describe(j)); print(json.dumps(j, ensure_ascii=False))
+        return 0 if j["kind"] == "none" else 3
+    if not a.scenario:
+        sys.exit("hang needs --pidin FILE or --scenario DIR")
+    from .hangdoctor import diagnose_hang
+    index = None
+    if not a.no_ai:
+        from .docs import Index
+        index = Index(base_env()["QNX_SDP"])
+    out = open(a.out, "a") if a.out else None
+    for d in a.scenario:
+        r = diagnose_hang(d, use_ai=not a.no_ai, index=index, focus=a.target)
+        r["mode"] = "code" if a.no_ai else "ai"
+        print(json.dumps({k: r.get(k) for k in ("id", "mode", "detected", "solved", "by", "cause")}, ensure_ascii=False), flush=True)
+        if out:
+            out.write(json.dumps(r, ensure_ascii=False) + "\n"); out.flush()
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(prog="qnx-doctor")
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("bench"); b.add_argument("paths", nargs="+"); b.add_argument("--mode", choices=["rules", "ai", "ai-only"], default="ai"); b.add_argument("--out")
     d = sub.add_parser("diagnose"); d.add_argument("scenario"); d.add_argument("--no-ai", action="store_true")
     sub.add_parser("index")
+    r = sub.add_parser("run"); r.add_argument("--no-ai", action="store_true"); r.add_argument("cmd", nargs=argparse.REMAINDER)
+    h = sub.add_parser("hang"); h.add_argument("target", nargs="?"); h.add_argument("--pidin"); h.add_argument("--scenario", nargs="+")
+    h.add_argument("--no-ai", action="store_true"); h.add_argument("--out")
     a = ap.parse_args()
+    if a.cmd == "hang":
+        return _hang(a)
     sdp = base_env()["QNX_SDP"]
     if a.cmd == "index":
         from .docs import build
         print(len(build(sdp)), "docs indexed"); return
     index = None
-    use_ai = (a.cmd == "bench" and a.mode in ("ai", "ai-only")) or (a.cmd == "diagnose" and not a.no_ai)
+    use_ai = (a.cmd == "bench" and a.mode in ("ai", "ai-only")) or (a.cmd in ("diagnose", "run") and not a.no_ai)
     use_rules = not (a.cmd == "bench" and a.mode == "ai-only")
     if use_ai:
         from .docs import Index
         index = Index(sdp)
-    scen = _scenarios(a.paths if a.cmd == "bench" else [a.scenario])
+    scen = _run_scenario(a) if a.cmd == "run" else _scenarios(a.paths if a.cmd == "bench" else [a.scenario])
     out = open(a.out, "a") if getattr(a, "out", None) else None
     solved = 0
     for s in scen:

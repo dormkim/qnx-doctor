@@ -16,6 +16,8 @@ CLEAN_KEYS = ("PATH", "QNX_HOST", "QNX_TARGET", "LD_LIBRARY_PATH", "QEMU_MODULE_
 def setup(scenario):
     work = tempfile.mkdtemp(prefix=f"qd-{scenario['id']}-")
     env = build_env({})
+    if scenario.get("copy_from"):  # `qnx-doctor run`: fixes are tried on a copy, the user's tree is never edited
+        shutil.copytree(scenario["copy_from"], work, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git"))
     if scenario.get("setup"):
         subprocess.run(["bash", "-c", scenario["setup"]], cwd=work, env=env, capture_output=True, timeout=600)
     return work

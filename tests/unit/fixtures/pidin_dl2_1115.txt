@@ -1,0 +1,195 @@
+
+/var/run.sh; echo QDRC=$?
+qb pid 180242 chid 1 -> MsgSend to qa
+qa pid 180241 chid 1 -> MsgSend to qb
+=== pidin (default) ===
+     pid tid name                         prio STATE          Blocked                     
+       1   1 /proc/boot/procnto-smp-instr   0f READY                                      
+       1   2 /proc/boot/procnto-smp-instr   0f READY                                      
+       1   3 /proc/boot/procnto-smp-instr 255i INTR                                       
+       1   4 /proc/boot/procnto-smp-instr 255i INTR                                       
+       1   5 /proc/boot/procnto-smp-instr 254i INTR                                       
+       1   6 /proc/boot/procnto-smp-instr 254i INTR                                       
+       1   7 /proc/boot/procnto-smp-instr   1f NANOSLEEP                                  
+       1   8 /proc/boot/procnto-smp-instr  10r ???                                        
+       1   9 /proc/boot/procnto-smp-instr  10r REPLY          1                           
+       1  10 /proc/boot/procnto-smp-instr  10r RECEIVE        1                           
+       1  11 /proc/boot/procnto-smp-instr  10r RECEIVE        1                           
+       1  12 /proc/boot/procnto-smp-instr  10r RECEIVE        1                           
+       1  13 /proc/boot/procnto-smp-instr  10r RUNNING                                    
+       1  14 /proc/boot/procnto-smp-instr  10r RECEIVE        1                           
+       1  15 /proc/boot/procnto-smp-instr  10r RECEIVE        1                           
+       1  16 /proc/boot/procnto-smp-instr  10r RECEIVE        1                           
+   16386   1 bin/sh                        10r SIGSUSPEND                                 
+   16387   1 proc/boot/slogger2            21r RECEIVE        1                           
+   28676   1 proc/boot/pci-server          10r RECEIVE        1                           
+   28676   2 proc/boot/pci-server          10r RECEIVE        1                           
+   28676   3 proc/boot/pci-server          21r RECEIVE        1                           
+   28676   4 proc/boot/pci-server          10r RECEIVE        1                           
+   49157   1 proc/boot/devc-ser8250        24r RUNNING                                    
+   49157   2 proc/boot/devc-ser8250       254i INTR                                       
+   49157   3 proc/boot/devc-ser8250       254i INTR                                       
+   57351   1 proc/boot/ksh                 10r SIGSUSPEND                                 
+   61446   1 proc/boot/fsevmgr             10r SIGWAITINFO                                
+   61446   2 proc/boot/fsevmgr             10r RECEIVE        1                           
+   61446   3 proc/boot/fsevmgr             10r RECEIVE        2                           
+   61446   4 proc/boot/fsevmgr             10r RECEIVE        1                           
+   65544   1 proc/boot/devb-eide           10r SIGWAITINFO                                
+   65544   2 proc/boot/devb-eide           21r RECEIVE        1                           
+   65544   3 proc/boot/devb-eide          254i INTR                                       
+   65544   4 proc/boot/devb-eide           21r RECEIVE        2                           
+   65544   5 proc/boot/devb-eide          254i INTR                                       
+   65544   6 proc/boot/devb-eide           21r RECEIVE        4                           
+   65544   7 proc/boot/devb-eide           10r RECEIVE        5                           
+   65544   8 proc/boot/devb-eide           10r RECEIVE        6                           
+   65544   9 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  10 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  11 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  12 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  13 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  14 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  15 proc/boot/devb-eide           10r RECEIVE        3                           
+   65544  16 proc/boot/devb-eide           10r RECEIVE        3                           
+  131081   1 system/bin/random             10r SIGWAITINFO                                
+  131081   2 system/bin/random             10r NANOSLEEP                                  
+  131081   3 system/bin/random             21r RECEIVE        1                           
+  131081   4 system/bin/random             10r RECEIVE        2                           
+  143370   1 system/bin/pipe               10r SIGWAITINFO                                
+  143370   2 system/bin/pipe               10r RECEIVE        1                           
+  143370   3 system/bin/pipe               10r RECEIVE        1                           
+  143370   4 system/bin/pipe               10r RECEIVE        1                           
+  155659   1 system/bin/devc-pty           10r RECEIVE        1                           
+  159756   1 system/bin/dumper             10r RECEIVE        1                           
+  159756   2 system/bin/dumper             10r RECEIVE        2                           
+  163853   1 system/bin/io-sock            21r SIGWAITINFO                                
+  163853   2 system/bin/io-sock            21r SIGWAITINFO                                
+  163853   3 system/bin/io-sock            21r SEM            291a6941d8                  
+  163853   4 system/bin/io-sock            21r SEM            291a6940d8                  
+  163853   5 system/bin/io-sock            21r SEM            291a693ed8                  
+  163853   6 system/bin/io-sock            21r SEM            291a693dd8                  
+  163853   7 system/bin/io-sock            21r SEM            291a693cd8                  
+  163853   8 system/bin/io-sock            21r SEM            291a693bd8                  
+  163853   9 system/bin/io-sock            21r SEM            291a693ad8                  
+  163853  10 system/bin/io-sock            21r SEM            291a6939d8                  
+  163853  11 system/bin/io-sock            21r SEM            291a6938d8                  
+  163853  12 system/bin/io-sock            21r RECEIVE        3                           
+  163853  13 system/bin/io-sock            21r RECEIVE        4                           
+  163853  14 system/bin/io-sock            21r RECEIVE        5                           
+  163853  15 system/bin/io-sock            21r RECEIVE        6                           
+  163853  16 system/bin/io-sock            21r RECEIVE        7                           
+  163853  17 system/bin/io-sock            21r SEM            291a6c3ad8                  
+  163853  18 system/bin/io-sock            21r SEM            291a6c2cd8                  
+  163853  19 system/bin/io-sock            21r CONDVAR        (0x291a6f6d4c)              
+  163853  20 system/bin/io-sock            21r CONDVAR        (0x291a6f6dcc)              
+  163853  21 system/bin/io-sock            21r RECEIVE        8                           
+  163853  22 system/bin/io-sock            21r RECEIVE        9                           
+  163853  23 system/bin/io-sock            21r CONDVAR        (0x291a6f674c)              
+  163853  24 system/bin/io-sock            21r RECEIVE        10                          
+  163853  26 system/bin/io-sock            21r RECEIVE        1                           
+  163853  27 system/bin/io-sock            21r RECEIVE        1                           
+  163853  28 system/bin/io-sock            21r RECEIVE        2                           
+  163853  29 system/bin/io-sock            21r RECEIVE        2                           
+  163853  30 system/bin/io-sock            21r RECEIVE        1                           
+  163853  31 system/bin/io-sock            21r SEM            291b3291d8                  
+  163853  32 system/bin/io-sock            21r SEM            291b328ed8                  
+  163853  33 system/bin/io-sock            21r SEM            291b3290d8                  
+  163853  34 system/bin/io-sock            21r SEM            291a6c28d8                  
+  167950   1 bin/sh                        10r SIGSUSPEND                                 
+  172047   1 system/bin/if_up              10r NANOSLEEP                                  
+  176144   1 bin/sh                        10r SIGSUSPEND                                 
+  180241   1 var/dl                        10r SEND           180242                      
+  180242   1 var/dl                        10r SEND           180241                      
+  196627   1 proc/boot/pidin               10r REPLY          1                           
+=== pidin -f aNbBJ (pid name state blocked) ===
+     pid tid name               STATE          Blocked                      
+       1   1 procnto-smp-instr  READY                                       
+       1   2 procnto-smp-instr  READY                                       
+       1   3 procnto-smp-instr  INTR                                        
+       1   4 procnto-smp-instr  INTR                                        
+       1   5 procnto-smp-instr  INTR                                        
+       1   6 procnto-smp-instr  INTR                                        
+       1   7 procnto-smp-instr  NANOSLEEP                                   
+       1   8 procnto-smp-instr  ???                                         
+       1   9 procnto-smp-instr  REPLY          1                            
+       1  10 procnto-smp-instr  RECEIVE        1                            
+       1  11 procnto-smp-instr  RECEIVE        1                            
+       1  12 procnto-smp-instr  RECEIVE        1                            
+       1  13 procnto-smp-instr  RUNNING                                     
+       1  14 procnto-smp-instr  RECEIVE        1                            
+       1  15 procnto-smp-instr  REPLY          65544                        
+       1  16 procnto-smp-instr  RECEIVE        1                            
+   16386   1 sh                 SIGSUSPEND                                  
+   16387   1 slogger2           RECEIVE        1                            
+   28676   1 pci-server         RECEIVE        1                            
+   28676   2 pci-server         RECEIVE        1                            
+   28676   3 pci-server         RECEIVE        1                            
+   28676   4 pci-server         RECEIVE        1                            
+   49157   1 devc-ser8250       RECEIVE        1                            
+   49157   2 devc-ser8250       INTR                                        
+   49157   3 devc-ser8250       INTR                                        
+   57351   1 ksh                SIGSUSPEND                                  
+   61446   1 fsevmgr            SIGWAITINFO                                 
+   61446   2 fsevmgr            RECEIVE        1                            
+   61446   3 fsevmgr            RECEIVE        2                            
+   61446   4 fsevmgr            RECEIVE        1                            
+   65544   1 devb-eide          SIGWAITINFO                                 
+   65544   2 devb-eide          RUNNING                                     
+   65544   3 devb-eide          INTR                                        
+   65544   4 devb-eide          RECEIVE        2                            
+   65544   5 devb-eide          INTR                                        
+   65544   6 devb-eide          RECEIVE        4                            
+   65544   7 devb-eide          RECEIVE        5                            
+   65544   8 devb-eide          RECEIVE        6                            
+   65544   9 devb-eide          RECEIVE        3                            
+   65544  10 devb-eide          RECEIVE        3                            
+   65544  11 devb-eide          RECEIVE        3                            
+   65544  12 devb-eide          RECEIVE        3                            
+   65544  13 devb-eide          RECEIVE        3                            
+   65544  14 devb-eide          RECEIVE        3                            
+   65544  15 devb-eide          RECEIVE        3                            
+   65544  16 devb-eide          SEM            3446b1e414                   
+  131081   1 random             SIGWAITINFO                                 
+  131081   2 random             NANOSLEEP                                   
+  131081   3 random             RECEIVE        1                            
+  131081   4 random             RECEIVE        2                            
+  143370   1 pipe               SIGWAITINFO                                 
+  143370   2 pipe               RECEIVE        1                            
+  143370   3 pipe               RECEIVE        1                            
+  143370   4 pipe               RECEIVE        1                            
+  143370   5 pipe               RECEIVE        1                            
+  155659   1 devc-pty           RECEIVE        1                            
+  159756   1 dumper             RECEIVE        1                            
+  159756   2 dumper             RECEIVE        2                            
+  163853   1 io-sock            SIGWAITINFO                                 
+=== pidin -p dl ===
+     pid tid name                         prio STATE          Blocked                     
+  180241   1 var/dl                        10r SEND           180242                      
+  180242   1 var/dl                        10r SEND           180241                      
+=== tracelogger? ===
+/system/bin/tracelogger
+ls: /usr/bin/tracelogger: No such file or directory
+ls: /proc/boot/tracelogger: No such file or directory
+=== /proc ===
+1
+131081
+143370
+155659
+159756
+163853
+16386
+16387
+167950
+172047
+176144
+180241
+180242
+245779
+245781
+28676
+49157
+57351
+61446
+65544
+QDDONE
+QDRC=0
+# 
