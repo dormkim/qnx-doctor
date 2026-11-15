@@ -9,4 +9,4 @@ Rules
 - The set is run once for the measurement; fixes found while looking at results are measured on a new set.
 - Only states are reported (blocked/running, TICK or not). No latency or timing numbers are published (QNX licence 4.2(i)).
 
-Run on target: `/var/qd/check.sh Dxx` → pidin snapshot (taken at priority 63 by `snap`) + TICK counts per role.
+Run on target: `/var/qd/hi /var/qd/check.sh Dxx` (`hi` = run the observer at priority 50; added before the first run, labels unchanged) → pidin snapshot (taken at priority 63 by `snap`) + TICK counts per role.
