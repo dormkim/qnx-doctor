@@ -1,0 +1,78 @@
+[
+ {
+  "id": "X01",
+  "runnable": true,
+  "fails": true,
+  "kind": "exec_failed"
+ },
+ {
+  "id": "X02",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X03",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X04",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X05",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X06",
+  "runnable": true,
+  "fails": false,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X07",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X08",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X09",
+  "runnable": true,
+  "fails": false,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X10",
+  "runnable": true,
+  "fails": false,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X11",
+  "runnable": true,
+  "fails": true,
+  "kind": "nonzero_or_verify"
+ },
+ {
+  "id": "X12",
+  "runnable": false,
+  "status": "재현 못 함: 서버 SDP가 8.0.0 기준(패치셋 미설치)"
+ },
+ {
+  "id": "X13",
+  "runnable": false,
+  "status": "재현 보류: 틀린 myQNX 자격 증명을 넣어야 함(계정 잠금 위험)"
+ }
+]
