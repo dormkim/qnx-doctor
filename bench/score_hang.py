@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-KINDS = ("deadlock", "priority_chain", "none")
+KINDS = ("deadlock", "priority_chain", "missing_reply", "none")
 
 
 # Expected closed cause label (qnx_doctor.hang.CAUSE_LABELS) from the answer key. Hand-written set by id; D03 is

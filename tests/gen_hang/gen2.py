@@ -314,6 +314,9 @@ def main():
     for seed in POOLS[a.pool]:
         sid, lab = render(seed, a.out)
         labels[sid] = lab
+    if a.pool == "dev":  # QNX trap scenarios (traps.py, 2026-11-17): dev only, the sealed held-out hashes do not move
+        import traps
+        labels.update(traps.render_all(a.out))
     json.dump(labels, open(os.path.join(a.out, "labels.json"), "w"), indent=1)
     if a.hash_only:
         print(a.out, len(labels), "scenarios, labels sha256", labels_hash(labels))

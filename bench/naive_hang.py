@@ -18,15 +18,16 @@ from qnx_doctor import hang  # noqa: E402
 from qnx_doctor import structure as st  # noqa: E402
 from qnx_doctor.hangdoctor import verdict  # noqa: E402
 
-KINDS = ("deadlock", "priority_chain", "none")
+KINDS = ("deadlock", "priority_chain", "missing_reply", "none")
 NAIVE_SYSTEM = """You are an experienced QNX 8.0 developer. A message-passing program was started on the target with
 run.sh. You have its source files and its logs: for each role log, how many TICK lines it printed in the observation
 window (a working loop prints TICK lines; 0 = that loop printed nothing). You have no other tools or observations.
 Decide what is wrong. Reply with exactly ONE JSON object, nothing else:
-  {"kind": "deadlock" | "priority_chain" | "none", "roles": ["role names involved"], "cause": "short cause",
+  {"kind": "deadlock" | "priority_chain" | "missing_reply" | "none", "roles": ["role names involved"], "cause": "short cause",
    "actions": [{"type": "edit_file", "path": "relative path", "find": "exact text", "replace": "new text"}]}
 kind: deadlock = processes wait on each other in a cycle of synchronous messages; priority_chain = a high-priority
-client waits on a low-priority server that cannot get the CPU (priority inversion); none = nothing is hung (long
+client waits on a low-priority server that cannot get the CPU (priority inversion); missing_reply = a server received
+a message on a code path that never replies, so its client waits forever; none = nothing is hung (long
 waits can be normal). For none give no actions. Only edit_file actions, paths relative to the working directory,
 `find` copied exactly from the file. Keep the program's intent; a timeout or sleep that only hides the wait is not a fix.
 """ + st.RULES
@@ -59,7 +60,7 @@ def one(pool: str, sid: str, ticks: dict, alive, structure=None) -> dict:
         shutil.rmtree(work, ignore_errors=True)
     row = {"id": sid, "mode": "naive", "detected": g.get("kind"), "roles": g.get("roles"), "cause": g.get("cause"),
            "actions": g.get("actions") or [], "error": g.get("error"), "solved": None}
-    if g.get("kind") in ("deadlock", "priority_chain") and row["actions"]:
+    if g.get("kind") in ("deadlock", "priority_chain", "missing_reply") and row["actions"]:
         fixed, err = hang.apply_fix(scen, row["actions"])
         if err:
             row.update(solved=False, result=err, static_reject=err.startswith(st.STATIC))
@@ -71,7 +72,7 @@ def one(pool: str, sid: str, ticks: dict, alive, structure=None) -> dict:
                        "rejected: alive again but the message structure changed" if v["live"] else
                        f"still hung: {res.get('graph') or res.get('stage') + ' failed'}")
         shutil.rmtree(fixed, ignore_errors=True)
-    elif g.get("kind") in ("deadlock", "priority_chain"):
+    elif g.get("kind") in ("deadlock", "priority_chain", "missing_reply"):
         row.update(solved=False, result="no fix proposed")
     return row
 

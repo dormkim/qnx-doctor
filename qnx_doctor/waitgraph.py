@@ -11,6 +11,10 @@ Findings:
                   inversion). READY counts: a runnable middle thread always goes before the server; at the
                   snapshot instant it may be off the CPU only because the observer itself (pidin, procnto at 63,
                   the serial driver printing) holds it (dev seed 1014, 2026-11-16).
+  missing_reply   a thread is REPLY-blocked on an application process whose threads are ALL RECEIVE-blocked: the
+                  server took the message and went back to its channel without replying (a code path that forgets
+                  MsgReply). Added 2026-11-17 for the QNX trap scenarios (dev pool). System processes (proc/boot/,
+                  system/) are left out: a resource manager holding a blocked read is normal.
   none            neither; long waits on a sleeping server or idle RECEIVE are normal
 """
 import re
@@ -101,6 +105,24 @@ def inversions(threads) -> list[dict]:
     return out
 
 
+SYSTEM = ("proc/boot/", "/proc/boot/", "system/", "/system/")
+
+
+def missing_replies(threads) -> list[dict]:
+    """REPLY-blocked waiter on an application process that is idle on its channel(s): nobody will ever reply."""
+    by_pid: dict[int, list[Thread]] = {}
+    for t in threads:
+        by_pid.setdefault(t.pid, []).append(t)
+    out = []
+    for w, peer in edges(threads):
+        srv = by_pid.get(peer, [])
+        if w.state != "REPLY" or not srv or w.name.startswith(SYSTEM) or srv[0].name.startswith(SYSTEM):
+            continue
+        if all(t.state == "RECEIVE" for t in srv):
+            out.append({"waiter": w, "server": srv[0]})
+    return out
+
+
 def _focus(threads, focus):
     """Keep findings that involve `focus` (pid or name substring); None keeps all."""
     if focus is None:
@@ -111,7 +133,25 @@ def _focus(threads, focus):
     return lambda pids: bool(hit & set(pids))
 
 
-def judge(threads, focus=None) -> dict:
+def _pair(i) -> tuple[int, int]:
+    return i["waiter"].pid, i["server"].pid
+
+
+def _persists(found, later, finder):
+    """Keep only findings whose (waiter, server) pair is found again in every later snapshot."""
+    for th in later:
+        again = {_pair(i) for i in finder(th)}
+        found = [i for i in found if _pair(i) in again]
+    return found
+
+
+def judge(threads, focus=None, later=()) -> dict:
+    """`later`: further pidin snapshots of the same boot, taken a moment after the first (snap.c, 2026-11-17). A
+    priority chain or a missing reply counts only if the same waiter → server pair is there in every snapshot.
+    Why: one snapshot catches passing states. After a ring was fixed (v2 held-out, naive arm, 2 cases) a ring member
+    or the serial driver was runnable for an instant while the fixed-priority server was busy with a request, and the
+    rerun was judged «chain». A real chain (a CPU load holding the server down) is still there a moment later; a
+    passing one is not. A cycle cannot clear by itself, so deadlocks are judged on the first snapshot."""
     keep = _focus(threads, focus)
     names = {t.pid: t.name for t in threads}
     state = {}
@@ -123,12 +163,17 @@ def judge(threads, focus=None) -> dict:
                 "cycles": [[{"pid": p, "name": names.get(p, "?"), "state": state.get(p)} for p in c] for c in cyc],
                 "behind": [{"pid": t.pid, "name": t.name, "state": f"{t.state}-blocked on {t.blocked}"}
                            for t in behind(threads, {p for c in cyc for p in c})]}
-    inv = [i for i in inversions(threads) if keep([i["waiter"].pid, i["server"].pid])]
+    inv = _persists([i for i in inversions(threads) if keep([i["waiter"].pid, i["server"].pid])], later, inversions)
     if inv:
         return {"kind": "priority_chain", "chains": [
             {"waiter": {"pid": i["waiter"].pid, "name": i["waiter"].name, "prio": i["waiter"].prio, "state": i["waiter"].state},
              "server": {"pid": i["server"].pid, "name": i["server"].name, "prio": i["server"].prio, "state": "READY"},
              "running": sorted({(r.pid, r.name, r.prio) for r in i["running"]})} for i in inv]}
+    lost = _persists([i for i in missing_replies(threads) if keep([i["waiter"].pid, i["server"].pid])], later, missing_replies)
+    if lost:
+        return {"kind": "missing_reply", "waits": [
+            {"waiter": {"pid": i["waiter"].pid, "name": i["waiter"].name}, "server": {"pid": i["server"].pid, "name": i["server"].name}}
+            for i in lost]}
     return {"kind": "none"}
 
 
@@ -149,6 +194,10 @@ def describe(j: dict) -> str:
             parts.append(f"{w['pid']}({w['name']}) prio {w['prio']} {w['state']}-blocked on {s['pid']}({s['name']}) "
                          f"which is READY at prio {s['prio']} while {run} is runnable (RUNNING/READY)")
         return "PRIORITY CHAIN: " + "; ".join(parts)
+    if j["kind"] == "missing_reply":
+        return "MISSING REPLY: " + "; ".join(
+            f"{w['waiter']['pid']}({w['waiter']['name']}) REPLY-blocked on {w['server']['pid']}({w['server']['name']}), "
+            f"whose threads are all RECEIVE-blocked (it took the message and never replied)" for w in j["waits"])
     return "no wait cycle and no priority chain"
 
 

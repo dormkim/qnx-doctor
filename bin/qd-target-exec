@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """qd-target-exec <imgdir> <path-on-target>: boot the image in QEMU, log in, run the path, print output, exit with its status."""
-import os, re, select, subprocess, sys, time
+import fcntl, os, re, select, subprocess, sys, time
 img, path = sys.argv[1], sys.argv[2]
+# One QEMU guest at a time on this host (2026-11-17): with 3 guests at once a scenario's CPU load starved the
+# priority server's start-up, its client gave up and no chain formed (dev t7e9e6a, sealed D05). Arms that run in
+# parallel (AI and naive) now queue here; the lock is released when this process exits.
+lock = open(os.environ.get("QD_QEMU_LOCK", "/tmp/qd-qemu.lock"), "w")
+fcntl.flock(lock, fcntl.LOCK_EX)
 root = os.environ["QD_QEMU_ROOT"]
 env = dict(os.environ, QEMU_MODULE_DIR=f"{root}/usr/lib/x86_64-linux-gnu/qemu", LD_LIBRARY_PATH=f"{root}/usr/lib/x86_64-linux-gnu")
 args = [f"{root}/usr/bin/qemu-system-x86_64", "-L", f"{root}/usr/share/qemu", "-m", "1G", "-smp", "2", "-cpu", "max", "-nographic",

@@ -66,7 +66,7 @@ def main():
                 if r is None:
                     continue
                 row = {"id": sid, "arm": arm, "detected": r["detected"], "as_run_fixed": r["as_run"], "n_actions": len(r["actions"])}
-                if r["actions"] and first.get("ok") and r["detected"] in ("deadlock", "priority_chain"):
+                if r["actions"] and first.get("ok") and r["detected"] in ("deadlock", "priority_chain", "missing_reply"):
                     row.update(judge(scen, sid, first, r["actions"]))
                 rows.append(row)
             for row in rows:

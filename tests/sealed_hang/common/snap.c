@@ -10,8 +10,17 @@
  *
  * After the TICK counts it prints `pidin arg` (pid -> command line, so a process can be matched across two boots by
  * what was started, not by its pid) and the message records of qd_trace.c (/dev/shmem/qdm.<pid>). Added
- * 2026-11-16 for the «same message structure» check; the pidin snapshot itself is unchanged. */
+ * 2026-11-16 for the «same message structure» check; the pidin snapshot itself is unchanged.
+ *
+ * Nothing is printed until both pidin runs are done (harness fix 2026-11-17, found on dev v2 t54e3fe): pidin writes
+ * into RAM files (/dev/shmem) and snap prints them afterwards. Before, the "=== PIDIN ===" line went to the serial
+ * console just before pidin looked, which woke the serial driver (devc-ser8250, priority 25). In a scenario with a
+ * fixed-priority server at 3-8 and its client at 25-40, that made the observer's own printing the «middle» thread of a
+ * priority chain, while the server was busy on a request. Two v2 held-out reruns were judged «chain» that way.
+ * The same day: two more pidin snapshots follow a moment later (PIDIN2, PIDIN3); waitgraph.judge counts a chain or a
+ * missing reply only if it is in all three. The first snapshot and the TICK counts are taken as before. */
 #include <dirent.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -27,6 +36,25 @@ static int ticks(const char *path) {
   while (fgets(line, sizeof line, f)) n += strstr(line, "TICK") != NULL;
   fclose(f);
   return n;
+}
+
+static void pidin_to(const char *arg, const char *path) {   /* pidin [arg] > path, without touching the console */
+  pid_t p = fork();
+  if (p == 0) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); close(fd); }
+    execl("/proc/boot/pidin", "pidin", arg, (char *)NULL); execlp("pidin", "pidin", arg, (char *)NULL); _exit(127);
+  }
+  if (p > 0) waitpid(p, NULL, 0);
+}
+
+static void cat(const char *path) {
+  FILE *f = fopen(path, "r");
+  char buf[4096];
+  size_t n;
+  while (f && (n = fread(buf, 1, sizeof buf, f)) > 0) fwrite(buf, 1, n, stdout);
+  if (f) fclose(f);
+  fflush(stdout);
 }
 
 int main(void) {
@@ -47,15 +75,15 @@ int main(void) {
     n += snprintf(out + n, sizeof out - n, "%s %d\n", path, ticks(path));
   }
   if (d) closedir(d);
-  puts("=== PIDIN ==="); fflush(stdout);
-  pid_t p = fork();
-  if (p == 0) { execl("/proc/boot/pidin", "pidin", (char *)NULL); execlp("pidin", "pidin", (char *)NULL); _exit(127); }
-  if (p > 0) waitpid(p, NULL, 0);
+  pidin_to(NULL, "/dev/shmem/qd.pidin");
+  pidin_to("arg", "/dev/shmem/qd.args");
+  usleep(300000); pidin_to(NULL, "/dev/shmem/qd.pidin2");   /* two more looks a moment later: a chain must persist */
+  usleep(300000); pidin_to(NULL, "/dev/shmem/qd.pidin3");
+  puts("=== PIDIN ==="); cat("/dev/shmem/qd.pidin");
   printf("=== TICKS ===\n%s", out);
-  puts("=== ARGS ==="); fflush(stdout);
-  p = fork();
-  if (p == 0) { execl("/proc/boot/pidin", "pidin", "arg", (char *)NULL); execlp("pidin", "pidin", "arg", (char *)NULL); _exit(127); }
-  if (p > 0) waitpid(p, NULL, 0);
+  puts("=== ARGS ==="); cat("/dev/shmem/qd.args");
+  puts("=== PIDIN2 ==="); cat("/dev/shmem/qd.pidin2");
+  puts("=== PIDIN3 ==="); cat("/dev/shmem/qd.pidin3");
   puts("=== MSGS ===");
   d = opendir("/dev/shmem");
   while (d && (e = readdir(d))) {

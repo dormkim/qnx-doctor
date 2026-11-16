@@ -15,7 +15,7 @@ States only, no timing (QNX licence 4.2(i)).
 import json
 import sys
 
-KINDS = ("deadlock", "priority_chain", "none")
+KINDS = ("deadlock", "priority_chain", "missing_reply", "none")
 
 
 def _shortcut(e):
@@ -27,7 +27,7 @@ def fresh_rows(arm, path):
     for line in open(path):
         r = json.loads(line)
         if arm == "naive":
-            att = [r] if r.get("actions") and r.get("detected") in ("deadlock", "priority_chain") else []
+            att = [r] if r.get("actions") and r.get("detected") in ("deadlock", "priority_chain", "missing_reply") else []
         else:
             att = [t for t in r.get("timeline", []) if t.get("kind") == "ai_fix"]
         out[r["id"]] = {"detected": r.get("detected"), "fixed": r.get("solved") is True,

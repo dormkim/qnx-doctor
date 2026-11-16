@@ -35,7 +35,7 @@ the TICK counts of each role (a working loop prints TICK lines), and the program
 Work step by step. Reply with exactly ONE JSON object per turn, nothing else:
   {"probe": {"argv": ["grep", "-n", "MsgSend", "D01/pingpong.c"]}}   read-only look (allowed: ls find cat head tail grep)
   {"search_docs": "words"}   searches the QNX 8.0 documentation (message passing, MsgSendPulse, priority inheritance, ...)
-  {"diagnosis": {"cause_label": "one of: send_cycle | send_on_reply_path | fixed_priority_channel | other",
+  {"diagnosis": {"cause_label": "one of: send_cycle | send_on_reply_path | fixed_priority_channel | missing_reply | other",
                  "cause": "short cause", "culprit": {"file": "path", "line": "the exact source line that made the cycle or chain"},
                  "pids": [pids from the graph of the processes in the cycle or chain],
                  "evidence": "graph edge or doc text that proves it", "doc_refs": ["doc path"],
@@ -44,7 +44,8 @@ Work step by step. Reply with exactly ONE JSON object per turn, nothing else:
 cause_label: send_cycle = every member sends synchronously to the next before serving its own channel;
 send_on_reply_path = a process that owes a reply sends synchronously to a process that waits (directly or through
 others) for that reply (callback, relay closing the cycle); fixed_priority_channel = the server's channel does not
-pass on the client's priority; other = none of these.
+pass on the client's priority; missing_reply = the server received the message but a code path never calls MsgReply
+(or MsgError) for it; other = none of these.
 Rules: only edit_file actions, paths relative to the working directory, `find` must be copied exactly from the file.
 Keep the program's intent: the same roles still talk to each other and the loop keeps running.
 Use the QNX idiom for the problem (for example a non-blocking pulse instead of a synchronous send back, reply before
@@ -85,6 +86,8 @@ def build(work: str, name: str, env: dict):
             jobs.append((os.path.join(out, f), os.path.join(work, "common", f + ".c"), []))
     trace = os.path.join(work, "common", "qd_trace.c")
     extra = [trace] + WRAP if os.path.exists(trace) else []
+    start = os.path.join(work, "common", "qd_start.c")  # programs start at priority 10, not check.sh's 50 (2026-11-17)
+    extra += [start] if os.path.exists(start) else []
     for c in sorted(os.listdir(os.path.join(work, name))):
         if c.endswith(".c"):
             jobs.append((os.path.join(out, name, c[:-2]), os.path.join(work, name, c), extra))
@@ -114,7 +117,7 @@ def image(work: str, env: dict):
 
 
 def target(vm: str, name: str, env: dict):
-    rc, out = _sh(["qd-target-exec", vm, f"/var/qd/hi /var/qd/check.sh {name}"], vm, env, timeout=600)
+    rc, out = _sh(["qd-target-exec", vm, f"/var/qd/hi /var/qd/check.sh {name}"], vm, env, timeout=1200)  # includes waiting for the one-QEMU lock
     return "QDDONE" in out, out
 
 
@@ -133,7 +136,8 @@ def observe(work: str, name: str, focus=None) -> dict:
         return {"stage": "target", "ok": False, "log": tail(out, 20)}
     pidin, ticks = wg.split_check(out)
     threads = wg.parse(pidin)
-    j = wg.judge(threads, focus)
+    later = [wg.parse(_section(out, k)) for k in ("PIDIN2", "PIDIN3") if f"=== {k} ===" in out]  # snap.c 2026-11-17
+    j = wg.judge(threads, focus, later)
     involved = _involved(j)
     lines = [l for l in pidin.splitlines() if any(l.strip().startswith(f"{p} ") for p in involved)]
     alive = len({t.pid for t in threads if f"var/qd/{name}/" in t.name})  # program processes still there
@@ -141,7 +145,9 @@ def observe(work: str, name: str, focus=None) -> dict:
     if "=== MSGS ===" in out:  # harness with qd_trace (2026-11-16); older recordings have none
         args = st.parse_args(_section(out, "ARGS"), name)
         structure = st.build(args, st.parse_msgs(_section(out, "MSGS")), threads)
-    return {"stage": "target", "ok": True, "judge": j, "graph": wg.describe(j), "ticks": ticks, "alive": alive,
+    # Runnable threads at the snapshot (not the idle thread): shows what held the CPUs when a chain is judged (2026-11-17).
+    runnable = sorted({(t.name.split("/")[-1], t.prio, t.state) for t in threads if t.state in wg.RUNNABLE and t.prio})
+    return {"stage": "target", "ok": True, "judge": j, "graph": wg.describe(j), "ticks": ticks, "alive": alive, "runnable": runnable,
             "healthy": j["kind"] == "none" and sum(ticks.values()) > 0, "pidin_lines": lines, "structure": structure}
 
 
@@ -154,6 +160,8 @@ def _involved(j):
         return {m["pid"] for c in j["cycles"] for m in c} | {b["pid"] for b in j["behind"]}
     if j["kind"] == "priority_chain":
         return {x for c in j["chains"] for x in (c["waiter"]["pid"], c["server"]["pid"], *[r[0] for r in c["running"]])}
+    if j["kind"] == "missing_reply":
+        return {x for w in j["waits"] for x in (w["waiter"]["pid"], w["server"]["pid"])}
     return set()
 
 
@@ -178,7 +186,7 @@ def context(work, name, obs, tried):
     return "\n\n".join(lines)
 
 
-CAUSE_LABELS = ("send_cycle", "send_on_reply_path", "fixed_priority_channel", "other")
+CAUSE_LABELS = ("send_cycle", "send_on_reply_path", "fixed_priority_channel", "missing_reply", "other")
 
 
 def checked_claims(work, payload):

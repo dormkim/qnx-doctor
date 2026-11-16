@@ -95,3 +95,44 @@ class Check(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MissingReply(unittest.TestCase):
+    """2026-11-17: REPLY-blocked on an application process whose threads all wait in RECEIVE = a forgotten MsgReply."""
+
+    def test_idle_server_holding_a_reply(self):
+        j = wg.judge(wg.parse(table((20, 1, "var/qd/t/cl", "10r", "REPLY", 21), (21, 1, "var/qd/t/srv", "10r", "RECEIVE", 1))))
+        self.assertEqual(j["kind"], "missing_reply")
+        self.assertIn("MISSING REPLY: 20(var/qd/t/cl) REPLY-blocked on 21(var/qd/t/srv)", wg.describe(j))
+
+    def test_server_still_working_is_not_missing(self):
+        th = table((20, 1, "var/qd/t/cl", "10r", "REPLY", 21), (21, 1, "var/qd/t/srv", "10r", "RECEIVE", 1),
+                   (21, 2, "var/qd/t/srv", "10r", "CONDVAR", ""))
+        self.assertEqual(wg.judge(wg.parse(th))["kind"], "none")
+
+    def test_send_blocked_is_not_missing(self):
+        th = table((20, 1, "var/qd/t/cl", "10r", "SEND", 21), (21, 1, "var/qd/t/srv", "10r", "RECEIVE", 1))
+        self.assertEqual(wg.judge(wg.parse(th))["kind"], "none")
+
+    def test_resource_manager_holding_a_read_is_normal(self):
+        th = table((20, 1, "var/qd/t/cl", "10r", "REPLY", 30), (30, 1, "proc/boot/devc-ser8250", "24r", "RECEIVE", 1))
+        self.assertEqual(wg.judge(wg.parse(th))["kind"], "none")
+
+
+class Persistence(unittest.TestCase):
+    """2026-11-17: a chain seen in one snapshot only (a passing state) is not a chain."""
+    CHAIN = ((40, 1, "var/qd/t/cli", "30r", "REPLY", 41), (41, 1, "var/qd/t/srv", "5r", "READY", ""),
+             (42, 1, "var/qd/t/mem", "10r", "READY", ""))
+    LATER = ((40, 1, "var/qd/t/cli", "30r", "REPLY", 41), (41, 1, "var/qd/t/srv", "5r", "RUNNING", ""),
+             (42, 1, "var/qd/t/mem", "10r", "RECEIVE", 1))
+
+    def test_single_snapshot_still_judged(self):
+        self.assertEqual(wg.judge(wg.parse(table(*self.CHAIN)))["kind"], "priority_chain")
+
+    def test_passing_chain_dropped(self):
+        j = wg.judge(wg.parse(table(*self.CHAIN)), later=[wg.parse(table(*self.CHAIN)), wg.parse(table(*self.LATER))])
+        self.assertEqual(j["kind"], "none")
+
+    def test_persistent_chain_kept(self):
+        j = wg.judge(wg.parse(table(*self.CHAIN)), later=[wg.parse(table(*self.CHAIN))] * 2)
+        self.assertEqual(j["kind"], "priority_chain")
