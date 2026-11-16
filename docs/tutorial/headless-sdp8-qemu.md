@@ -26,7 +26,7 @@ cd sc_stage && bash start.sh -y -d -t ~/qnx        # -y accept EULA, -d don't au
 
 Use `~/qnx/qnxsoftwarecenter/qnxsoftwarecenter_clt`. Pass your myQNX user/password on each call (read the password with `read -s`, don't put it in shell history).
 
-| Step | Command | Trap we hit | Fix |
+| Step | Command | If you skip or change this step | Do this |
 |---|---|---|---|
 | a | `-syncLicenseKeys` | — | pulls your deployed license |
 | b | `-activateLicenseKey <KEY>` | install later fails with «License key is not activated» | activate explicitly; `-listLicenseKeys` shows the key |
@@ -69,4 +69,4 @@ Boot (serial console on stdio) and run `/var/hello` at the `#` prompt. `pidin` s
 `qnx-doctor` re-runs a failing command, reads the local QNX docs index, proposes a fix as data, applies it and **re-runs to prove it**. It only reports «solved» when the re-run passes. Repo: (link at submission).
 
 ---
-*Not included on purpose: any QNX performance or timing numbers (QNX Development License 4.2(i)).*
+*Not included on purpose: any QNX performance or timing numbers (QNX Development License 4.6(i)).*

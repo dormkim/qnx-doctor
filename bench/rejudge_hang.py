@@ -5,7 +5,7 @@ arm's recorded fix to a fresh copy, rerun, and judge with hangdoctor.verdict (al
   AI arm     the fix that was accepted as run (the solved attempt); unsolved rows have nothing to re-judge
   naive arm  its single fix, whatever the as-run result was
 Rows: {id, arm, fixed, live, structure_why, static_reject, detected}. Plus one «code» row per scenario (the kind
-the code names on this boot). States only (QNX licence 4.2(i)).
+the code names on this boot). States only (QNX licence 4.6(i)).
 
   python3 bench/rejudge_hang.py --pool DIR --ai runs/x_ai.jsonl --naive runs/x_naive.jsonl --out runs/x_rejudge.jsonl
 """

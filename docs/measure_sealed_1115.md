@@ -10,8 +10,8 @@ Set: `tests/sealed/` (13 cases from public QNX docs/release notes/forums, sealed
 | AI only (no rules) | 4 (X01, X02, X04, X08) | 0 |
 | Rules + AI | 4 (rules X01·X04, AI X02·X08) | 0 |
 
-**The 4 unsolved cases are not fixable by design** (truth labels: unsupported ARMv7 target, SA_RESTART unsupported in 8.0, unsupported mkqnximage arch/platform combo, aarch64 binary on x86_64 target). In all 4 the AI **gave up with an explanation** instead of claiming a fix; reading its text against the truth label, each explanation names the actual cause (human judgement, 4/4 — the scorer's exact-label column cannot score free text). No fix was claimed for any of them.
+**The 4 unsolved cases are not fixable by design** (truth labels: unsupported ARMv7 target, a signal flag that the case's public source lists as unavailable, unsupported mkqnximage arch/platform combo, aarch64 binary on x86_64 target). In all 4 the AI **gave up with an explanation** instead of claiming a fix; reading its text against the truth label, each explanation names the actual cause (human judgement, 4/4 — the scorer's exact-label column cannot score free text). No fix was claimed for any of them.
 
 What this means for the video: «AI off 2/8 → AI on 4/8 solved, 0 false "solved", and the other 4 correctly explained as unfixable».
 Caveats: 8 cases, one run. The rule table was written before seeing these cases; the AI prompt too. **Any change made after reading these results needs a new sealed set** to be measured fairly.
-No QNX performance numbers (QDL 4.2(i)).
+No QNX performance numbers (QDL 4.6(i)).

@@ -3,7 +3,7 @@
 For each named (scenario, fix) pair: boot the original once, then apply the same hand-written fix to a fresh copy
 and rerun it N times, one QEMU guest at a time. Each rerun is judged with hangdoctor.verdict. A row per rerun keeps
 the code's kind, the chain's runnable middle threads (name + priority), and the verdict. States only — no time or
-performance numbers (QNX licence 4.2(i)).
+performance numbers (QNX licence 4.6(i)).
 
 Why (2026-11-17): on the v2 held-out run two naive fixes broke the ring but the rerun showed a priority chain, and
 one earlier rerun came back with damaged output. A verifier whose verdict changes between reruns of the same fix

@@ -1,13 +1,14 @@
 # Hang harness: steady verdicts and QNX trap scenarios (2026-11-17, dev pool only)
 
 States only: hung or running, TICK or none, which threads were runnable at the snapshot. No QNX timing or
-performance numbers (QNX licence 4.2(i)). Raw rows: server `runs/stab_1117/*.jsonl`. Tool: `bench/stability_check.py`
+performance numbers (QNX licence 4.6(i)). Raw rows: server `runs/stab_1117/*.jsonl`. Tool: `bench/stability_check.py`
 (same hand-written fix, N reruns, one QEMU guest at a time). Held-out and sealed sets were not opened or changed;
 the v2 held-out hashes were regenerated and still match `sealed2.json`.
 
 ## What changed in the harness (cc04b2b, 2de0f3c)
 1. **Programs at priority 10.** `common/qd_start.c` (linked like `qd_trace.c`) sets each scenario program to the normal
-   QNX priority at start. Before, they inherited 50 from `hi`, above the serial driver (25) and the disk driver (21).
+   QNX priority at start. Before, they inherited 50 from our `hi` launcher, above the priorities the image's serial
+   and disk drivers run at, so a busy scenario program could hold up our own observer's console output and file reads.
    Roles that set a priority themselves (server, client, CPU load) still do.
 2. **Quiet snapshot.** `snap` prints nothing until both `pidin` runs are done. `pidin` writes to `/dev/shmem`.
 3. **Chains must persist.** Two more `pidin` snapshots follow a moment later. A priority chain or a missing reply
@@ -15,8 +16,8 @@ the v2 held-out hashes were regenerated and still match `sealed2.json`.
 4. **One QEMU at a time.** `bin/qd-target-exec` takes a host-wide lock, so parallel arms queue.
 
 ## Why the two held-out reruns showed a chain (cause)
-In both naive-arm cases (t285e4e, t209465, v2 held-out, recorded result only), the rerun's chain named
-`devc-ser8250` at priority 25 as the middle thread, between the fixed-priority server (4) and its client (26, 32).
+In both naive-arm cases (t285e4e, t209465, v2 held-out, recorded result only), our judge's chain named
+the serial driver process (`devc-ser8250`, listed at priority 25) as the middle thread, between the fixed-priority server (4) and its client (26, 32).
 Both scenarios carry the confounder: a fixed-priority server whose CPU load sits below it. While the ring was hung,
 the judge reported the cycle first; once the ring ran, the chain check was reached.
 
@@ -28,12 +29,13 @@ On dev, the old harness was compared with the new one on two confounder rings (t
 | old (`snap` prints a header, then runs `pidin`; programs at 50; one snapshot) | 18 of 18 | 3 of 16 |
 | new | 0 of 18 | 0 of 16 |
 
-- The serial driver was runnable in every old snapshot: `snap` printed "=== PIDIN ===" to the console right before
-  `pidin` looked, which woke the driver. It sits inside the band between the server and the client of every v2 chain
-  (3–8 and 25–40). Whenever the server is busy with a request at that instant, the snapshot shows an inversion.
-- The 3 wrong verdicts on the old harness were `missing_reply` (judged with today's judge on one snapshot): `pidin`
-  does not read all processes at the same instant, so a client could be seen REPLY-blocked after its server had
-  already replied and gone back to RECEIVE. The three-snapshot rule removes that too.
+- In every old snapshot our harness itself had just written "=== PIDIN ===" to the console, and the serial driver
+  process was listed as runnable. Its priority falls inside the band between the server and the client of every v2
+  chain (3–8 and 25–40), so our judge read an inversion whenever the server was busy with a request at that
+  instant. This is a fault of our observer (it printed while looking), fixed by printing nothing until it is done.
+- The 3 wrong verdicts on the old harness were `missing_reply` (judged with today's judge on one snapshot). Our judge
+  had treated one snapshot as one instant; a client listed REPLY-blocked next to a server already back in RECEIVE is a
+  passing state from our tool's point of view, not a stuck one. The three-snapshot rule removes that too.
 - The exact chain verdict did not come back in 16 dev reruns on the old harness. So the cause is shown by its
   mechanism (the middle thread named in held-out is runnable in every old snapshot and in none of the new ones), not
   by a reproduced chain.
@@ -92,11 +94,10 @@ Raw rows: server `runs/ev_1116/` (`stab_event.jsonl`, `fake.jsonl`). Dev pools o
 traps, `/tmp/qd_dev_ev1` = the v1 dev pool of `fake_fix_check.py`, both with the new `common/`). Held-out and sealed
 sets were not opened or run.
 
-**Cause** (probe on dev t363df3, one boot): `rcvid_t` is 64 bits on QNX 8. The server received
-`0x4000000100000001`, `0x4001000100000001`, ... (the high half changes with every message, the low half stays per
-client). `qd_receive()` in `common/qd.h` returns `int`, so the program kept `0x1` and passed it to MsgDeliverEvent.
-The kernel delivered the event (the client counted every pulse), but `MsgInfo(0x1)` failed with ESRCH and the
-recorder's cache was keyed by the full 64-bit value, so no `S E` line was ever written.
+**Cause** (a bug in our code, probe on dev t363df3, one boot): `rcvid_t` is a 64-bit type in the QNX 8 headers, and
+`qd_receive()` in our `common/qd.h` returns `int`, so our program kept only the low half and passed that to
+MsgDeliverEvent. The client counted every pulse, so the event arrived; but our recorder looked the client up by the
+full 64-bit value, found no entry for the value the program used, and never wrote an `S E` line.
 
 **What changed** (`common/qd_trace.c`, `qnx_doctor/structure.py`, `qnx_doctor/hang.py`):
 1. Server end: the rcvid → client pid cache is keyed by the low 32 bits (what a program that stores the rcvid in an

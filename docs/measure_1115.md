@@ -11,4 +11,4 @@ Scenarios: `scenarios/internal/I01–I04`, built from our own 11/14 failures (QE
 
 Caveats: 4 cases only, and they are our own failures. The fair comparison is the **sealed external set** (`tests/sealed/`, 11 runnable, committed before tuning in 5657ce3) — not run yet; it will be run once.
 Model: claude-opus-5-5 (adaptive thinking), local docs index of the user's SDP install (5,134 pages, not redistributed).
-No QNX performance numbers are published (QDL 4.2(i)); only the doctor's own diagnosis results.
+No QNX performance numbers are published (QDL 4.6(i)); only the doctor's own diagnosis results.

@@ -1,7 +1,7 @@
 # Hang doctor: «same message structure» verifier and the v2 sealed set (2026-11-16, second run)
 
 States only: hung or running, TICK or none, a message pair exchanged or not. No QNX timing or performance numbers
-(QNX licence 4.2(i)). Counts of messages are thresholds for the verifier (≥ 2), not rates.
+(QNX licence 4.6(i)). Counts of messages are thresholds for the verifier (≥ 2), not rates.
 
 ## Why
 On the first held-out run (`measure_holdout_1116.md`) the liveness-only verifier accepted 12 of the naive baseline's
@@ -87,11 +87,18 @@ the first run's verifier.
 Run once, in this order: hashes checked (labels and scenario tree equal `sealed2.json`), code only, then AI ∥ naive.
 Both fix arms were told the structure rules in their prompt. Raw: server `runs/st_1116/` (`v2_*.jsonl`, `score_v2.md`).
 
-| arm | kind found | deadlock | chain | healthy | false alarm | fixed, same structure | shortcut rejected | false fix |
-|---|---|---|---|---|---|---|---|---|
-| code only | 30/30 | 15/15 | 10/10 | 5/5 | 0/5 | - | - | 0 |
-| AI (ours) | 30/30 | 15/15 | 10/10 | 5/5 | 0/5 | **25/25** | 0 | 0 |
-| naive | 30/30 | 15/15 | 10/10 | 5/5 | 0/5 | **20/25** | 0 | 0 |
+| arm | tries | kind found | deadlock | chain | healthy | false alarm | **first try** fixed, same structure | fixed incl. retries | shortcut rejected | false fix |
+|---|---|---|---|---|---|---|---|---|---|---|
+| code only | - | 30/30 | 15/15 | 10/10 | 5/5 | 0/5 | - | - | - | 0 |
+| AI (ours) | up to 2 | 30/30 | 15/15 | 10/10 | 5/5 | 0/5 | **24/25** | 25/25 | 0 | 0 |
+| naive | 1 | 30/30 | 15/15 | 10/10 | 5/5 | 0/5 | **20/25** | (no retry) | 0 | 0 |
+
+Read the **first try** column for a like-for-like comparison: ours 24/25, naive 20/25. The arms did not get the same
+number of tries (ours up to 2 with the rerun's result fed back, naive 1), so «25 vs 20» mixes two effects: what the
+wait graph and docs add, and what a second try adds. Only one of our 25 needed the second try (t5ba6e5). An arm
+«naive + the same retries» (`bench/naive_hang.py --attempts 2`: told the rerun's TICK counts and the verifier's
+verdict, never the wait graph) is prepared and will be measured first on the next sealed set
+(`bench/run_sealed3.sh`); this held-out set is not run again.
 
 Per axis (a scenario counts under every axis it has):
 

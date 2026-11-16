@@ -3,7 +3,7 @@
 Sets: `tests/sealed_hang` D01–D07 (hand-written, sealed ec5ac0e) and the held-out random pool (20 seeds, sealed d7520a3,
 generator v1). Both were run for the first time today, once. Held-out labels were checked by hash only before the run:
 they are identical to the sealing commit.
-States only: hung or running, TICK or none. No QNX timing or performance numbers (QNX licence 4.2(i)).
+States only: hung or running, TICK or none. No QNX timing or performance numbers (QNX licence 4.6(i)).
 
 ## Arms
 - **Code only (AI off)**: the `pidin` snapshot on the target goes into the wait graph, and the code names the kind. No fix.
@@ -11,7 +11,7 @@ States only: hung or running, TICK or none. No QNX timing or performance numbers
 - **Naive baseline** (`bench/naive_hang.py`): the same model, one reply, given only the source and the TICK logs. No `pidin`, no graph, no docs, no probes. Its fix goes through the same rerun check.
 
 ## Before the run (dev pool only; held-out not looked at)
-- The 2 dev misses (seeds 1003, 1017) were a harness fault. `/var` and `/tmp` are on the disk image (devb-eide threads at priority 21). A priority-22 hog on both CPUs stalled loading the observer from disk until the hog ended, so the snapshot showed a system that had already recovered. Fix: start `snap` before the scenario and wake it with the builtin `kill` (8f013bd).
+- The 2 dev misses (seeds 1003, 1017) were a fault of our harness. Our observer was loaded from the disk image (`/var`, `/tmp`) after the scenario had started, and the scenario's own CPU load, set above the disk driver's priority, kept our observer from loading until the load ended, so our snapshot showed a system that had already recovered. Fix: start `snap` before the scenario and wake it with the builtin `kill` (8f013bd).
 - Dev seed 1014: at the snapshot instant the observer itself held both CPUs, so the hog threads showed READY instead of RUNNING. Chain rule: a middle-priority thread that is RUNNING **or READY** (12912b8).
 - Dev after both fixes, code only: deadlock 10/10, priority chain 7/7, healthy 3/3, false alarms 0.
 - Verifier tightened before the run (5649f03): every 0-TICK log must tick again, and no program process may disappear.

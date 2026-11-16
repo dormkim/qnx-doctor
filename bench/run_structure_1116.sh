@@ -3,7 +3,7 @@
 #  A. v1 sets (sealed 7 + held-out 20): the fixes recorded on the first run, re-judged (no new AI call).
 #  B. v2 held-out 30 (sealed f19d090): first run ever — code only, then AI ∥ naive, both told the same rules.
 # The v2 pool is regenerated and its hashes must match tests/gen_hang/sealed2.json, or nothing runs.
-# Server only, detached; writes $S/state.$PHASE (A / B-code / B-ai / done / fail:<why>). States only (QNX 4.2(i)).
+# Server only, detached; writes $S/state.$PHASE (A / B-code / B-ai / done / fail:<why>). States only (QNX 4.6(i)).
 set -u
 set -a; . ~/.config/qnx-doctor/env; set +a
 cd ~/personal/qnx-doctor

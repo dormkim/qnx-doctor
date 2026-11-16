@@ -3,7 +3,7 @@
   python3 bench/score_hang.py LABELS.json runs/a.jsonl [runs/b.jsonl ...]
 Per run: kind found = label kind, per kind; false alarms (label none, reported a hang); missed (label is a hang,
 reported none); fixed (proven by rerun); false fixes (claimed fixed on a scenario whose label is none — must be 0).
-States only, no time numbers (QNX licence 4.2(i)).
+States only, no time numbers (QNX licence 4.6(i)).
 """
 import json
 import os

@@ -1,7 +1,7 @@
 """The hang loop: observe → code judgment → (AI prescription as edit_file) → rebuild + rerun → verdict.
 
 Timeline kinds (report.py): symptom, graph, probe, docs, ai_fix, give_up. No time or latency numbers are kept
-(QNX licence 4.2(i)): only states — blocked/running, TICK or not."""
+(QNX licence 4.6(i)): only states — blocked/running, TICK or not."""
 import shutil
 
 from . import hang

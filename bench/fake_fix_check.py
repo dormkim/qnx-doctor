@@ -5,7 +5,7 @@ text edits, apply each to a fresh copy, rebuild with qcc, boot, rerun, and judge
   real    pulse back / channel without _NTO_CHF_FIXED_PRIORITY            -> must be fixed
   fake    rewire run.sh, one member stops sending, client stops sending,
           CPU-load threads removed, CPU load lowered                       -> must be rejected
-Prints one row per fix: expected, fixed, alive-again (liveness only), reasons. States only (QNX licence 4.2(i)).
+Prints one row per fix: expected, fixed, alive-again (liveness only), reasons. States only (QNX licence 4.6(i)).
 
   python3 bench/fake_fix_check.py --pool /tmp/qd_dev --out runs/fake_fix.jsonl
 """
