@@ -67,7 +67,7 @@ static int qdt_server(int coid) {   /* pid that owns the channel behind our conn
   return r == coid ? si.pid : -1;
 }
 
-#define QDT_RC 16
+#define QDT_RC 64
 static struct { long rcvid; int pid; } qdt_rc[QDT_RC];   /* recent rcvid -> client pid, for MsgDeliverEvent */
 static unsigned qdt_rcn;
 
@@ -90,7 +90,10 @@ static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver s
     if (MsgInfo(rcvid, &mi) != -1) {
       qdt_add('R', 'M', mi.pid, 1, 1);
       pthread_mutex_lock(&qdt_mx);
-      qdt_rc[qdt_rcn++ % QDT_RC].rcvid = rcvid; qdt_rc[(qdt_rcn - 1) % QDT_RC].pid = mi.pid;
+      unsigned i = 0;
+      while (i < QDT_RC && qdt_rc[i].rcvid != rcvid) i++;
+      if (i == QDT_RC) i = qdt_rcn++ % QDT_RC;   /* new rcvid: replace the oldest entry */
+      qdt_rc[i].rcvid = rcvid; qdt_rc[i].pid = mi.pid;
       pthread_mutex_unlock(&qdt_mx);
     }
     errno = s;
