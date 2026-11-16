@@ -84,7 +84,7 @@ class Props(unittest.TestCase):
                 self.assertLess(s.prio, w.prio)
                 self.assertTrue(i["running"])
                 for x in i["running"]:
-                    self.assertEqual(x.state, "RUNNING")
+                    self.assertIn(x.state, ("RUNNING", "READY"))
                     self.assertTrue(s.prio < x.prio < w.prio)
 
     def test_attack_delete_or_flip_one_cycle_edge(self):

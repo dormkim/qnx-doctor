@@ -50,6 +50,15 @@ class Judge(unittest.TestCase):
     def test_kernel_waits_are_not_edges(self):
         self.assertEqual(wg.judge(wg.parse(table((40, 1, "x", "10r", "REPLY", 1)))), {"kind": "none"})
 
+    def test_priority_inversion_with_middle_thread_ready(self):  # observer holds the CPUs at the snapshot (dev 1014)
+        j = wg.judge(wg.parse(table((50, 1, "ctl", "33r", "REPLY", 51), (51, 1, "srv", "6r", "READY", ""),
+                                    (52, 2, "hog", "21r", "READY", ""), (52, 3, "hog", "21r", "READY", ""))))
+        self.assertEqual(j["kind"], "priority_chain")
+
+    def test_no_inversion_when_middle_thread_is_blocked(self):
+        self.assertEqual(wg.judge(wg.parse(table((50, 1, "ctl", "33r", "REPLY", 51), (51, 1, "srv", "6r", "READY", ""),
+                                                 (52, 1, "hog", "21r", "NANOSLEEP", ""))))["kind"], "none")
+
     def test_priority_inversion(self):
         j = wg.judge(wg.parse(table((50, 1, "ctl", "30r", "REPLY", 51), (51, 1, "srv", "5r", "READY", ""),
                                     (52, 1, "hog", "20r", "RUNNING", ""), (53, 1, "pidin", "63r", "RUNNING", ""))))

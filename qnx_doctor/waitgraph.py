@@ -7,7 +7,10 @@ services), so edges to pid 1 are not application waits and are left out.
 Findings:
   deadlock        a cycle of processes, each SEND/REPLY-blocked on the next (members + who waits behind them)
   priority_chain  a thread waits (SEND/REPLY) on a READY server whose priority is below its own while a
-                  thread of middle priority is RUNNING — the server can not get the CPU (priority inversion)
+                  thread of middle priority is RUNNING or READY — the server can not get the CPU (priority
+                  inversion). READY counts: a runnable middle thread always goes before the server; at the
+                  snapshot instant it may be off the CPU only because the observer itself (pidin, procnto at 63,
+                  the serial driver printing) holds it (dev seed 1014, 2026-11-16).
   none            neither; long waits on a sleeping server or idle RECEIVE are normal
 """
 import re
@@ -15,6 +18,7 @@ from dataclasses import dataclass
 
 LINE = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)\s*(\d+)?\s*$")
 WAIT = ("SEND", "REPLY")
+RUNNABLE = ("RUNNING", "READY")
 
 
 @dataclass(frozen=True)
@@ -79,7 +83,7 @@ def behind(threads, members) -> list[Thread]:
 
 
 def inversions(threads) -> list[dict]:
-    """High-priority waiter → READY low-priority server, with a RUNNING thread of priority in between."""
+    """High-priority waiter → READY low-priority server, with a runnable (RUNNING/READY) thread of priority in between."""
     by_pid: dict[int, list[Thread]] = {}
     for t in threads:
         by_pid.setdefault(t.pid, []).append(t)
@@ -90,7 +94,7 @@ def inversions(threads) -> list[dict]:
         for s in by_pid.get(peer, []):
             if s.state != "READY" or s.prio is None or s.prio >= w.prio:
                 continue
-            mid = [r for r in threads if r.state == "RUNNING" and r.prio is not None and s.prio < r.prio < w.prio
+            mid = [r for r in threads if r.state in RUNNABLE and r.prio is not None and s.prio < r.prio < w.prio
                    and r.pid not in (w.pid, s.pid)]
             if mid:
                 out.append({"waiter": w, "server": s, "running": mid})
@@ -143,7 +147,7 @@ def describe(j: dict) -> str:
             w, s = c["waiter"], c["server"]
             run = ", ".join(f"{p}({n}) prio {q}" for p, n, q in c["running"])
             parts.append(f"{w['pid']}({w['name']}) prio {w['prio']} {w['state']}-blocked on {s['pid']}({s['name']}) "
-                         f"which is READY at prio {s['prio']} while {run} is RUNNING")
+                         f"which is READY at prio {s['prio']} while {run} is runnable (RUNNING/READY)")
         return "PRIORITY CHAIN: " + "; ".join(parts)
     return "no wait cycle and no priority chain"
 
