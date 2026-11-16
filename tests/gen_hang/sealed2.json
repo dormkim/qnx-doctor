@@ -5,6 +5,8 @@
  "pool": "heldout",
  "n": 30,
  "labels_sha256": "07b4c20c4d24a3b8e12a65a779ffeab4a5f2d927279b042da4807d7cb1237bc7",
- "scenario_tree_sha256": "139c2a030298a737a6523c6a03a81d1933718525e5208f216907fcd3b387cbd0",
- "dev_labels_sha256": "5bffe48ea5485fe9218415486c4c1a2f852de97993c663f25c4d2f4c484e8e68"
+ "scenario_tree_sha256": "b39fea6de61c87d9aaadff79ffafcee7704ee0f8fb7695c3c14bb468c1a74582",
+ "dev_labels_sha256": "5bffe48ea5485fe9218415486c4c1a2f852de97993c663f25c4d2f4c484e8e68",
+ "scenario_tree_sha256_v2_0": "139c2a030298a737a6523c6a03a81d1933718525e5208f216907fcd3b387cbd0",
+ "v2_1": "2026-11-16, before any held-out v2 run: the priority server publishes its channel id before lowering its priority (found on dev seed t7e9e6a: the CPU load starved the file write, the client exited, the chain never formed). Draw sequence and labels_sha256 unchanged; only scenario sources changed, so the tree hash is new."
 }

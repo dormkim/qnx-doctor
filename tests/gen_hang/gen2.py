@@ -82,9 +82,12 @@ def body_of(p, kind, cfg):
     if kind == "pserver":  # channel id published in a file; priority constant or from argument a
         prio = "a" if cfg["rt_prio"] else str(cfg["lo"])
         body = f"    int {rv} = qd_receive(ch, &{m});\n    if ({rv} <= 0) continue;\n    volatile long x = 0; for (long i = 0; i < {cfg['work']}; i++) x += i;\n    MsgReply({rv}, EOK, &{m}.app.v, sizeof {m}.app.v);\n"
-        return (head + "  (void)nx; (void)b;\n" + f"  setprio(0, {prio});\n  int ch = ChannelCreate(_NTO_CHF_FIXED_PRIORITY);\n"
+        # The channel id is published BEFORE the priority drops (v2.1, 2026-11-16, found on dev t7e9e6a only): at a
+        # low priority the file write could be starved by the CPU load, the client gave up and exited, and the
+        # chain never formed. Draw sequence and labels unchanged; only the order of these source lines.
+        return (head + "  (void)nx; (void)b;\n" + "  int ch = ChannelCreate(_NTO_CHF_FIXED_PRIORITY);\n"
                 "  char path[64]; snprintf(path, sizeof path, \"/tmp/%s.id\", me);\n  FILE *f = fopen(path, \"w\"); fprintf(f, \"%d %d\\n\", getpid(), ch); fclose(f);\n"
-                f"  qd_msg_t {m};\n" + p.loop(body) + "}\n")
+                f"  setprio(0, {prio});\n  qd_msg_t {m};\n" + p.loop(body) + "}\n")
     if kind == "pclient":
         prio = "a" if cfg["rt_prio"] else str(cfg["hi"])
         body = f"    qd_send({c}, n);\n    qd_tick(me, n);\n    usleep({us});\n"
