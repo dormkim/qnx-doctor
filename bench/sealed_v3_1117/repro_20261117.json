@@ -1,0 +1,298 @@
+{
+ "q01": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0probe": 0
+  },
+  "later": {
+   "d0probe": 0
+  },
+  "error": null
+ },
+ "q02": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0ctlloop": 35
+  },
+  "later": null,
+  "error": null,
+  "method": "early timer 20 s"
+ },
+ "q03": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0appcfg": 6
+  },
+  "later": {
+   "d0appcfg": 6
+  },
+  "error": null
+ },
+ "q04": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0sampler": 191
+  },
+  "later": {
+   "d0sampler": 378
+  },
+  "error": null
+ },
+ "q05": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0datalog": 4
+  },
+  "later": {
+   "d0datalog": 9
+  },
+  "error": null
+ },
+ "q06": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0player": 37
+  },
+  "later": null,
+  "error": null,
+  "method": "early timer 20 s"
+ },
+ "q07": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0radio": 1
+  },
+  "later": {
+   "d0radio": 1
+  },
+  "error": null
+ },
+ "q08": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0ingest": 0,
+   "d0parse": 0,
+   "d0archive": 0
+  },
+  "later": {
+   "d0ingest": 0,
+   "d0parse": 0,
+   "d0archive": 0
+  },
+  "error": null
+ },
+ "q09": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0hmi": 36
+  },
+  "later": null,
+  "error": null,
+  "method": "early timer 20 s"
+ },
+ "q10": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0navcore": 0
+  },
+  "later": {
+   "d0navcore": 0
+  },
+  "error": null
+ },
+ "q11": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0uplink": 6
+  },
+  "later": {
+   "d0uplink": 6
+  },
+  "error": null
+ },
+ "q12": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0ecu": 0
+  },
+  "later": {
+   "d0ecu": 0
+  },
+  "error": null
+ },
+ "q13": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0pumpctl": 1,
+   "d0panel": 4
+  },
+  "later": {
+   "d0pumpctl": 1,
+   "d0panel": 4
+  },
+  "error": null
+ },
+ "q14": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0welder": 0,
+   "d0painter": 64,
+   "d0sorter": 63
+  },
+  "later": {
+   "d0welder": 0,
+   "d0painter": 128,
+   "d0sorter": 127
+  },
+  "error": null
+ },
+ "q15": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0till": 0,
+   "d0picker": 0
+  },
+  "later": {
+   "d0till": 0,
+   "d0picker": 0
+  },
+  "error": null
+ },
+ "q16": {
+  "agree": false,
+  "why": [
+   "east: expected ticks, did not grow (0 -> 0)",
+   "west: expected ticks, did not grow (0 -> 0)"
+  ],
+  "snap": {
+   "d0east": 0,
+   "d0west": 0
+  },
+  "later": {
+   "d0east": 0,
+   "d0west": 0
+  },
+  "error": null
+ },
+ "q17": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0torque": 0
+  },
+  "later": {
+   "d0torque": 0
+  },
+  "error": null
+ },
+ "q18": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0gimbal": 119
+  },
+  "later": {
+   "d0gimbal": 234
+  },
+  "error": null
+ },
+ "q19": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0dash": 13
+  },
+  "later": {
+   "d0dash": 27
+  },
+  "error": null
+ },
+ "q20": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0cam": 7
+  },
+  "later": {
+   "d0cam": 7
+  },
+  "error": null
+ },
+ "q21": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0pilot": 15
+  },
+  "later": null,
+  "error": null,
+  "method": "early timer 20 s"
+ },
+ "q02#first_pass": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0ctlloop": 35
+  },
+  "later": null,
+  "error": null
+ },
+ "q06#first_pass": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0player": 37
+  },
+  "later": null,
+  "error": null
+ },
+ "q09#first_pass": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0hmi": 36
+  },
+  "later": null,
+  "error": null
+ },
+ "q21#first_pass": {
+  "agree": false,
+  "why": [
+   "second count missing (observer did not report)"
+  ],
+  "snap": {
+   "d0pilot": 14
+  },
+  "later": null,
+  "error": null
+ }
+}
