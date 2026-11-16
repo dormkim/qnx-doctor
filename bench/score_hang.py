@@ -12,6 +12,22 @@ import sys
 KINDS = ("deadlock", "priority_chain", "none")
 
 
+# Expected closed cause label (qnx_doctor.hang.CAUSE_LABELS) from the answer key. Hand-written set by id; D03 is
+# a cycle of two senders (server→logger, logger→server) so both cycle labels are accepted there.
+SEALED_CAUSE = {"D01": {"send_cycle"}, "D02": {"send_cycle"}, "D03": {"send_cycle", "send_on_reply_path"},
+                "D04": {"send_on_reply_path"}, "D05": {"fixed_priority_channel"}}
+
+
+def expected_cause(sid, lab):
+    if sid in SEALED_CAUSE:
+        return SEALED_CAUSE[sid]
+    if lab["kind"] == "priority_chain":
+        return {"fixed_priority_channel"}
+    if lab["kind"] == "deadlock":  # generator: all members send first, or a relay closes the cycle
+        return {"send_cycle"} if "each member makes" in (lab.get("culprit") or "") else {"send_on_reply_path"}
+    return set()
+
+
 def load_labels(path):
     return {k: v for k, v in json.load(open(path)).items() if not k.startswith("_")}
 
@@ -19,7 +35,7 @@ def load_labels(path):
 def score(labels, rows):
     rows = {r["id"]: r for r in rows if r.get("id") in labels}
     s = {"n": {k: 0 for k in KINDS}, "hit": {k: 0 for k in KINDS}, "false_alarm": 0, "missed": 0, "fixed": 0,
-         "false_fix": 0, "harness": 0, "faults": 0}
+         "false_fix": 0, "harness": 0, "faults": 0, "label_ok": 0, "labelled": 0}
     for sid, lab in labels.items():
         k = lab["kind"]
         s["n"][k] += 1
@@ -34,17 +50,21 @@ def score(labels, rows):
         s["missed"] += k != "none" and got in ("none", None)
         s["fixed"] += r.get("solved") is True and k != "none"
         s["false_fix"] += r.get("solved") is True and k == "none"
+        if r.get("cause_label"):  # AI arm, only where a fix was proven (the label of the fix that worked)
+            s["labelled"] += 1
+            s["label_ok"] += r["cause_label"] in expected_cause(sid, lab)
     return s
 
 
 def table(labels, runs):
-    out = ["| run | " + " | ".join(f"{k} found" for k in KINDS) + " | false alarm | missed | fixed (rerun) | false fix | harness fail |",
-           "|---|" + "---|" * (len(KINDS) + 5)]
+    out = ["| run | " + " | ".join(f"{k} found" for k in KINDS) + " | false alarm | missed | fixed (rerun) | false fix | cause label ok | harness fail |",
+           "|---|" + "---|" * (len(KINDS) + 6)]
     for rp in runs:
         s = score(labels, [json.loads(l) for l in open(rp) if l.strip()])
         cells = [f"{s['hit'][k]}/{s['n'][k]}" for k in KINDS]
         out.append(f"| {os.path.basename(rp)} | " + " | ".join(cells) +
-                   f" | {s['false_alarm']}/{s['n']['none']} | {s['missed']}/{s['faults']} | {s['fixed']}/{s['faults']} | {s['false_fix']} | {s['harness']} |")
+                   f" | {s['false_alarm']}/{s['n']['none']} | {s['missed']}/{s['faults']} | {s['fixed']}/{s['faults']} | {s['false_fix']}"
+                   f" | {str(s['label_ok']) + '/' + str(s['labelled']) if s['labelled'] else '-'} | {s['harness']} |")
     return "\n".join(out)
 
 
