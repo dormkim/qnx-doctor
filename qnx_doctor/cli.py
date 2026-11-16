@@ -5,6 +5,8 @@
   python3 -m qnx_doctor.cli index            # build the local QNX docs index once
   python3 -m qnx_doctor.cli run [--no-ai] -- <cmd...>        # diagnose a failing build/boot command (fixes tried on a copy of .)
   python3 -m qnx_doctor.cli hang [name|pid] --pidin FILE     # read-only: wait graph of a pidin capture
+  python3 -m qnx_doctor.cli hang [name|pid] --live "ssh root@target" [--src DIR] [--out runs/x.jsonl]
+                                             # read-only: pidin + pidin arg from a running target (no harness)
   python3 -m qnx_doctor.cli hang [name|pid] --scenario DIR [--no-ai] [--out runs/x.jsonl]
                                              # build → target → graph → AI fix (edit_file) → rebuild → rerun
 """
@@ -42,8 +44,17 @@ def _hang(a):
         j = wg.judge(wg.parse(open(a.pidin).read()), a.target)
         print(wg.describe(j)); print(json.dumps(j, ensure_ascii=False))
         return 0 if j["kind"] == "none" else 3
+    if a.live:
+        from . import live
+        raw = live.capture(a.live)
+        r = live.check(raw, a.target, a.src)
+        print(live.report(r))
+        if a.out:  # the raw capture is kept next to the verdict, so the graph can be checked by hand
+            open(a.out + ".raw.txt", "w").write(raw)
+            open(a.out, "a").write(json.dumps({"mode": "live", **r}, ensure_ascii=False) + "\n")
+        return 0 if r["kind"] == "none" else 3
     if not a.scenario:
-        sys.exit("hang needs --pidin FILE or --scenario DIR")
+        sys.exit("hang needs --pidin FILE, --live TRANSPORT or --scenario DIR")
     from .hangdoctor import diagnose_hang
     index = None
     if not a.no_ai:
@@ -67,6 +78,8 @@ def main():
     sub.add_parser("index")
     r = sub.add_parser("run"); r.add_argument("--no-ai", action="store_true"); r.add_argument("cmd", nargs=argparse.REMAINDER)
     h = sub.add_parser("hang"); h.add_argument("target", nargs="?"); h.add_argument("--pidin"); h.add_argument("--scenario", nargs="+")
+    h.add_argument("--live", metavar="TRANSPORT", help='command that runs one shell line on the target, e.g. "ssh root@10.0.2.15"')
+    h.add_argument("--src", help="with --live: source tree to point at the message-passing calls of the processes involved")
     h.add_argument("--no-ai", action="store_true"); h.add_argument("--out")
     a = ap.parse_args()
     if a.cmd == "hang":

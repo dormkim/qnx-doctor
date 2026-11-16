@@ -32,7 +32,7 @@ if hit == rb"login:": p.stdin.write(b"root\n"); p.stdin.flush(); until([rb"# "],
 until([rb"Starting Networking", rb"Startup complete"], 60); time.sleep(5)
 buf = b""
 p.stdin.write(f"{path}; echo QDRC=$?\n".encode()); p.stdin.flush()
-until([rb"\nQDRC=\d"], 30); time.sleep(1)
+until([rb"\nQDRC=\d"], int(os.environ.get("QD_EXEC_TIMEOUT", "30"))); time.sleep(1)  # longer for bench/qd_after_startup.sh
 r, _, _ = select.select([p.stdout], [], [], 1)
 if r: buf += os.read(p.stdout.fileno(), 4096)
 p.kill()
