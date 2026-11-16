@@ -3,12 +3,12 @@ and propose a fix as data. Code applies the fix and re-runs; only the re-run dec
 import json
 import os
 import re
-import subprocess
 
 from anthropic import Anthropic
 
+from .probes import probe
+
 MODEL = os.environ.get("QD_MODEL", "claude-opus-5-5")
-PROBES = {"ls", "find", "which", "cat", "head", "tail", "grep", "file", "readelf", "stat", "du"}
 
 SYSTEM = """You are qnx-doctor, a build/boot troubleshooter for QNX SDP 8.0 on a Linux host.
 You get a command that failed, its output, and what was already tried. Work step by step.
@@ -28,18 +28,6 @@ Use probes and docs before guessing paths. Never invent paths you have not seen.
 
 def _client():
     return Anthropic()
-
-
-def _probe(argv, cwd, env, confine=False):
-    if not argv or os.path.basename(argv[0]) not in PROBES:
-        return f"probe refused: {argv[:1]} is not a read-only command"
-    if confine and any(a.startswith("/") or ".." in a.split("/") for a in argv[1:]):
-        return "probe refused: only paths inside the working directory"  # hang mode: the answer key lives outside
-    try:
-        p = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, timeout=30)
-        return (p.stdout + p.stderr).decode(errors="replace")[-3000:] or "(no output)"
-    except Exception as e:
-        return f"probe failed: {e}"
 
 
 def _json(text):
@@ -66,7 +54,7 @@ def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8, sys
             continue
         if "probe" in step:
             argv = step["probe"].get("argv", [])
-            out = _probe(argv, cwd, env, confine)
+            out = probe(argv, cwd, env, confine)
             log.append({"kind": "probe", "argv": argv, "out": out[-400:]})
             messages.append({"role": "user", "content": f"probe output:\n{out}"})
         elif "search_docs" in step:
