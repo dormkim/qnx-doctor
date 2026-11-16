@@ -87,6 +87,12 @@ def render(trap, seed, out_root):
         header = f"#pragma once\n#define {flag} (_NTO_CHF_DISCONNECT | _NTO_CHF_FIXED_PRIORITY)\n"
         bodies = {k: gen2.body_of(p, k, cfg) for k in ("pserver", "pclient", "hog")}
         bodies["pserver"] = bodies["pserver"].replace("ChannelCreate(_NTO_CHF_FIXED_PRIORITY)", f"ChannelCreate({flag})")
+        # The id file appears whole (write a temp file, then rename). gen2's server writes it in place, and a client
+        # at a higher priority could open it empty and exit (seen once on this trap, 2026-11-17, rerun 3 of 3).
+        old_w = 'FILE *f = fopen(path, "w"); fprintf(f, "%d %d\\n", getpid(), ch); fclose(f);'
+        assert old_w in bodies["pserver"], "gen2 pserver id-file line changed"
+        bodies["pserver"] = bodies["pserver"].replace(old_w, 'char tmp[72]; snprintf(tmp, sizeof tmp, "%s.w", path);\n'
+                                                      '  FILE *f = fopen(tmp, "w"); fprintf(f, "%d %d\\n", getpid(), ch); fclose(f); rename(tmp, path);')
         fns = {k: p.ident() for k in bodies}
         extra_src = "\n".join(bodies[k].replace("FN", fns[k], 1) for k in ("hog", "pserver", "pclient"))
         funcs += list(fns.values())
