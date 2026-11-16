@@ -4,7 +4,7 @@
 # with the builtin `kill`, because /var and /tmp are on the disk and a hog above the disk driver's priority would
 # stall loading it (see snap.c; harness fix 2026-11-16, labels unchanged).
 s=$1
-rm -f /tmp/d0*.log
+rm -f /tmp/d0*.log /dev/shmem/qdm.*
 /var/qd/snap &
 snap=$!
 sh /var/qd/$s/run.sh

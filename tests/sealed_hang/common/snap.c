@@ -6,7 +6,11 @@
  * whose threads run at priority 21. A scenario hog at priority 22 on both CPUs starves the disk driver, so an
  * observer loaded from disk AFTER the scenario only ran once the hog had finished — it saw a system that had already
  * recovered (dev seeds 1003 and 1017: hog missing from the snapshot, client TICKs counted after the hog ended).
- * Labels and scenario sources are unchanged. */
+ * Labels and scenario sources are unchanged.
+ *
+ * After the TICK counts it prints `pidin arg` (pid -> command line, so a process can be matched across two boots by
+ * what was started, not by its pid) and the message records of qd_trace.c (/dev/shmem/qdm.<pid>). Added
+ * 2026-11-16 for the «same message structure» check; the pidin snapshot itself is unchanged. */
 #include <dirent.h>
 #include <pthread.h>
 #include <signal.h>
@@ -47,6 +51,22 @@ int main(void) {
   pid_t p = fork();
   if (p == 0) { execl("/proc/boot/pidin", "pidin", (char *)NULL); execlp("pidin", "pidin", (char *)NULL); _exit(127); }
   if (p > 0) waitpid(p, NULL, 0);
-  printf("=== TICKS ===\n%s", out); fflush(stdout);
+  printf("=== TICKS ===\n%s", out);
+  puts("=== ARGS ==="); fflush(stdout);
+  p = fork();
+  if (p == 0) { execl("/proc/boot/pidin", "pidin", "arg", (char *)NULL); execlp("pidin", "pidin", "arg", (char *)NULL); _exit(127); }
+  if (p > 0) waitpid(p, NULL, 0);
+  puts("=== MSGS ===");
+  d = opendir("/dev/shmem");
+  while (d && (e = readdir(d))) {
+    if (strncmp(e->d_name, "qdm.", 4)) continue;
+    snprintf(path, sizeof path, "/dev/shmem/%s", e->d_name);
+    FILE *f = fopen(path, "r");
+    char line[128];
+    while (f && fgets(line, sizeof line, f)) printf("%s %s", e->d_name + 4, line);
+    if (f) fclose(f);
+  }
+  if (d) closedir(d);
+  puts("=== END ==="); fflush(stdout);
   return 0;
 }

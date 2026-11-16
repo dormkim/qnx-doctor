@@ -5,6 +5,7 @@ Timeline kinds (report.py): symptom, graph, probe, docs, ai_fix, give_up. No tim
 import shutil
 
 from . import hang
+from . import structure as st
 
 AI_OFF_NOTE = "code judgment only: the hang is named, no fix is attempted"
 
@@ -28,9 +29,17 @@ def restarted(first, res):
     return res.get("alive", 0) >= first.get("alive", 0)
 
 
+def verdict(first, res) -> dict:
+    """Fixed = alive again (restarted) AND the same message structure (structure.compare). Both parts are kept, so
+    a fix that only passes liveness is counted as a rejected shortcut, not silently as a failure."""
+    live = restarted(first, res)
+    why = st.compare(first.get("structure"), res.get("structure")) if res.get("ok") else []
+    return {"fixed": live and not why, "live": live, "structure": why}
+
+
 def _graph_entry(obs):
     return {"kind": "graph", "verdict": obs["judge"]["kind"], "graph": obs["graph"], "ticks": obs["ticks"],
-            "alive": obs.get("alive"), "lines": obs["pidin_lines"]}
+            "alive": obs.get("alive"), "lines": obs["pidin_lines"], "structure": obs.get("structure")}
 
 
 def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, sid=None):
@@ -64,17 +73,22 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
             break
         acts = payload.get("actions", [])
         fixed, err = hang.apply_fix(scen_dir, acts)
+        v = {"fixed": False, "live": None, "structure": []}
         if err:
             msg = err
             res = None
         else:
             res = hang.observe(fixed, name, focus)
-            res["healthy"] = restarted(first, res)
-            msg = ("SOLVED (rerun: no cycle/chain, the stopped loop ticks again)" if res["healthy"] else
+            v = verdict(first, res)
+            res["healthy"] = v["fixed"]
+            msg = ("SOLVED (rerun: no cycle/chain, the stopped loop ticks again, same message structure)" if v["fixed"] else
+                   "rejected: alive again but the message structure changed: " + "; ".join(v["structure"]) if v["live"] else
                    f"still hung: {res.get('graph') or res.get('stage') + ' failed: ' + res.get('log', '')}")
         entry = {"kind": "ai_fix", "cause": payload.get("cause"), "culprit": payload.get("culprit"),
                  "evidence": payload.get("evidence"), "doc_refs": payload.get("doc_refs"), "actions": acts,
-                 "diff": hang.diff(work, fixed, name), "result": msg, **hang.checked_claims(work, payload)}
+                 "diff": hang.diff(work, fixed, name), "result": msg, "live": v["live"], "structure_why": v["structure"],
+                 "static_reject": bool(err and err.startswith(st.STATIC)), "pids_ok": hang.pids_checked(payload, first),
+                 **hang.checked_claims(work, payload)}
         if res and res.get("ok"):
             entry["rerun_graph"] = res["graph"]
             entry["rerun_ticks"] = {k: ("yes" if v else "no") for k, v in res["ticks"].items()}

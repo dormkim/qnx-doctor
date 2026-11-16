@@ -15,7 +15,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from qnx_doctor import hang  # noqa: E402
-from qnx_doctor.hangdoctor import restarted  # noqa: E402
+from qnx_doctor import structure as st  # noqa: E402
+from qnx_doctor.hangdoctor import verdict  # noqa: E402
 
 KINDS = ("deadlock", "priority_chain", "none")
 NAIVE_SYSTEM = """You are an experienced QNX 8.0 developer. A message-passing program was started on the target with
@@ -27,7 +28,8 @@ Decide what is wrong. Reply with exactly ONE JSON object, nothing else:
 kind: deadlock = processes wait on each other in a cycle of synchronous messages; priority_chain = a high-priority
 client waits on a low-priority server that cannot get the CPU (priority inversion); none = nothing is hung (long
 waits can be normal). For none give no actions. Only edit_file actions, paths relative to the working directory,
-`find` copied exactly from the file. Keep the program's intent; a timeout or sleep that only hides the wait is not a fix."""
+`find` copied exactly from the file. Keep the program's intent; a timeout or sleep that only hides the wait is not a fix.
+""" + st.RULES
 
 
 def ask(context: str) -> dict:
@@ -45,7 +47,7 @@ def ask(context: str) -> dict:
     return out
 
 
-def one(pool: str, sid: str, ticks: dict, alive) -> dict:
+def one(pool: str, sid: str, ticks: dict, alive, structure=None) -> dict:
     scen = os.path.join(pool, sid)
     work = hang.prepare(scen)
     try:
@@ -60,11 +62,13 @@ def one(pool: str, sid: str, ticks: dict, alive) -> dict:
     if g.get("kind") in ("deadlock", "priority_chain") and row["actions"]:
         fixed, err = hang.apply_fix(scen, row["actions"])
         if err:
-            row.update(solved=False, result=err)
+            row.update(solved=False, result=err, static_reject=err.startswith(st.STATIC))
         else:
             res = hang.observe(fixed, sid)
-            ok = restarted({"ticks": ticks, "alive": alive or 0}, res)
-            row.update(solved=ok, result="rerun: no cycle/chain, loop ticks again" if ok else
+            v = verdict({"ticks": ticks, "alive": alive or 0, "structure": structure}, res)
+            row.update(solved=v["fixed"], live=v["live"], structure_why=v["structure"],
+                       result="rerun: no cycle/chain, loop ticks again, same message structure" if v["fixed"] else
+                       "rejected: alive again but the message structure changed" if v["live"] else
                        f"still hung: {res.get('graph') or res.get('stage') + ' failed'}")
         shutil.rmtree(fixed, ignore_errors=True)
     elif g.get("kind") in ("deadlock", "priority_chain"):
@@ -85,7 +89,7 @@ def main():
             g = [t for t in r["timeline"] if t["kind"] == "graph"]
             if not g:  # harness failure in the AI-off run: nothing a developer would have seen either
                 continue
-            row = one(a.pool, r["id"], g[0]["ticks"], g[0].get("alive"))
+            row = one(a.pool, r["id"], g[0]["ticks"], g[0].get("alive"), g[0].get("structure"))
             print(json.dumps({k: row.get(k) for k in ("id", "detected", "solved")}), flush=True)
             out.write(json.dumps(row, ensure_ascii=False) + "\n"); out.flush()
 

@@ -21,6 +21,8 @@ SEALED_CAUSE = {"D01": {"send_cycle"}, "D02": {"send_cycle"}, "D03": {"send_cycl
 def expected_cause(sid, lab):
     if sid in SEALED_CAUSE:
         return SEALED_CAUSE[sid]
+    if lab.get("gen_version", 1) >= 2:  # generator v2 writes the cause label into the answer key
+        return {lab["cause"]} if lab.get("cause") else set()
     if lab["kind"] == "priority_chain":
         return {"fixed_priority_channel"}
     if lab["kind"] == "deadlock":  # generator: all members send first, or a relay closes the cycle
