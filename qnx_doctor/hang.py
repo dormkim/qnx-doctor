@@ -28,10 +28,15 @@ the TICK counts of each role (a working loop prints TICK lines), and the program
 Work step by step. Reply with exactly ONE JSON object per turn, nothing else:
   {"probe": {"argv": ["grep", "-n", "MsgSend", "D01/pingpong.c"]}}   read-only look (allowed: ls find cat head tail grep)
   {"search_docs": "words"}   searches the QNX 8.0 documentation (message passing, MsgSendPulse, priority inheritance, ...)
-  {"diagnosis": {"cause": "short cause", "culprit": {"file": "path", "line": "the exact source line that made the cycle or chain"},
+  {"diagnosis": {"cause_label": "one of: send_cycle | send_on_reply_path | fixed_priority_channel | other",
+                 "cause": "short cause", "culprit": {"file": "path", "line": "the exact source line that made the cycle or chain"},
                  "evidence": "graph edge or doc text that proves it", "doc_refs": ["doc path"],
                  "actions": [{"type": "edit_file", "path": "relative path", "find": "exact text", "replace": "new text"}]}}
   {"give_up": "why"}
+cause_label: send_cycle = every member sends synchronously to the next before serving its own channel;
+send_on_reply_path = a process that owes a reply sends synchronously to a process that waits (directly or through
+others) for that reply (callback, relay closing the cycle); fixed_priority_channel = the server's channel does not
+pass on the client's priority; other = none of these.
 Rules: only edit_file actions, paths relative to the working directory, `find` must be copied exactly from the file.
 Keep the program's intent: the same roles still talk to each other and the loop keeps running.
 Use the QNX idiom for the problem (for example a non-blocking pulse instead of a synchronous send back, reply before
@@ -116,10 +121,12 @@ def observe(work: str, name: str, focus=None) -> dict:
     if not ok:
         return {"stage": "target", "ok": False, "log": tail(out, 20)}
     pidin, ticks = wg.split_check(out)
-    j = wg.judge(wg.parse(pidin), focus)
+    threads = wg.parse(pidin)
+    j = wg.judge(threads, focus)
     involved = _involved(j)
     lines = [l for l in pidin.splitlines() if any(l.strip().startswith(f"{p} ") for p in involved)]
-    return {"stage": "target", "ok": True, "judge": j, "graph": wg.describe(j), "ticks": ticks,
+    alive = len({t.pid for t in threads if f"var/qd/{name}/" in t.name})  # program processes still there
+    return {"stage": "target", "ok": True, "judge": j, "graph": wg.describe(j), "ticks": ticks, "alive": alive,
             "healthy": j["kind"] == "none" and sum(ticks.values()) > 0, "pidin_lines": lines}
 
 
@@ -150,6 +157,21 @@ def context(work, name, obs, tried):
     for t in tried:
         lines.append(f"Already tried: {json.dumps(t['actions'])} -> {t['result']}")
     return "\n\n".join(lines)
+
+
+CAUSE_LABELS = ("send_cycle", "send_on_reply_path", "fixed_priority_channel", "other")
+
+
+def checked_claims(work, payload):
+    """Keep the AI's words only where code can confirm them: a closed cause label, and a culprit line that is
+    really in that file of the working copy. Recorded for scoring; it does not change «fixed»."""
+    label = payload.get("cause_label")
+    c = payload.get("culprit") or {}
+    path = os.path.realpath(os.path.join(work, str(c.get("file", ""))))
+    line = str(c.get("line", "")).strip()
+    ok = (bool(line) and path.startswith(os.path.realpath(work) + os.sep) and os.path.isfile(path)
+          and line in open(path, errors="replace").read())
+    return {"cause_label": label if label in CAUSE_LABELS else "unlisted", "culprit_in_source": ok}
 
 
 def apply_fix(scen_dir, acts):

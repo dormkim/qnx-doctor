@@ -45,7 +45,7 @@ def ask(context: str) -> dict:
     return out
 
 
-def one(pool: str, sid: str, ticks: dict) -> dict:
+def one(pool: str, sid: str, ticks: dict, alive) -> dict:
     scen = os.path.join(pool, sid)
     work = hang.prepare(scen)
     try:
@@ -63,7 +63,7 @@ def one(pool: str, sid: str, ticks: dict) -> dict:
             row.update(solved=False, result=err)
         else:
             res = hang.observe(fixed, sid)
-            ok = restarted({"ticks": ticks}, res)
+            ok = restarted({"ticks": ticks, "alive": alive or 0}, res)
             row.update(solved=ok, result="rerun: no cycle/chain, loop ticks again" if ok else
                        f"still hung: {res.get('graph') or res.get('stage') + ' failed'}")
         shutil.rmtree(fixed, ignore_errors=True)
@@ -85,7 +85,7 @@ def main():
             g = [t for t in r["timeline"] if t["kind"] == "graph"]
             if not g:  # harness failure in the AI-off run: nothing a developer would have seen either
                 continue
-            row = one(a.pool, r["id"], g[0]["ticks"])
+            row = one(a.pool, r["id"], g[0]["ticks"], g[0].get("alive"))
             print(json.dumps({k: row.get(k) for k in ("id", "detected", "solved")}), flush=True)
             out.write(json.dumps(row, ensure_ascii=False) + "\n"); out.flush()
 

@@ -9,16 +9,25 @@ from . import hang
 AI_OFF_NOTE = "code judgment only: the hang is named, no fix is attempted"
 
 
+MIN_TICKS = 2  # a loop, not one print on the way out
+
+
 def restarted(first, res):
-    """Fixed = rerun has no cycle/chain AND a loop that printed no TICK before now prints TICKs."""
+    """Fixed = the rerun has no cycle/chain AND every loop that printed no TICK before now ticks (at least
+    MIN_TICKS) AND no process of the program has gone away. Without the last two, a «fix» that prints one TICK
+    and exits, or that makes a peer quit so nobody waits on it, would count (judge-attack tests, 2026-11-16,
+    set before the first held-out run)."""
     if not res.get("ok") or res["judge"]["kind"] != "none":
         return False
-    return any(first["ticks"].get(k) == 0 and v > 0 for k, v in res["ticks"].items())
+    stopped = [k for k, v in first["ticks"].items() if v == 0]
+    if not stopped or any(res["ticks"].get(k, 0) < MIN_TICKS for k in stopped):
+        return False
+    return res.get("alive", 0) >= first.get("alive", 0)
 
 
 def _graph_entry(obs):
     return {"kind": "graph", "verdict": obs["judge"]["kind"], "graph": obs["graph"], "ticks": obs["ticks"],
-            "lines": obs["pidin_lines"]}
+            "alive": obs.get("alive"), "lines": obs["pidin_lines"]}
 
 
 def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, sid=None):
@@ -62,7 +71,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
                    f"still hung: {res.get('graph') or res.get('stage') + ' failed: ' + res.get('log', '')}")
         entry = {"kind": "ai_fix", "cause": payload.get("cause"), "culprit": payload.get("culprit"),
                  "evidence": payload.get("evidence"), "doc_refs": payload.get("doc_refs"), "actions": acts,
-                 "diff": hang.diff(work, fixed, name), "result": msg}
+                 "diff": hang.diff(work, fixed, name), "result": msg, **hang.checked_claims(work, payload)}
         if res and res.get("ok"):
             entry["rerun_graph"] = res["graph"]
             entry["rerun_ticks"] = {k: ("yes" if v else "no") for k, v in res["ticks"].items()}
@@ -72,6 +81,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
         if res and res.get("healthy"):
             shutil.rmtree(work, ignore_errors=True)
             return {"id": sid, "solved": True, "by": "ai", "detected": detected, "cause": payload.get("cause"),
+                    "cause_label": entry["cause_label"], "culprit_in_source": entry["culprit_in_source"],
                     "culprit": payload.get("culprit"), "actions": acts, "timeline": timeline}
     shutil.rmtree(work, ignore_errors=True)
     return {"id": sid, "solved": False, "by": "ai", "detected": detected, "timeline": timeline}
