@@ -24,5 +24,7 @@ $PY bench/naive_hang.py --pool "$POOL" --code "$S/code.jsonl" --out "$S/naive.js
 $PY bench/naive_hang.py --pool "$POOL" --code "$S/code.jsonl" --out "$S/naive_x2.jsonl" --attempts 2 > "$S/naive_x2.log" 2>&1 & C=$!
 wait $A $B $C
 cp "$LABELS" "$S/labels.json"
-$PY bench/score_structure.py "$S/labels.json" --fresh code="$S/code.jsonl" ai="$S/ai.jsonl" naive="$S/naive.jsonl" naive_x2="$S/naive_x2.jsonl" > "$S/score.md" 2>&1
+EXC=$(dirname "$POOL")/excluded.json   # reproducibility check before the run (README rule 2); absent = none excluded
+[ -f "$EXC" ] && cp "$EXC" "$S/excluded.json" && XARG="--exclude-file $S/excluded.json" || XARG=""
+$PY bench/score_structure.py "$S/labels.json" $XARG --fresh code="$S/code.jsonl" ai="$S/ai.jsonl" naive="$S/naive.jsonl" naive_x2="$S/naive_x2.jsonl" > "$S/score.md" 2>&1
 echo done > "$S/state"

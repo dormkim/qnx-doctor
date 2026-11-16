@@ -74,6 +74,8 @@ def _try(scen, sid, acts, ticks, alive, structure):
                "result": "rerun: no cycle/chain, loop ticks again, same message structure" if v["fixed"] else
                "rejected: alive again but the message structure changed" if v["live"] else
                f"still hung: {res.get('graph') or res.get('stage') + ' failed'}"}
+        if res.get("ok"):  # states for the scorer's loop_logs rule (sealed v3), same field as our arm's timeline
+            row["rerun_tick_counts"] = res.get("ticks")
         return row, _feedback(res, v, None)
     finally:
         shutil.rmtree(fixed, ignore_errors=True)
@@ -106,6 +108,7 @@ def one(pool: str, sid: str, ticks: dict, alive, structure=None, attempts: int =
         notes.append(f"Already tried: {json.dumps(acts)} -> {fb}")
     row = {"id": sid, "mode": "naive" if attempts == 1 else f"naive_x{attempts}", "detected": g.get("kind"),
            "roles": g.get("roles"), "cause": g.get("cause"), "error": g.get("error"), "solved": None, "attempts": tries,
+           "first_ticks": ticks,
            "actions": tries[-1]["actions"] if tries else (g.get("actions") or [])}
     if tries:  # top-level fields = the last try (as before), first_solved = the first try alone
         row.update({k: v for k, v in tries[-1].items() if k != "actions"})
