@@ -11,7 +11,12 @@
  * /dev/shmem/qdm.<pid> (RAM, served by procnto: no disk driver involved) on small counts and powers of two.
  * Line format: "<S|R> <M|P> <peer pid> <attempts> <done>"; plus "W C <own pid> <calls> 0" once the process calls a
  * receive at all (so the verifier knows whether a receiver reads its channel). snap prints these files.
- * Counts are states for the verifier, not timing (QNX licence 4.2(i)). */
+ * Counts are states for the verifier, not timing (QNX licence 4.2(i)).
+ *
+ * MsgDeliverEvent (2026-11-17, for the dev trap «notify_back»): the QNX idiom for a server that must tell its client
+ * something without sending back to it. Recorded as "S E <client pid>". The pid comes from the rcvid the event is
+ * delivered on (a small cache filled when the message arrived, since the rcvid may already be replied). The client
+ * gets the pulse on its own connection, so it cannot name the sender; structure.py does not ask for arrivals on E. */
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -62,6 +67,18 @@ static int qdt_server(int coid) {   /* pid that owns the channel behind our conn
   return r == coid ? si.pid : -1;
 }
 
+#define QDT_RC 16
+static struct { long rcvid; int pid; } qdt_rc[QDT_RC];   /* recent rcvid -> client pid, for MsgDeliverEvent */
+static unsigned qdt_rcn;
+
+static int qdt_rcvid_pid(long rcvid) {
+  for (unsigned i = 0; i < QDT_RC; i++) if (qdt_rc[i].rcvid == rcvid && qdt_rc[i].pid > 1) return qdt_rc[i].pid;
+  struct _msg_info mi;
+  int s = errno, r = MsgInfo(rcvid, &mi);
+  errno = s;
+  return r != -1 ? mi.pid : -1;
+}
+
 static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver side */
   if (rcvid > 0) {
     if (msg && bytes >= 2) {
@@ -70,7 +87,12 @@ static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver s
     }
     struct _msg_info mi;
     int s = errno;
-    if (MsgInfo(rcvid, &mi) != -1) qdt_add('R', 'M', mi.pid, 1, 1);
+    if (MsgInfo(rcvid, &mi) != -1) {
+      qdt_add('R', 'M', mi.pid, 1, 1);
+      pthread_mutex_lock(&qdt_mx);
+      qdt_rc[qdt_rcn++ % QDT_RC].rcvid = rcvid; qdt_rc[(qdt_rcn - 1) % QDT_RC].pid = mi.pid;
+      pthread_mutex_unlock(&qdt_mx);
+    }
     errno = s;
   } else if (rcvid == 0 && msg && bytes >= sizeof(struct _pulse)) {
     const struct _pulse *p = msg;
@@ -139,3 +161,15 @@ QDT_RECV(MsgReceivev, const struct iovec *, rcvid_t, 1)
 QDT_RECV(MsgReceivev_r, const struct iovec *, rcvid_t, 1)
 QDT_RECV(MsgReceivePulse, void *, int, 0)
 QDT_RECV(MsgReceivePulse_r, void *, int, 0)
+
+#define QDT_EVENT(name, C)                                                               \
+  extern int __real_##name(rcvid_t, const struct sigevent *);                          \
+  int __wrap_##name(rcvid_t rcvid, const struct sigevent *ev) {                         \
+    int peer = qdt_rcvid_pid(rcvid);                                                     \
+    qdt_add('S', 'E', peer, 1, 0);                                                       \
+    int v = __real_##name(rcvid, ev);                                                    \
+    if (v != -1 && !(v < 0 && (C))) qdt_add('S', 'E', peer, 0, 1);                       \
+    return v;                                                                            \
+  }
+QDT_EVENT(MsgDeliverEvent, 0)
+QDT_EVENT(MsgDeliverEvent_r, 1)

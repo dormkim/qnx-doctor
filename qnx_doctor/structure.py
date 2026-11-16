@@ -50,7 +50,7 @@ def parse_msgs(text: str) -> list[tuple]:
     """qd_trace lines → [(pid, dir, kind, peer, attempts, done)]."""
     out = []
     for line in text.splitlines():
-        m = re.match(r"\s*(\d+)\s+([SRW])\s+([MPC])\s+(\d+)\s+(\d+)\s+(\d+)\s*$", line)
+        m = re.match(r"\s*(\d+)\s+([SRW])\s+([MPCE])\s+(\d+)\s+(\d+)\s+(\d+)\s*$", line)
         if m:
             out.append((int(m[1]), m[2], m[3], int(m[4]), int(m[5]), int(m[6])))
     return out
@@ -114,6 +114,8 @@ def compare(before: dict, after: dict) -> list[str]:
             continue
         a = after["pairs"].get(k, {"done": 0, "recv": 0})
         reads = k.split(" -> ")[1] in after.get("receivers", []) or "receivers" not in after
+        if "E" in a.get("kinds", []):  # MsgDeliverEvent: the pulse comes on the client's own connection, sender unnamed
+            reads = False
         if a["done"] < MIN_DONE or (reads and a["recv"] < MIN_DONE):
             why.append(f"pair no longer exchanges messages: {k} (after the fix: {a['done']} completed sends, "
                        f"{a['recv']} received; need {MIN_DONE} each)")

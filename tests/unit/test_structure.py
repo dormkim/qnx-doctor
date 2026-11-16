@@ -120,3 +120,19 @@ class Parse(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeliverEvent(unittest.TestCase):
+    """2026-11-17: MsgDeliverEvent counts as a send (S E); the client cannot name the sender of the pulse it gets."""
+
+    def test_event_back_keeps_structure_without_named_arrival(self):
+        after = [m for m in msgs([(11, 12, "M"), (12, 13, "M")])] + [(13, "S", "E", 11, 9, 8), (11, "W", "C", 11, 1, 0)]
+        self.assertEqual(st.compare(HUNG, st.build(ARGS, after, threads())), [])
+
+    def test_event_that_never_goes_out_is_rejected(self):
+        after = [m for m in msgs([(11, 12, "M"), (12, 13, "M")])] + [(13, "S", "E", 11, 1, 0)]
+        why = st.compare(HUNG, st.build(ARGS, after, threads()))
+        self.assertTrue(any("c a -> " in w for w in why), why)
+
+    def test_parse_event_line(self):
+        self.assertEqual(st.parse_msgs("13 S E 11 9 8\n"), [(13, "S", "E", 11, 9, 8)])

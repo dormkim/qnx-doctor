@@ -73,6 +73,26 @@ def reply_hello(pool, sid):
     return [{"type": "edit_file", "path": path, "find": line, "replace": line.replace("continue; }", f"MsgReply({m[1]}, EOK, NULL, 0); continue; }}")}]
 
 
+def reply_then_event(pool, sid):
+    """The idiom the MsgDeliverEvent() docs give: the client registers a pulse event for this server
+    (MsgRegisterEvent) and hands it over once; the server replies to every request and then delivers the event."""
+    path, m = _find(pool, sid, r"    if \((\w+) == -1\) \1 = qd_open\(nx\);\n    qd_send\(\1, (\w+)\.app\.v\);\n    (MsgReply\((\w+), EOK, .*\);)\n")
+    msg, reply, rv = m[2], m[3], m[4]
+    hub = [{"type": "edit_file", "path": path, "find": m[0],
+            "replace": f"    if ({msg}.app.v == -2) {{ qd_hev = ((struct qd_evmsg *)&{msg})->ev; qd_hrc = {rv}; MsgReply({rv}, EOK, NULL, 0); continue; }}\n"
+                       f"    {reply}\n    if (qd_hrc) MsgDeliverEvent(qd_hrc, &qd_hev);\n"}]
+    _, d = _find(pool, sid, r"  name_attach_t \*at = qd_attach\(me\);\n  int (\w+) = -1;\n")
+    hub.append({"type": "edit_file", "path": path, "find": d[0], "replace": d[0] + "  struct sigevent qd_hev; rcvid_t qd_hrc = 0;\n"})
+    _, sub = _find(pool, sid, r"  name_attach_t \*at = qd_attach\(me\);\n  int (\w+) = qd_open\(nx\);\n")
+    c = sub[1]
+    reg = (f"  struct qd_evmsg qd_em = {{ QD_MSG, -2, {{0}} }};\n  int qd_self = ConnectAttach(0, 0, at->chid, _NTO_SIDE_CHANNEL, 0);\n"
+           f"  SIGEV_PULSE_INIT(&qd_em.ev, qd_self, SIGEV_PULSE_PRIO_INHERIT, 1, 0);\n  MsgRegisterEvent(&qd_em.ev, {c});\n"
+           f"  MsgSend({c}, &qd_em, sizeof qd_em, NULL, 0);\n")
+    top = '#include "../common/qd.h"\n'
+    return hub + [{"type": "edit_file", "path": path, "find": sub[0], "replace": sub[0] + reg},
+                  {"type": "edit_file", "path": path, "find": top, "replace": top + "struct qd_evmsg { uint16_t type; int32_t v; struct sigevent ev; };\n"}]
+
+
 def as_is(pool, sid):
     return []
 
@@ -81,7 +101,7 @@ def as_is(pool, sid):
 # and the three QNX trap kinds of traps.py (2026-11-17).
 CASES = [("t54e3fe", "ring_mode_by_name", ring_mode_by_name), ("t54e3fe", "ring_pulse", ring_pulse),
          ("t6dd334", "ring_pulse", ring_pulse), ("t151018", "chain_inherit", chain_inherit), ("tcb2750", "as_is", as_is),
-         ("t363df3", "reply_then_pulse", reply_then_pulse), ("t5e594f", "flags_inherit", flags_inherit),
+         ("t363df3", "reply_then_pulse", reply_then_pulse), ("t363df3", "reply_then_event", reply_then_event), ("t5e594f", "flags_inherit", flags_inherit),
          ("t9273af", "reply_hello", reply_hello)]
 
 
