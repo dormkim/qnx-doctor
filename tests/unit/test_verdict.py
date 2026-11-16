@@ -23,8 +23,12 @@ class FakeFixes(unittest.TestCase):
     def test_prints_one_tick_then_exits(self):
         self.assertFalse(restarted(FIRST, rerun(ticks={"d0cli": 1, "d0wait": 1, "d0decoy": 7})))
 
-    def test_only_one_of_the_stopped_loops_resumes(self):
-        self.assertFalse(restarted(FIRST, rerun(ticks={"d0cli": 9, "d0wait": 0, "d0decoy": 7})))
+    def test_a_loop_that_was_ticking_stops(self):
+        self.assertFalse(restarted(FIRST, rerun(ticks={"d0cli": 9, "d0wait": 9, "d0decoy": 0})))
+
+    def test_roles_that_never_tick_may_stay_at_zero(self):  # sealed D03: server and logger log but never TICK
+        first = {"ticks": {"d03cli": 0, "d03srv": 0, "d03log": 0}, "alive": 3}
+        self.assertTrue(restarted(first, rerun(ticks={"d03cli": 9, "d03srv": 0, "d03log": 0}, alive=3)))
 
     def test_a_peer_quits_so_nobody_waits(self):  # no cycle left because a member is gone
         self.assertFalse(restarted(FIRST, rerun(alive=3)))

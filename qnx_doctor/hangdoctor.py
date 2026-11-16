@@ -13,14 +13,17 @@ MIN_TICKS = 2  # a loop, not one print on the way out
 
 
 def restarted(first, res):
-    """Fixed = the rerun has no cycle/chain AND every loop that printed no TICK before now ticks (at least
-    MIN_TICKS) AND no process of the program has gone away. Without the last two, a «fix» that prints one TICK
-    and exits, or that makes a peer quit so nobody waits on it, would count (judge-attack tests, 2026-11-16,
-    set before the first held-out run)."""
+    """Fixed = the rerun has no cycle/chain AND at least one loop that printed no TICK before now ticks (at least
+    MIN_TICKS) AND no loop that was ticking before has stopped AND no process of the program has gone away.
+    A «fix» that prints one TICK and exits, breaks a working loop, or makes a peer quit does not count.
+    Not «every 0-TICK log must resume»: some roles write a log but never print TICK (sealed D03 server/logger) —
+    that stricter rule (set 2026-11-16 before the held-out run) rejected real fixes; replaced after that run."""
     if not res.get("ok") or res["judge"]["kind"] != "none":
         return False
-    stopped = [k for k, v in first["ticks"].items() if v == 0]
-    if not stopped or any(res["ticks"].get(k, 0) < MIN_TICKS for k in stopped):
+    before, after = first["ticks"], res["ticks"]
+    if not any(v == 0 and after.get(k, 0) >= MIN_TICKS for k, v in before.items()):
+        return False
+    if any(v > 0 and after.get(k, 0) == 0 for k, v in before.items()):
         return False
     return res.get("alive", 0) >= first.get("alive", 0)
 
@@ -75,6 +78,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
         if res and res.get("ok"):
             entry["rerun_graph"] = res["graph"]
             entry["rerun_ticks"] = {k: ("yes" if v else "no") for k, v in res["ticks"].items()}
+            entry["rerun_tick_counts"], entry["rerun_alive"] = res["ticks"], res.get("alive")  # states for re-judging
         timeline.append(entry)
         tried.append({"actions": acts, "result": msg})
         shutil.rmtree(fixed, ignore_errors=True)
