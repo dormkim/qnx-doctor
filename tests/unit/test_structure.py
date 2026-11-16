@@ -22,6 +22,7 @@ def msgs(pairs, done=8, recv=8):
     for s, d, k in pairs:
         out.append((s, "S", k, d, done + 1, done))
         out.append((d, "R", k, s, recv, recv))
+        out.append((d, "W", "C", d, 1, 0))  # the receiver calls a receive
     return out
 
 
@@ -49,6 +50,16 @@ class Structure(unittest.TestCase):
         lines = [m for m in msgs(RING) if not (m[0] == 11 and m[1] == "R")]
         why = st.compare(HUNG, st.build(ARGS, lines, threads()))
         self.assertTrue(any("0 received" in w for w in why), why)
+
+    def test_receiver_that_never_reads_is_reported_not_rejected(self):  # v1 starter: attaches a name, never receives
+        lines = [m for m in msgs(RING) if m[0] != 11 or m[1] == "S"]
+        after = st.build(ARGS, lines, threads())
+        self.assertEqual(st.compare(HUNG, after), [])
+        self.assertEqual(st.unread(HUNG, after), [f"{C} -> {A}"])
+
+    def test_removing_a_receive_call_is_static(self):
+        self.assertTrue(st.receive_removed("  int r = qd_receive(at->chid, &m);\n", "  int r = 0;\n"))
+        self.assertFalse(st.receive_removed("qd_receive(a, &m);", "MsgReceive(a, &m, sizeof m, NULL);"))
 
     def test_rewired_run_sh_changes_who_runs(self):  # held-out sa44ba6: peer name changed in run.sh
         args = {**ARGS, 13: "/var/qd/s1/x ring c d"}

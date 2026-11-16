@@ -40,7 +40,7 @@ def judge(scen, sid, first, acts):
     res = hang.observe(fixed, sid)
     shutil.rmtree(fixed, ignore_errors=True)
     v = verdict(first, res)
-    return {"fixed": v["fixed"], "live": v["live"], "structure_why": v["structure"], "static_reject": False,
+    return {"fixed": v["fixed"], "live": v["live"], "structure_why": v["structure"], "static_reject": False, "unread": v["unread"], "after_structure": res.get("structure"),
             "rerun_kind": (res.get("judge") or {}).get("kind"), "rerun_ticks": res.get("ticks")}
 
 

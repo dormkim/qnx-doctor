@@ -34,7 +34,8 @@ def verdict(first, res) -> dict:
     a fix that only passes liveness is counted as a rejected shortcut, not silently as a failure."""
     live = restarted(first, res)
     why = st.compare(first.get("structure"), res.get("structure")) if res.get("ok") else []
-    return {"fixed": live and not why, "live": live, "structure": why}
+    return {"fixed": live and not why, "live": live, "structure": why,
+            "unread": st.unread(first.get("structure"), res.get("structure")) if res.get("ok") else []}
 
 
 def _graph_entry(obs):
@@ -86,7 +87,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
                    f"still hung: {res.get('graph') or res.get('stage') + ' failed: ' + res.get('log', '')}")
         entry = {"kind": "ai_fix", "cause": payload.get("cause"), "culprit": payload.get("culprit"),
                  "evidence": payload.get("evidence"), "doc_refs": payload.get("doc_refs"), "actions": acts,
-                 "diff": hang.diff(work, fixed, name), "result": msg, "live": v["live"], "structure_why": v["structure"],
+                 "diff": hang.diff(work, fixed, name), "result": msg, "live": v["live"], "structure_why": v["structure"], "unread": v.get("unread"),
                  "static_reject": bool(err and err.startswith(st.STATIC)), "pids_ok": hang.pids_checked(payload, first),
                  **hang.checked_claims(work, payload)}
         if res and res.get("ok"):

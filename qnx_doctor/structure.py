@@ -11,8 +11,12 @@ Processes are matched across the two boots by command line, never by pid (pids d
 Rules, checked by `compare(before, after)`:
   1. same set of program processes (by command line) — none gone, none added, run.sh wiring unchanged at runtime;
   2. every pair (sender → receiver) that tried to send before the fix has, after it, at least MIN_DONE completed
-     sends (MsgSend returned = the receiver replied; pulse delivered) AND the receiver counted at least MIN_DONE
-     arrivals from that sender (message or pulse). A pulse instead of a synchronous send is fine; no send is not;
+     sends (MsgSend returned = the receiver replied; pulse delivered) AND, if the receiver reads its channel at all
+     in the rerun, it counted at least MIN_DONE arrivals from that sender (message or pulse). A pulse instead of a
+     synchronous send is fine; no send is not. A receiver that never calls a receive (a client that only attached
+     a name, like the v1 generator's starter) cannot count arrivals; such pulses are kept as `unread` pairs
+     (2026-11-16, set after the v1 re-judge showed it, before the v2 held-out run). Removing receive calls from the
+     source to get there is rejected statically (`receive_removed`);
   3. no thread removed from any program process;
   4. a process that took no part in messaging before (a CPU load, say) keeps its threads' priorities and stays busy
      where it was busy (lowering or idling the load is not a fix of the program).
@@ -46,7 +50,7 @@ def parse_msgs(text: str) -> list[tuple]:
     """qd_trace lines → [(pid, dir, kind, peer, attempts, done)]."""
     out = []
     for line in text.splitlines():
-        m = re.match(r"\s*(\d+)\s+([SR])\s+([MP])\s+(\d+)\s+(\d+)\s+(\d+)\s*$", line)
+        m = re.match(r"\s*(\d+)\s+([SRW])\s+([MPC])\s+(\d+)\s+(\d+)\s+(\d+)\s*$", line)
         if m:
             out.append((int(m[1]), m[2], m[3], int(m[4]), int(m[5]), int(m[6])))
     return out
@@ -66,11 +70,14 @@ def build(args: dict[int, str], msgs: list[tuple], threads) -> dict:
     """One boot → {"procs": [...], "pairs": {"a -> b": {...}}, "threads": {ident: [[prio, busy], ...]}}."""
     ids = idents(args)
     pairs = {}
+    receivers = sorted({ids[m[0]] for m in msgs if m[1] == "W" and m[0] in ids})
 
     def pair(src, dst):
         return pairs.setdefault(f"{ids[src]} -> {ids[dst]}", {"att": 0, "done": 0, "recv": 0, "kinds": []})
 
     for pid, d, kind, peer, att, done in msgs:
+        if d == "W":
+            continue
         if pid not in ids or peer not in ids or pid == peer:
             continue  # system servers (procnto, devb, ...) and self: not a pair of the program
         p = pair(pid, peer) if d == "S" else pair(peer, pid)
@@ -84,7 +91,7 @@ def build(args: dict[int, str], msgs: list[tuple], threads) -> dict:
     for t in threads:
         if t.pid in ids:
             th.setdefault(ids[t.pid], []).append([t.prio, t.state in RUNNABLE])
-    return {"procs": sorted(ids.values()), "pairs": pairs, "threads": {k: sorted(v, key=str) for k, v in th.items()}}
+    return {"procs": sorted(ids.values()), "pairs": pairs, "receivers": receivers, "threads": {k: sorted(v, key=str) for k, v in th.items()}}
 
 
 def _talkers(pairs) -> set[str]:
@@ -106,7 +113,8 @@ def compare(before: dict, after: dict) -> list[str]:
         if not v["att"]:
             continue
         a = after["pairs"].get(k, {"done": 0, "recv": 0})
-        if a["done"] < MIN_DONE or a["recv"] < MIN_DONE:
+        reads = k.split(" -> ")[1] in after.get("receivers", []) or "receivers" not in after
+        if a["done"] < MIN_DONE or (reads and a["recv"] < MIN_DONE):
             why.append(f"pair no longer exchanges messages: {k} (after the fix: {a['done']} completed sends, "
                        f"{a['recv']} received; need {MIN_DONE} each)")
     talk = _talkers(before["pairs"])
@@ -122,6 +130,21 @@ def compare(before: dict, after: dict) -> list[str]:
 
 
 STATIC = "rejected (structure):"
+
+
+RECV = re.compile(r"\b(?:MsgReceive\w*|qd_receive)\s*\(")
+
+
+def receive_removed(before: str, after: str) -> bool:
+    """A fix must not take receive calls out of a source file (that would silence a receiver, see rule 2)."""
+    return len(RECV.findall(after)) < len(RECV.findall(before))
+
+
+def unread(before: dict, after: dict) -> list[str]:
+    """Pairs whose sends complete but whose receiver never reads its channel (reported, not rejected)."""
+    if not before or not after:
+        return []
+    return [k for k, v in sorted(before["pairs"].items()) if v["att"] and k.split(" -> ")[1] not in after.get("receivers", [])]
 
 
 def static_reject(actions: list) -> str | None:

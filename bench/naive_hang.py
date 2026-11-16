@@ -66,7 +66,7 @@ def one(pool: str, sid: str, ticks: dict, alive, structure=None) -> dict:
         else:
             res = hang.observe(fixed, sid)
             v = verdict({"ticks": ticks, "alive": alive or 0, "structure": structure}, res)
-            row.update(solved=v["fixed"], live=v["live"], structure_why=v["structure"],
+            row.update(solved=v["fixed"], live=v["live"], structure_why=v["structure"], unread=v["unread"],
                        result="rerun: no cycle/chain, loop ticks again, same message structure" if v["fixed"] else
                        "rejected: alive again but the message structure changed" if v["live"] else
                        f"still hung: {res.get('graph') or res.get('stage') + ' failed'}")

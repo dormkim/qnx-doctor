@@ -212,10 +212,15 @@ def apply_fix(scen_dir, acts):
     why = st.static_reject(acts)
     if why:
         return work, why
+    orig = {a.get("path"): open(os.path.join(work, a["path"]), errors="replace").read()
+            for a in acts if os.path.isfile(os.path.join(work, str(a.get("path", ""))))}
     try:
         act.apply({"argv": ["true"], "cwd": "."}, acts, work)
     except act.Rejected as e:
         return work, f"rejected: {e}"
+    for path, text in orig.items():
+        if st.receive_removed(text, open(os.path.join(work, path), errors="replace").read()):
+            return work, f"{st.STATIC} {path}: the fix removes a receive call (a receiver must keep reading its channel)"
     return work, None
 
 

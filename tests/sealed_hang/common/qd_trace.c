@@ -9,7 +9,8 @@
  *
  * Record per (direction, kind, peer pid): attempts and completions. Kept in RAM and rewritten to
  * /dev/shmem/qdm.<pid> (RAM, served by procnto: no disk driver involved) on small counts and powers of two.
- * Line format: "<S|R> <M|P> <peer pid> <attempts> <done>". snap prints these files with the pidin snapshot.
+ * Line format: "<S|R> <M|P> <peer pid> <attempts> <done>"; plus "W C <own pid> <calls> 0" once the process calls a
+ * receive at all (so the verifier knows whether a receiver reads its channel). snap prints these files.
  * Counts are states for the verifier, not timing (QNX licence 4.2(i)). */
 #include <errno.h>
 #include <fcntl.h>
@@ -40,7 +41,7 @@ static void qdt_flush(void) {   /* caller holds qdt_mx */
 }
 
 static void qdt_add(char dir, char kind, int peer, int att, int done) {
-  if (peer <= 1) return;        /* unknown peer or procnto: not an application pair */
+  if (peer <= 1 && dir != 'W') return;        /* unknown peer or procnto: not an application pair */
   int s = errno;
   pthread_mutex_lock(&qdt_mx);
   int i = 0;
@@ -126,6 +127,7 @@ QDT_PULSE(MsgSendPulsePtr_r, void *, 1)
 #define QDT_RECV(name, B, RET, C)                                                        \
   extern RET __real_##name(int, B, size_t, struct _msg_info *);                        \
   RET __wrap_##name(int chid, B m, size_t n, struct _msg_info *info) {                  \
+    qdt_add('W', 'C', getpid(), 1, 0);                                                   \
     RET v = __real_##name(chid, m, n, info);                                             \
     if (v >= 0) qdt_got(v, (C) ? NULL : (const void *)m, (C) ? 0 : n);                   \
     return v;                                                                            \
