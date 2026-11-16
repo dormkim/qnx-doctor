@@ -1,0 +1,10 @@
+{
+ "_note": "Sealed 2026-11-16 (KST) right after writing gen2.py, before any run of the held-out v2 pool and without opening its scenarios or labels. Regenerate with `python3 tests/gen_hang/gen2.py --pool heldout --out DIR --hash-only` and compare; scenario_tree_sha256 covers every generated file except common/ (harness) and labels.json.",
+ "generator": "tests/gen_hang/gen2.py",
+ "gen_version": 2,
+ "pool": "heldout",
+ "n": 30,
+ "labels_sha256": "07b4c20c4d24a3b8e12a65a779ffeab4a5f2d927279b042da4807d7cb1237bc7",
+ "scenario_tree_sha256": "139c2a030298a737a6523c6a03a81d1933718525e5208f216907fcd3b387cbd0",
+ "dev_labels_sha256": "5bffe48ea5485fe9218415486c4c1a2f852de97993c663f25c4d2f4c484e8e68"
+}
