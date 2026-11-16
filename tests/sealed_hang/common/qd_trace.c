@@ -14,9 +14,18 @@
  * Counts are states for the verifier, not timing (QNX licence 4.2(i)).
  *
  * MsgDeliverEvent (2026-11-17, for the dev trap «notify_back»): the QNX idiom for a server that must tell its client
- * something without sending back to it. Recorded as "S E <client pid>". The pid comes from the rcvid the event is
- * delivered on (a small cache filled when the message arrived, since the rcvid may already be replied). The client
- * gets the pulse on its own connection, so it cannot name the sender; structure.py does not ask for arrivals on E. */
+ * something without sending back to it. Both ends are recorded, so the pair counts like any other:
+ *   server  "S E <client pid>"  the pid comes from the rcvid the event is delivered on, through a cache filled when the
+ *                               client's message arrived (the rcvid is usually replied by then, so MsgInfo fails);
+ *   client  "G E <server pid>"  once, when it registers a pulse event for that server (MsgRegisterEvent: the coid
+ *                               names the only server allowed to deliver it; QNX 8 delivers only registered events);
+ *           "R E <server pid>"  for each pulse with that code arriving on the client's own connection (that is how a
+ *                               delivered SIGEV_PULSE looks to the receiver: its scoid is the client's own coid).
+ * Why the cache is keyed by the low 32 bits of the rcvid (fixed 2026-11-16, evening): rcvid_t is 64 bits on QNX 8. On dev
+ * t363df3 the server received 0x4000000100000001, 0x4001000100000001, ... (the high half changes with every message,
+ * the low half stays per client), while qd_receive() in qd.h returns int, so the program kept 0x1 and passed that to
+ * MsgDeliverEvent. The kernel delivered it (the client got every pulse), MsgInfo(0x1) failed with ESRCH, and a cache
+ * keyed by the full value never matched: a correct MsgDeliverEvent fix was rejected 3 of 3. */
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -68,15 +77,32 @@ static int qdt_server(int coid) {   /* pid that owns the channel behind our conn
 }
 
 #define QDT_RC 64
-static struct { long rcvid; int pid; } qdt_rc[QDT_RC];   /* recent rcvid -> client pid, for MsgDeliverEvent */
+#define QDT_KEY(r) ((uint32_t)(r))   /* low half of the rcvid: what a program that stores it in an int still has */
+static struct { uint32_t key; int pid; } qdt_rc[QDT_RC];   /* rcvid (low half) -> client pid, for MsgDeliverEvent */
 static unsigned qdt_rcn;
 
 static int qdt_rcvid_pid(long rcvid) {
-  for (unsigned i = 0; i < QDT_RC; i++) if (qdt_rc[i].rcvid == rcvid && qdt_rc[i].pid > 1) return qdt_rc[i].pid;
+  int pid = -1;
+  pthread_mutex_lock(&qdt_mx);
+  for (unsigned i = 0; i < QDT_RC; i++) if (qdt_rc[i].key == QDT_KEY(rcvid) && qdt_rc[i].pid > 1) pid = qdt_rc[i].pid;
+  pthread_mutex_unlock(&qdt_mx);
+  if (pid > 1) return pid;
   struct _msg_info mi;
   int s = errno, r = MsgInfo(rcvid, &mi);
   errno = s;
   return r != -1 ? mi.pid : -1;
+}
+
+#define QDT_REG 8
+static struct { int code, any, pid; } qdt_reg[QDT_REG];   /* pulse events this process registered: code -> server pid */
+static int qdt_regn;
+
+static int qdt_reg_server(int code) {
+  int pid = -1;
+  pthread_mutex_lock(&qdt_mx);
+  for (int i = 0; i < qdt_regn; i++) if (qdt_reg[i].any || qdt_reg[i].code == code) pid = qdt_reg[i].pid;
+  pthread_mutex_unlock(&qdt_mx);
+  return pid;
 }
 
 static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver side */
@@ -91,9 +117,9 @@ static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver s
       qdt_add('R', 'M', mi.pid, 1, 1);
       pthread_mutex_lock(&qdt_mx);
       unsigned i = 0;
-      while (i < QDT_RC && qdt_rc[i].rcvid != rcvid) i++;
-      if (i == QDT_RC) i = qdt_rcn++ % QDT_RC;   /* new rcvid: replace the oldest entry */
-      qdt_rc[i].rcvid = rcvid; qdt_rc[i].pid = mi.pid;
+      while (i < QDT_RC && !(qdt_rc[i].pid && qdt_rc[i].key == QDT_KEY(rcvid))) i++;
+      if (i == QDT_RC) i = qdt_rcn++ % QDT_RC;   /* new client slot: replace the oldest entry */
+      qdt_rc[i].key = QDT_KEY(rcvid); qdt_rc[i].pid = mi.pid;   /* a reused slot names its latest client */
       pthread_mutex_unlock(&qdt_mx);
     }
     errno = s;
@@ -102,7 +128,11 @@ static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver s
     if (p->code < 0) return;                        /* kernel pulses (disconnect, ...) */
     struct _client_info ci;
     int s = errno;
-    if (ConnectClientInfo(p->scoid, &ci, 0) != -1) qdt_add('R', 'P', ci.pid, 1, 1);
+    if (ConnectClientInfo(p->scoid, &ci, 0) != -1) {
+      int srv = ci.pid == getpid() ? qdt_reg_server(p->code) : -1;   /* own connection + registered code: an event */
+      if (srv > 1) qdt_add('R', 'E', srv, 1, 1);
+      else qdt_add('R', 'P', ci.pid, 1, 1);
+    }
     errno = s;
   }
 }
@@ -176,3 +206,26 @@ QDT_RECV(MsgReceivePulse_r, void *, int, 0)
   }
 QDT_EVENT(MsgDeliverEvent, 0)
 QDT_EVENT(MsgDeliverEvent_r, 1)
+
+/* Client side of MsgDeliverEvent: remember which server may deliver which pulse code. The event is copied before the
+ * call, because MsgRegisterEvent() replaces it with a handle. Signal events are not counted at the client (they are
+ * not read from a channel); structure.py then treats that pair like an unread pulse. */
+#define QDT_REGEV(name)                                                                  \
+  extern int __real_##name(struct sigevent *, int);                                    \
+  int __wrap_##name(struct sigevent *ev, int coid) {                                    \
+    int pulse = ev && (ev->sigev_notify & SIGEV_TYPE_MASK) == SIGEV_PULSE;               \
+    int code = pulse ? ev->sigev_code : 0, any = pulse && (ev->sigev_notify & SIGEV_FLAG_CODE_UPDATEABLE); \
+    int v = __real_##name(ev, coid);                                                     \
+    int srv = pulse && v == EOK ? qdt_server(coid) : -1;                                 \
+    if (srv > 1) {                                                                       \
+      int s = errno;                                                                     \
+      pthread_mutex_lock(&qdt_mx);                                                       \
+      if (qdt_regn < QDT_REG) { qdt_reg[qdt_regn].code = (signed char)code; qdt_reg[qdt_regn].any = any; qdt_reg[qdt_regn++].pid = srv; } \
+      pthread_mutex_unlock(&qdt_mx);                                                     \
+      errno = s;                                                                         \
+      qdt_add('G', 'E', srv, 1, 0);                                                      \
+    }                                                                                    \
+    return v;                                                                            \
+  }
+QDT_REGEV(MsgRegisterEvent)
+QDT_REGEV(MsgRegisterEvent_r)

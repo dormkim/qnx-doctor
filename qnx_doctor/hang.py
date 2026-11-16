@@ -25,7 +25,7 @@ QCC = ["qcc", "-Vgcc_ntox86_64"]
 # Link-level, so the program's source — including an AI fix — cannot opt out (see qd_trace.c and structure.py).
 TRACE_CALLS = [f"MsgSend{v}{r}" for v in ("", "nc", "sv", "svnc", "vs", "vsnc", "v", "vnc") for r in ("", "_r")] + \
     [f"MsgSendPulse{v}{r}" for v in ("", "Ptr") for r in ("", "_r")] + \
-    [f"MsgReceive{v}{r}" for v in ("", "v", "Pulse") for r in ("", "_r")] + ["MsgDeliverEvent", "MsgDeliverEvent_r"]
+    [f"MsgReceive{v}{r}" for v in ("", "v", "Pulse") for r in ("", "_r")] + ["MsgDeliverEvent", "MsgDeliverEvent_r", "MsgRegisterEvent", "MsgRegisterEvent_r"]
 WRAP = ["-Wl," + ",".join(f"--wrap={c}" for c in TRACE_CALLS)]
 MKIMG = ["mkqnximage", "--type=qemu", "--arch=x86_64", "--ssh-ident=none", "--noprompt", "--clean"]
 

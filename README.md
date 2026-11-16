@@ -58,7 +58,7 @@ Unit tests (no SDP needed): `python3 -m unittest discover tests/unit`.
 |---|---|---|
 | `pidin` (thread state, `Blocked` column, priority) | `common/snap.c`, `qnx_doctor/waitgraph.py` | The wait-for graph: SEND/REPLY edges to the peer process, cycles (deadlock), priority chains (READY low-priority server, runnable middle thread), missing replies (REPLY-blocked on a process whose threads all wait in RECEIVE) |
 | `pidin arg` | `common/snap.c`, `qnx_doctor/structure.py` | Match processes across two boots by command line, not by pid |
-| `MsgSend*`, `MsgSendPulse*`, `MsgReceive*`, `MsgDeliverEvent` with `-Wl,--wrap` | `common/qd_trace.c` | Message-structure recorder. A fix must keep every pair that talked before |
+| `MsgSend*`, `MsgSendPulse*`, `MsgReceive*`, `MsgDeliverEvent`, `MsgRegisterEvent` with `-Wl,--wrap` | `common/qd_trace.c` | Message-structure recorder. A fix must keep every pair that talked before. An event pair is recorded at both ends: the server names the client from the rcvid, the client names the server from the event it registered and counts its pulses |
 | `MsgInfo`, `ConnectClientInfo`, `ConnectServerInfo` | `common/qd_trace.c` | Name the peer process of each message, pulse and event |
 | `/dev/shmem` (RAM files served by `procnto`) | `common/qd_trace.c`, `common/snap.c` | Records and snapshots that need no disk driver while a CPU load runs |
 | `pthread_setschedprio`, priorities 63 / 50 / 10 | `common/snap.c`, `common/hi.c`, `common/qd_start.c` | Observer above the scenario; scenario programs at the normal priority |

@@ -118,8 +118,6 @@ class Parse(unittest.TestCase):
         self.assertEqual(st.parse_msgs("200723 S M 200724 1 0\njunk\n"), [(200723, "S", "M", 200724, 1, 0)])
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class DeliverEvent(unittest.TestCase):
@@ -136,3 +134,32 @@ class DeliverEvent(unittest.TestCase):
 
     def test_parse_event_line(self):
         self.assertEqual(st.parse_msgs("13 S E 11 9 8\n"), [(13, "S", "E", 11, 9, 8)])
+
+    # 2026-11-16, evening: the client side of the event is recorded too (G E = registered for that server, R E = arrivals).
+    BASE = [m for m in msgs([(11, 12, "M"), (12, 13, "M")])] + [(11, "W", "C", 11, 1, 0)]  # the client reads its channel
+
+    def test_registered_event_both_ends_keeps_structure(self):
+        after = self.BASE + [(13, "S", "E", 11, 9, 8), (11, "G", "E", 13, 1, 0), (11, "R", "E", 13, 8, 8)]
+        b = st.build(ARGS, after, threads())
+        self.assertEqual(st.compare(HUNG, b), [])
+        self.assertEqual(st.unread(HUNG, b), [])
+
+    def test_registered_event_never_arrives_is_rejected(self):
+        after = self.BASE + [(13, "S", "E", 11, 9, 8), (11, "G", "E", 13, 1, 0)]
+        why = st.compare(HUNG, st.build(ARGS, after, threads()))
+        self.assertTrue(any("c a -> " in w and "0 received" in w for w in why), why)
+
+    def test_client_pulsing_itself_without_server_delivery_is_rejected(self):
+        after = self.BASE + [(11, "G", "E", 13, 1, 0), (11, "R", "E", 13, 8, 8)]
+        why = st.compare(HUNG, st.build(ARGS, after, threads()))
+        self.assertTrue(any("c a -> " in w and "0 completed sends" in w for w in why), why)
+
+    def test_unregistered_event_is_reported_unread(self):
+        after = self.BASE + [(13, "S", "E", 11, 9, 8)]
+        b = st.build(ARGS, after, threads())
+        self.assertEqual(st.compare(HUNG, b), [])
+        self.assertEqual(st.unread(HUNG, b), [f"{C} -> {A}"])
+
+
+if __name__ == "__main__":
+    unittest.main()

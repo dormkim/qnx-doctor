@@ -75,7 +75,7 @@ the table gives the same verdict 3 times in a row.
   range are errors (EBADF, ENOSYS) or a wait on procnto (pid 1, outside the graph), not a wait between two programs.
   It needs a different symptom (error path) before it fits this judge.
 
-**Open: the MsgDeliverEvent fix is rejected, 3 of 3 (steady, but wrong).** The client ticks again (alive), so the event
+**Open (fixed the same day, see «MsgDeliverEvent fix accepted» below): the MsgDeliverEvent fix is rejected, 3 of 3 (steady, but wrong).** The client ticks again (alive), so the event
 is delivered, yet `qd_trace` records no completed send from the server to the client. The tracer names the client from
 the rcvid saved with the event. That rcvid was already replied, so MsgInfo fails, and the rcvid cache did not match
 either (also with a deduplicated cache of 64). Until this is fixed, a correct MsgDeliverEvent fix counts as «pair no
@@ -86,3 +86,76 @@ longer exchanges». Next: record the client pid when the event is handed over, o
   The held-out v2 numbers stay as run; they are not re-judged with the new rule. The next clean number is the new
   sealed set (11/19–21).
 - v1 sets and sealed D01–D07 use the same `common/`, so a rerun of them now uses the new harness.
+
+## MsgDeliverEvent fix accepted (2026-11-16 evening; plan item «11/18»)
+Raw rows: server `runs/ev_1116/` (`stab_event.jsonl`, `fake.jsonl`). Dev pools only (`/tmp/qd_dev_ev2` = dev v2 +
+traps, `/tmp/qd_dev_ev1` = the v1 dev pool of `fake_fix_check.py`, both with the new `common/`). Held-out and sealed
+sets were not opened or run.
+
+**Cause** (probe on dev t363df3, one boot): `rcvid_t` is 64 bits on QNX 8. The server received
+`0x4000000100000001`, `0x4001000100000001`, ... (the high half changes with every message, the low half stays per
+client). `qd_receive()` in `common/qd.h` returns `int`, so the program kept `0x1` and passed it to MsgDeliverEvent.
+The kernel delivered the event (the client counted every pulse), but `MsgInfo(0x1)` failed with ESRCH and the
+recorder's cache was keyed by the full 64-bit value, so no `S E` line was ever written.
+
+**What changed** (`common/qd_trace.c`, `qnx_doctor/structure.py`, `qnx_doctor/hang.py`):
+1. Server end: the rcvid → client pid cache is keyed by the low 32 bits (what a program that stores the rcvid in an
+   `int` still has, and what the kernel accepted). One entry per client slot, so it no longer ages out.
+2. Client end (new): `MsgRegisterEvent` is wrapped too. When a client registers a pulse event, `G E <server pid>`
+   is written (the coid names the only server allowed to deliver it). A pulse with that code arriving on the
+   client's own connection (how a delivered SIGEV_PULSE looks to the receiver) is counted as `R E <server pid>`.
+3. Verifier: an event pair now needs both ends, like a message or a pulse: ≥ 2 events delivered by the server to
+   that client, and, when the client registered a pulse event for that server, ≥ 2 arrivals at the client. A signal
+   event (or no registration seen) cannot be counted at the client; that pair is reported as `unread`, not rejected.
+   Unit tests: `tests/unit/test_structure.py` (`DeliverEvent`, 7 cases).
+
+**Results (dev, new harness, one QEMU guest at a time)**
+
+| scenario (dev) | fix | expected | 3 reruns |
+|---|---|---|---|
+| trap notify_back t363df3 (first boot: deadlock) | reply first, then MsgSendPulse | fixed | fixed ×3 |
+| t363df3 | client registers a pulse event (MsgRegisterEvent), server replies, then MsgDeliverEvent | fixed | **fixed ×3** (was «pair no longer exchanges» ×3) |
+| t363df3 | shortcut: event registered, server never delivers, client pulses itself with the same code | rejected | rejected ×3, alive again each time: the client side shows arrivals, the server side shows no event sent |
+
+One more rerun of the MsgDeliverEvent fix (`event_pairs.jsonl`) shows the pair counted at both ends (sends done,
+registration seen, arrivals counted) and no `unread` pair, so it passes on the event records, not by skipping the
+client side.
+
+The six shortcuts of `bench/fake_fix_check.py` (v1 dev ring s9370e5, v1 dev chain s31f015), with the new recorder:
+
+| fix | expected | result |
+|---|---|---|
+| ring: pulse to the next member | fixed | fixed |
+| ring: `run.sh` peer renamed | rejected | rejected (static) |
+| ring: one member stops sending | rejected | rejected: alive again, a pair no longer exchanges |
+| ring: every member stops sending | rejected | rejected |
+| chain: channel without `_NTO_CHF_FIXED_PRIORITY` | fixed | fixed |
+| chain: CPU-load threads removed | rejected | rejected (load process gone) |
+| chain: CPU load lowered to priority 1 | rejected | rejected, but this time because the **client was gone** (not on the load's priorities as on 11/16) |
+| chain: client stops sending | rejected | rejected: alive again, the pair no longer exchanges |
+
+All 6 shortcuts are still rejected. The «CPU load lowered» row was rejected for a different reason than before: the
+v1 chain client exited (the known v1 id-file race, see «Caveats» of `measure_structure_1116.md`; v1 is sealed and
+keeps it). That row does not show the load-priority rule working on this run.
+
+**Why and when the rule changed.** The verifier rule for event pairs was changed on 2026-11-16 after seeing the
+dev result above (3 of 3 correct MsgDeliverEvent fixes rejected). It is a rule changed after looking at results.
+The v2 held-out numbers stay as run and are not re-judged. The first clean measurement with this rule is the new
+sealed set (11/19–21).
+
+## Design note: symptoms the wait graph cannot show (`_NTO_SIDE_CHANNEL` missing) — not implemented
+- **The symptom.** `ConnectAttach()` without `_NTO_SIDE_CHANNEL` returns a connection id in the file-descriptor
+  range. Nothing blocks: the failure shows up as an error (EBADF after the program closes or `dup2`s «its» fds,
+  ENOSYS when a stray `read`/`write` reaches the program's own server as an `_IO_*` message), or a child process
+  inherits the connection. `pidin` shows no SEND/REPLY edge between two programs, so the hang judge sees nothing.
+- **Observe** (same recorder, no new tool): wrap `ConnectAttach` and record `A F <server pid> <coid>` when the flags
+  lack `_NTO_SIDE_CHANNEL`; record failed sends with their errno (`S M <peer> ...` already counts attempts vs done;
+  add the errno). On the server side, count `_IO_*` messages from a client that never opened it by path (today
+  `qdt_got` drops them as name_open traffic).
+- **Judge**: a new kind `fd_range_coid` only with run-time evidence: an fd-range coid AND (failed sends with EBADF,
+  or `_IO_*` traffic from that client, or the coid seen in a child). A missing flag in the source alone is a hint for
+  the AI, not a verdict.
+- **Fixed**: the rerun shows the same connection in the side-channel range, no failed sends, and the same message
+  pairs (existing rule).
+- **Before adding a trap** (dev pool only): reproduce the error path 3 of 3 on the target first, as for the other
+  traps.

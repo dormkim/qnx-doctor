@@ -5,7 +5,9 @@ member stop sending. The rerun was alive, so a liveness-only verifier called the
 the program still does what it did: the same processes, and every pair that exchanged messages still exchanges them.
 
 Inputs come from one boot (check.sh → snap): `pidin arg` (pid → command line) and the qd_trace records
-(common/qd_trace.c, linked into every program): "<pid> <S|R> <M|P> <peer pid> <attempts> <done>".
+(common/qd_trace.c, linked into every program): "<pid> <S|R> <M|P|E> <peer pid> <attempts> <done>", plus
+"<pid> W C ..." (the process calls a receive) and "<pid> G E <server pid> ..." (it registered a pulse event for that
+server: MsgRegisterEvent).
 Processes are matched across the two boots by command line, never by pid (pids differ per boot).
 
 Rules, checked by `compare(before, after)`:
@@ -16,7 +18,11 @@ Rules, checked by `compare(before, after)`:
      synchronous send is fine; no send is not. A receiver that never calls a receive (a client that only attached
      a name, like the v1 generator's starter) cannot count arrivals; such pulses are kept as `unread` pairs
      (2026-11-16, set after the v1 re-judge showed it, before the v2 held-out run). Removing receive calls from the
-     source to get there is rejected statically (`receive_removed`);
+     source to get there is rejected statically (`receive_removed`).
+     MsgDeliverEvent (kind E, 2026-11-16, evening): the server names the client from the rcvid ("S E"), the client names the
+     server from the event it registered ("G E") and counts each such pulse on its own connection ("R E"). A pair
+     with E sends needs arrivals only if the client registered a pulse event for that server; a signal event cannot
+     be counted at the client and is reported as `unread`, like a pulse to a process that never receives;
   3. no thread removed from any program process;
   4. a process that took no part in messaging before (a CPU load, say) keeps its threads' priorities and stays busy
      where it was busy (lowering or idling the load is not a fix of the program).
@@ -50,7 +56,7 @@ def parse_msgs(text: str) -> list[tuple]:
     """qd_trace lines → [(pid, dir, kind, peer, attempts, done)]."""
     out = []
     for line in text.splitlines():
-        m = re.match(r"\s*(\d+)\s+([SRW])\s+([MPCE])\s+(\d+)\s+(\d+)\s+(\d+)\s*$", line)
+        m = re.match(r"\s*(\d+)\s+([SRWG])\s+([MPCE])\s+(\d+)\s+(\d+)\s+(\d+)\s*$", line)
         if m:
             out.append((int(m[1]), m[2], m[3], int(m[4]), int(m[5]), int(m[6])))
     return out
@@ -73,13 +79,16 @@ def build(args: dict[int, str], msgs: list[tuple], threads) -> dict:
     receivers = sorted({ids[m[0]] for m in msgs if m[1] == "W" and m[0] in ids})
 
     def pair(src, dst):
-        return pairs.setdefault(f"{ids[src]} -> {ids[dst]}", {"att": 0, "done": 0, "recv": 0, "kinds": []})
+        return pairs.setdefault(f"{ids[src]} -> {ids[dst]}", {"att": 0, "done": 0, "recv": 0, "kinds": [], "reg": False})
 
     for pid, d, kind, peer, att, done in msgs:
         if d == "W":
             continue
         if pid not in ids or peer not in ids or pid == peer:
             continue  # system servers (procnto, devb, ...) and self: not a pair of the program
+        if d == "G":  # the client (pid) registered a pulse event that only this server (peer) may deliver
+            pair(peer, pid)["reg"] = True
+            continue
         p = pair(pid, peer) if d == "S" else pair(peer, pid)
         if d == "S":
             p["att"] += att; p["done"] += done
@@ -114,7 +123,7 @@ def compare(before: dict, after: dict) -> list[str]:
             continue
         a = after["pairs"].get(k, {"done": 0, "recv": 0})
         reads = k.split(" -> ")[1] in after.get("receivers", []) or "receivers" not in after
-        if "E" in a.get("kinds", []):  # MsgDeliverEvent: the pulse comes on the client's own connection, sender unnamed
+        if _event_unread(a):  # signal event (or no registration seen): the client cannot count it
             reads = False
         if a["done"] < MIN_DONE or (reads and a["recv"] < MIN_DONE):
             why.append(f"pair no longer exchanges messages: {k} (after the fix: {a['done']} completed sends, "
@@ -146,7 +155,13 @@ def unread(before: dict, after: dict) -> list[str]:
     """Pairs whose sends complete but whose receiver never reads its channel (reported, not rejected)."""
     if not before or not after:
         return []
-    return [k for k, v in sorted(before["pairs"].items()) if v["att"] and k.split(" -> ")[1] not in after.get("receivers", [])]
+    return [k for k, v in sorted(before["pairs"].items())
+            if v["att"] and (k.split(" -> ")[1] not in after.get("receivers", []) or _event_unread(after["pairs"].get(k, {})))]
+
+
+def _event_unread(a: dict) -> bool:
+    """MsgDeliverEvent sends whose client registered no pulse event for this server: arrivals cannot be counted."""
+    return "E" in a.get("kinds", []) and not a.get("reg")
 
 
 def static_reject(actions: list) -> str | None:

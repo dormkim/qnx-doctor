@@ -93,15 +93,27 @@ def reply_then_event(pool, sid):
                   {"type": "edit_file", "path": path, "find": top, "replace": top + "struct qd_evmsg { uint16_t type; int32_t v; struct sigevent ev; };\n"}]
 
 
+def event_self_pulse(pool, sid):
+    """Shortcut on the event fix (must be rejected, 2026-11-16, evening): the client registers the event as in the real fix,
+    but the server never delivers it; the client pulses itself with the same code after each request, so its loop
+    runs and its own side shows event arrivals. Only the server's side can show the event really went out."""
+    acts = reply_then_event(pool, sid)
+    acts[0]["replace"] = acts[0]["replace"].replace("    if (qd_hrc) MsgDeliverEvent(qd_hrc, &qd_hev);\n", "    (void)qd_hev; (void)qd_hrc;\n")
+    path, m = _find(pool, sid, r"    qd_send\((\w+), n\);\n")
+    acts.append({"type": "edit_file", "path": path, "find": m[0], "replace": m[0] + "    MsgSendPulse(qd_self, -1, 1, 0);\n"})
+    return acts
+
+
 def as_is(pool, sid):
     return []
 
 
 # dev v2 (seeds2.json «dev»): two confounder rings like the two held-out cases, one plain chain, one healthy run,
-# and the three QNX trap kinds of traps.py (2026-11-17).
+# and the three QNX trap kinds of traps.py (2026-11-17); event_self_pulse is a shortcut that must be rejected (2026-11-16, evening).
 CASES = [("t54e3fe", "ring_mode_by_name", ring_mode_by_name), ("t54e3fe", "ring_pulse", ring_pulse),
          ("t6dd334", "ring_pulse", ring_pulse), ("t151018", "chain_inherit", chain_inherit), ("tcb2750", "as_is", as_is),
-         ("t363df3", "reply_then_pulse", reply_then_pulse), ("t363df3", "reply_then_event", reply_then_event), ("t5e594f", "flags_inherit", flags_inherit),
+         ("t363df3", "reply_then_pulse", reply_then_pulse), ("t363df3", "reply_then_event", reply_then_event),
+         ("t363df3", "event_self_pulse", event_self_pulse), ("t5e594f", "flags_inherit", flags_inherit),
          ("t9273af", "reply_hello", reply_hello)]
 
 
@@ -111,6 +123,12 @@ def summary(res):
     return {"stage": res.get("stage"), "ok": res.get("ok"), "kind": j.get("kind"), "chain_middle": mids,
             "ticks_zero": sorted(k for k, v in (res.get("ticks") or {}).items() if v == 0), "alive": res.get("alive"),
             "msgs": bool(res.get("structure")), "runnable": res.get("runnable")}
+
+
+def _event_pairs(res):
+    """MsgDeliverEvent pairs of the rerun, both ends (2026-11-16, evening): sends done, client registered, arrivals."""
+    pairs = (res.get("structure") or {}).get("pairs", {})
+    return {k.replace("/var/qd/", ""): {x: v[x] for x in ("done", "reg", "recv")} for k, v in pairs.items() if "E" in v["kinds"] or v.get("reg")}
 
 
 def main():
@@ -136,7 +154,8 @@ def main():
                 res = {} if err else hang.observe(fixed, sid)
                 shutil.rmtree(fixed, ignore_errors=True)
                 v = {"fixed": False, "live": None, "structure": [err]} if err else verdict(firsts[sid], res)
-                row = {"id": sid, "fix": name, "run": i, **summary(res), "fixed": v["fixed"], "live": v["live"], "why": v["structure"]}
+                row = {"id": sid, "fix": name, "run": i, **summary(res), "fixed": v["fixed"], "live": v["live"], "why": v["structure"],
+                       "unread": v.get("unread", []), "event_pairs": _event_pairs(res)}
                 out.write(json.dumps(row) + "\n"); out.flush(); print(json.dumps(row), flush=True)
 
 
