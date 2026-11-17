@@ -133,13 +133,28 @@ What got worse, or did not get better:
   scenario (`common/qd_trace.c`) made its own kernel calls between the program's `TimerTimeout()` and its
   `MsgReceive`, so the timeout was used up, the program never reached the deadlock, and the snapshot showed no cycle.
   The baselines named the deadlock from the source. The same bug can affect q13 and q16 (the other two scenarios
-  that use `TimerTimeout`). A fix is on branch `fix/trace-timertimeout`; it was checked on a new harness test, not
-  on this set.
+  that use `TimerTimeout`). A fix is now on `main` (merged from `fix/trace-timertimeout`); it was checked on a new
+  harness test, not on this set.
 - **One unknown case called healthy** (q11, a CPU spin): the loop had printed TICKs before it stopped, and the code
   treats "some TICKs" as running.
 
 We do not rerun v3 with any of these fixes. They will be measured on a new sealed set (v4), written by a new author,
 sealed before the run and run once. Analysis (Korean): [docs/분석_sealed3_1117.md](docs/분석_sealed3_1117.md).
+
+### What's next: sealed set v4 (before 11/22)
+
+The fixes for the v3 failures are now on `main`, checked only on new harness tests (`tests/harness_checks/`) and unit
+tests, never on v3:
+- the recorder re-arms the program's `TimerTimeout` right before the real call (q10, q16);
+- the observer counts TICKs twice in the same boot, and the reproducibility check uses those two counts instead of a
+  second observer that hung under a CPU load above the disk driver (the 4 excluded chain scenarios); `/tmp` is in RAM;
+- the judge checks progress: a waiter whose loop keeps ticking is not hung, and «healthy» needs the count to grow
+  (q19 false alarm, q11 called healthy);
+- the tool says `unknown` itself (spinning on the CPU, blocked outside message passing, or not enough information)
+  and still calls no AI and claims no fix in that case.
+
+None of this is a v3 result. v4 is written by a new author who has not seen the code, sealed before the run, run
+once, and includes priority chains and `TimerTimeout` cases: [bench/V4_PLAN.md](bench/V4_PLAN.md).
 
 ### Earlier sets (shaped by people who knew the code)
 

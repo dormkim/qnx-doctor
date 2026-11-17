@@ -31,8 +31,8 @@ Arms: **ours** (wait graph from `pidin` on the target, AI fix, up to 2 tries); *
 1 try); **naive_x2** (naive plus one retry with the rerun's result). All fixes go through the same rerun check.
 
 Caveats before the table: one run; 16 scenarios; 8 fixable faults, 4 healthy, 4 "unknown". For "unknown", qnx-doctor
-prints "loop not running but no wait cycle or chain found" (no literal "unknown" word yet) and does not call the AI;
-the rule committed before the run scores that as "cannot tell".
+printed "loop not running but no wait cycle or chain found" (the literal "unknown" word came after v3) and did not
+call the AI; the rule committed before the run scores that as "cannot tell".
 
 | arm | kind found | deadlock | missing reply | healthy left alone | unknown said "cannot tell" | false alarm | fixed (rerun-proven) | "fixed" on an unknown case | false fix |
 |---|---|---|---|---|---|---|---|---|---|
@@ -64,9 +64,11 @@ fixed from the source.
   as running.
 - **Harness bug that cost 4 scenarios.** The second observer starved on disk reads (see exclusions).
 
-None of these fixes is measured on v3, and v3 will not be rerun. The recorder fix is on branch
-`fix/trace-timertimeout`. The observer, the progress check (does the TICK count grow?) and an explicit "unknown"
-output are planned. All of them will be measured on a new sealed set written by a new author and run once.
+None of these fixes is measured on v3, and v3 will not be rerun. Since 2026-11-17 they are on `main`: the recorder
+fix, the observer fix (a second TICK count from the same observer in the same boot, no second observer), the progress check (does the TICK count
+grow?) and an explicit `unknown` output (no AI, no fix). They were checked only on new harness tests
+(`tests/harness_checks/`) and unit tests. They will be measured on sealed set v4, written by a new author, sealed
+before the run and run once: `bench/V4_PLAN.md`.
 
 ## Earlier numbers, and why they count for less
 
