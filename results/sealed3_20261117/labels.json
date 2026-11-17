@@ -1,0 +1,510 @@
+{
+ "_note": "Sealed 2026-11-17 by an author who did not read qnx-doctor's source, prompts or past results. Do not edit to match results; a changed set needs a new seal. Scoring rules: ../README.md.",
+ "q01": {
+  "kind": "unknown",
+  "category": "out_of_vocab",
+  "info_insufficient": false,
+  "axes": [
+   "outside_vocabulary",
+   "config_error"
+  ],
+  "members": [
+   "probe",
+   "telemetryd"
+  ],
+  "states": "no message wait at all: probe is in NANOSLEEP inside qd_open's retry loop (name «telemetryd» never appears; the server attached «telemetry-d») and exits with a name_open error after ~5 s; telemetryd RECEIVE-blocked and idle",
+  "culprit": "telemetryd.c / probe.c: attach name «telemetry-d» vs open name «telemetryd»",
+  "fix": "use the same name on both sides; the kind is none of the three message hangs, and «none» (healthy) is also wrong because probe never ticks",
+  "loop_logs": [
+   "probe"
+  ],
+  "expect": {
+   "probe": "stops"
+  },
+  "design": "unk_name"
+ },
+ "q02": {
+  "kind": "priority_chain",
+  "category": "priority_chain",
+  "axes": [
+   "runtime_wiring"
+  ],
+  "members": [
+   "ctlloop",
+   "ctrlsrv",
+   "encoder"
+  ],
+  "states": "ctlloop (30) REPLY-blocked on ctrlsrv, which is READY at its fixed priority 8; encoder's two threads (18) RUNNING/READY on both CPUs",
+  "culprit": "ctrlsrv.c: ChannelCreate(rt ? _NTO_CHF_FIXED_PRIORITY : 0) with --rt given in run.sh, so no priority inheritance",
+  "fix": "create the channel without _NTO_CHF_FIXED_PRIORITY (let the server inherit the client's priority); encoder keeps its priority and load",
+  "loop_logs": [
+   "ctlloop"
+  ],
+  "expect": {
+   "ctlloop": "stops"
+  },
+  "design": "prio_flag"
+ },
+ "q03": {
+  "kind": "missing_reply",
+  "category": "missing_reply",
+  "axes": [
+   "misleading_log"
+  ],
+  "members": [
+   "appcfg",
+   "cfgd"
+  ],
+  "states": "appcfg REPLY-blocked on cfgd, which is RECEIVE-blocked; appcfg prints 6 TICKs first",
+  "culprit": "cfgd.c: reserved-key branch logs «rejecting» and `continue`s without MsgError/MsgReply",
+  "fix": "reply on that path (MsgError(rcvid, EINVAL) or a reply with an error value)",
+  "loop_logs": [
+   "appcfg"
+  ],
+  "expect": {
+   "appcfg": "stops"
+  },
+  "design": "mr_errpath"
+ },
+ "q04": {
+  "kind": "none",
+  "category": "healthy",
+  "axes": [
+   "near_miss",
+   "misleading_log",
+   "pulse_callback"
+  ],
+  "members": [],
+  "states": "sampler keeps ticking; fltr notifies it with MsgSendPulse (non-blocking), not a synchronous callback; admind RECEIVE-blocked (idle by design); initdb exited normally",
+  "culprit": "none; the «ERROR deadlock suspected» lines come from a meaningless counter",
+  "fix": "none; any «fix» is a false fix",
+  "loop_logs": [
+   "sampler"
+  ],
+  "expect": {
+   "sampler": "ticks"
+  },
+  "design": "ok_noisy"
+ },
+ "q05": {
+  "kind": "none",
+  "category": "healthy",
+  "axes": [
+   "near_miss",
+   "misleading_log",
+   "looks_like_missing_reply"
+  ],
+  "members": [],
+  "states": "datalog REPLY-blocked on flashd in almost every snapshot, flashd in NANOSLEEP (not RECEIVE); datalog keeps ticking about once a second",
+  "culprit": "none (slow by design)",
+  "fix": "none; any «fix» is a false fix",
+  "loop_logs": [
+   "datalog"
+  ],
+  "expect": {
+   "datalog": "ticks"
+  },
+  "design": "ok_slow"
+ },
+ "q06": {
+  "kind": "priority_chain",
+  "category": "priority_chain",
+  "axes": [
+   "looks_like_missing_reply",
+   "thread_level"
+  ],
+  "members": [
+   "player",
+   "codecd",
+   "indexer"
+  ],
+  "states": "player (30) REPLY-blocked on codecd; codecd's receive thread is RECEIVE-blocked (looks like a missing reply), its worker thread is READY at fixed 6 holding the rcvid; indexer threads (18) on both CPUs",
+  "culprit": "codecd.c: worker thread pinned to priority 6 and woken by a condvar (no priority inheritance), so the reply owner is starved by indexer",
+  "fix": "let the reply run at the client's priority: hand the work to the worker with a message/pulse it receives (inherits), raise the worker to the client's priority, or decode on the receive thread; indexer unchanged",
+  "loop_logs": [
+   "player"
+  ],
+  "expect": {
+   "player": "stops"
+  },
+  "notes": "A missing_reply answer is wrong here: the reply is pending on a runnable but starved thread.",
+  "design": "prio_worker"
+ },
+ "q07": {
+  "kind": "missing_reply",
+  "category": "missing_reply",
+  "axes": [
+   "deferred_reply",
+   "timer_pulse"
+  ],
+  "members": [
+   "radio",
+   "slotd"
+  ],
+  "states": "radio REPLY-blocked on slotd, which is RECEIVE-blocked holding the rcvid; radio prints at most 1 TICK",
+  "culprit": "slotd.c: timer_settime with it_interval left 0 (one-shot), so only one slot pulse ever arrives and later requests are never replied",
+  "fix": "make the timer periodic (it.it_interval = 200 ms)",
+  "loop_logs": [
+   "radio"
+  ],
+  "expect": {
+   "radio": "stops"
+  },
+  "design": "mr_oneshot"
+ },
+ "q08": {
+  "kind": "deadlock",
+  "category": "deadlock",
+  "axes": [
+   "runtime_wiring"
+  ],
+  "members": [
+   "ingest",
+   "parse",
+   "archive"
+  ],
+  "states": "ingest REPLY-blocked on parse, parse REPLY-blocked on archive, archive SEND-blocked on ingest (3-way cycle; the ring is closed only by run.sh arguments)",
+  "culprit": "relay.c: non-origin branch calls qd_send(down, ...) before MsgReply(rcvid) (forward-before-ack) in a ring",
+  "fix": "acknowledge upstream before forwarding (MsgReply first, then send on), or pass the item on with a pulse; keep the same three send pairs",
+  "loop_logs": [
+   "ingest",
+   "parse",
+   "archive"
+  ],
+  "expect": {
+   "ingest": "stops",
+   "parse": "stops",
+   "archive": "stops"
+  },
+  "design": "ring"
+ },
+ "q09": {
+  "kind": "priority_chain",
+  "category": "priority_chain",
+  "axes": [
+   "two_hop"
+  ],
+  "members": [
+   "hmi",
+   "cfgrouter",
+   "eeprom",
+   "logpack"
+  ],
+  "states": "hmi (30) REPLY-blocked on cfgrouter; cfgrouter (inherited 30) REPLY-blocked on eeprom, READY at fixed 6; logpack threads (18) on both CPUs",
+  "culprit": "eeprom.c: ChannelCreate(_NTO_CHF_FIXED_PRIORITY) + setprio 6; the inversion is one hop away from the waiting loop",
+  "fix": "eeprom channel without _NTO_CHF_FIXED_PRIORITY (inherit), so the write runs at the requester's priority; logpack unchanged",
+  "loop_logs": [
+   "hmi"
+  ],
+  "expect": {
+   "hmi": "stops"
+  },
+  "design": "prio_twohop"
+ },
+ "q10": {
+  "kind": "deadlock",
+  "category": "deadlock",
+  "axes": [
+   "timeout_misuse",
+   "misleading_comment"
+  ],
+  "members": [
+   "navcore",
+   "routemap"
+  ],
+  "states": "navcore REPLY-blocked on routemap (its timeout covers only the SEND phase); routemap SEND-blocked on navcore, timing out every 300 ms and retrying forever",
+  "culprit": "navcore.c / routemap.c: TimerTimeout(_NTO_TIMEOUT_SEND) only; routemap is already receiving, so navcore waits in REPLY with no timeout, while routemap's callback query to navcore can never be received",
+  "fix": "do not query the requester back synchronously: send the position with the route request, or answer position queries on a separate thread/channel; adding a REPLY timeout alone only turns the hang into endless timeouts with no TICK",
+  "loop_logs": [
+   "navcore"
+  ],
+  "expect": {
+   "navcore": "stops"
+  },
+  "notes": "If the run shows a plain permanent cycle (timeout never fires), the label is unchanged.",
+  "design": "sendtimeout"
+ },
+ "q11": {
+  "kind": "unknown",
+  "category": "out_of_vocab",
+  "info_insufficient": false,
+  "axes": [
+   "outside_vocabulary",
+   "cpu_spin"
+  ],
+  "members": [
+   "uplink",
+   "parsed"
+  ],
+  "states": "uplink REPLY-blocked on parsed, which is RUNNING (spinning) at the inherited priority; no cycle, no chain (no higher-priority waiter starved by a third thread), server not RECEIVE-blocked. uplink prints 6 TICKs first",
+  "culprit": "parsed.c: while (len != 0) len -= 2 never ends for an odd length (7)",
+  "fix": "loop while len > 0 (or round up); a fix here is legitimate but the kind is none of deadlock/priority_chain/missing_reply",
+  "loop_logs": [
+   "uplink"
+  ],
+  "expect": {
+   "uplink": "stops"
+  },
+  "design": "unk_spin"
+ },
+ "q12": {
+  "kind": "unknown",
+  "category": "out_of_vocab",
+  "info_insufficient": true,
+  "axes": [
+   "not_enough_information",
+   "external_dependency"
+  ],
+  "members": [
+   "ecu",
+   "busgate"
+  ],
+  "states": "ecu REPLY-blocked on busgate; busgate's only thread is in SIGWAITINFO waiting for SIGUSR2 from a supervisor that is not part of the scenario. No cycle, no chain, server not RECEIVE-blocked",
+  "culprit": "outside the given sources: nobody sends SIGUSR2 (the supervisor is not here); why it did not is unknown",
+  "fix": "no evidence-based fix inside these sources. The right answer says: blocked waiting for an external signal, cause outside the program, need the supervisor/start-up script. Removing the wait changes the program's contract",
+  "loop_logs": [
+   "ecu"
+  ],
+  "expect": {
+   "ecu": "stops"
+  },
+  "design": "unk_signal"
+ },
+ "q13": {
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock",
+   "missing_reply"
+  ],
+  "category": "multi_cause",
+  "axes": [
+   "multi_cause",
+   "latent_after_n_rounds"
+  ],
+  "members": [
+   "pumpctl",
+   "valve"
+  ],
+  "second_cause": {
+   "kind": "missing_reply",
+   "members": [
+    "panel",
+    "alarmd"
+   ]
+  },
+  "states": "(1) pumpctl REPLY-blocked on valve, valve SEND-blocked on pumpctl (callback from level 3); (2) independently, panel REPLY-blocked on alarmd, which is RECEIVE-blocked after dropping code 4 without a reply",
+  "culprit": "valve.c: synchronous qd_send(pumpctl) before MsgReply; alarmd.c: unknown-code branch `continue`s without MsgReply/MsgError",
+  "fix": "both: valve replies first and notifies the pump with a pulse (or the pump serves on another thread); alarmd answers unknown codes with MsgError/MsgReply. Fixed only if both pumpctl and panel tick again",
+  "loop_logs": [
+   "pumpctl",
+   "panel"
+  ],
+  "expect": {
+   "pumpctl": "stops",
+   "panel": "stops"
+  },
+  "scoring": "kind hit if the arm names either kind; it should name both. fixed requires both loops to tick.",
+  "design": "multi_dl_mr"
+ },
+ "q14": {
+  "kind": "missing_reply",
+  "category": "missing_reply",
+  "axes": [
+   "partial_stop",
+   "deferred_reply"
+  ],
+  "members": [
+   "lockd",
+   "one or two of welder/painter/sorter"
+  ],
+  "states": "at least one cell REPLY-blocked on lockd (RECEIVE-blocked) after its waiting rcvid was overwritten; the other cells keep ticking",
+  "culprit": "lockd.c: single `waiter` slot; a second waiter overwrites the first, whose rcvid is never replied",
+  "fix": "keep a queue of waiting rcvids and reply to each in turn",
+  "loop_logs": [
+   "welder",
+   "painter",
+   "sorter"
+  ],
+  "expect": {
+   "welder": "any",
+   "painter": "any",
+   "sorter": "any",
+   "_rule": "at least one of the three stops"
+  },
+  "design": "mr_overwrite"
+ },
+ "q15": {
+  "kind": "deadlock",
+  "category": "deadlock",
+  "axes": [
+   "send_hierarchy",
+   "timing_race"
+  ],
+  "members": [
+   "ledger",
+   "stock"
+  ],
+  "behind": [
+   "till",
+   "picker"
+  ],
+  "states": "ledger and stock SEND-blocked on each other (each is handling a client and confirming with the other); till REPLY-blocked on ledger, picker REPLY-blocked on stock",
+  "culprit": "svc.c: qd_send(peer, ...) from inside the client-request handler of a single-threaded server; both servers do it (send-hierarchy violation)",
+  "fix": "keep a one-way send hierarchy: answer peer questions on a separate receive thread/channel, or make one direction a pulse / cached value; both peer pairs must still exchange messages",
+  "loop_logs": [
+   "till",
+   "picker"
+  ],
+  "expect": {
+   "till": "stops",
+   "picker": "stops"
+  },
+  "design": "xserver"
+ },
+ "q16": {
+  "kind": "none",
+  "category": "healthy",
+  "axes": [
+   "near_miss",
+   "transient_cycle",
+   "timeout_recovery"
+  ],
+  "members": [],
+  "states": "east and west are often SEND-blocked on each other at the same moment (a real 2-way cycle in a snapshot), but each send times out within ~250 ms and the peer then serves; both keep ticking",
+  "culprit": "none (latent cyclic design, recovered by timeouts)",
+  "fix": "none; a «fix» is a false fix. Mentioning the latent cycle as a design risk is fine",
+  "loop_logs": [
+   "east",
+   "west"
+  ],
+  "expect": {
+   "east": "ticks",
+   "west": "ticks"
+  },
+  "notes": "Repro check: if either loop stops in the unmodified run (timeout not effective under the harness), exclude with reason.",
+  "design": "ok_timeout_cycle"
+ },
+ "q17": {
+  "kind": "unknown",
+  "category": "out_of_vocab",
+  "info_insufficient": true,
+  "axes": [
+   "not_enough_information",
+   "external_dependency"
+  ],
+  "members": [
+   "torque",
+   "calsrv"
+  ],
+  "states": "torque SEND-blocked on calsrv (its connect or first message is never received); calsrv waits on the named semaphore /calready (SEM state) for an external calibration tool that is not in the scenario",
+  "culprit": "outside the given sources: /calready is never posted; whether the calibration tool should have run is unknown",
+  "fix": "no evidence-based fix inside these sources; the right answer says the server is waiting for an external semaphore post and asks for the calibration step / start-up order",
+  "loop_logs": [
+   "torque"
+  ],
+  "expect": {
+   "torque": "stops"
+  },
+  "design": "unk_sem"
+ },
+ "q18": {
+  "kind": "none",
+  "category": "healthy",
+  "axes": [
+   "near_miss",
+   "looks_like_priority_chain"
+  ],
+  "members": [],
+  "states": "same ingredients as a priority chain (high client, fixed-priority server at 8, load at 18), but the load is bursty (15 ms on / 35 ms off) so imu still gets CPU; gimbal keeps ticking. A snapshot may catch gimbal REPLY-blocked on a READY imu",
+  "culprit": "none",
+  "fix": "none; any «fix» is a false fix",
+  "loop_logs": [
+   "gimbal"
+  ],
+  "expect": {
+   "gimbal": "ticks"
+  },
+  "notes": "Repro check: if gimbal stops in the unmodified run, exclude with reason (do not relabel).",
+  "design": "ok_fixed_dutycycle"
+ },
+ "q19": {
+  "kind": "none",
+  "category": "healthy",
+  "axes": [
+   "near_miss",
+   "looks_like_missing_reply",
+   "deferred_reply"
+  ],
+  "members": [],
+  "states": "dash REPLY-blocked on evbus, which is RECEIVE-blocked holding the rcvid (same picture as a missing reply), but a periodic pulse releases it every 300 ms; dash keeps ticking",
+  "culprit": "none (deferred reply by design)",
+  "fix": "none; any «fix» is a false fix",
+  "loop_logs": [
+   "dash"
+  ],
+  "expect": {
+   "dash": "ticks"
+  },
+  "design": "ok_longpoll"
+ },
+ "q20": {
+  "kind": "deadlock",
+  "category": "deadlock",
+  "axes": [
+   "latent_after_n_rounds",
+   "misleading_log"
+  ],
+  "members": [
+   "framestore",
+   "journal"
+  ],
+  "behind": [
+   "cam"
+  ],
+  "states": "framestore REPLY-blocked on journal, journal SEND-blocked on framestore (callback for stats); cam REPLY-blocked on framestore. cam prints 7 TICKs first, and its log blames storage latency",
+  "culprit": "journal.c: qd_send(framestore, -1) inside the flush handler while framestore is waiting for the flush reply (framestore.c sends the flush synchronously)",
+  "fix": "journal replies before querying, or framestore sends its count with the flush / sends the flush as a pulse; the storage-latency lines are a red herring",
+  "loop_logs": [
+   "cam"
+  ],
+  "expect": {
+   "cam": "stops"
+  },
+  "design": "latent"
+ },
+ "q21": {
+  "kind": "priority_chain",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "category": "multi_cause",
+  "axes": [
+   "multi_cause",
+   "masked_second_cause"
+  ],
+  "members": [
+   "pilot",
+   "planner",
+   "mapper"
+  ],
+  "second_cause": {
+   "kind": "deadlock",
+   "members": [
+    "planner",
+    "auditd"
+   ],
+   "visible": "only after the chain is fixed"
+  },
+  "states": "first run: pilot (30) REPLY-blocked on planner, READY at fixed 7, mapper (18) on both CPUs. After a chain-only fix the re-run reaches plan 30 and shows planner REPLY-blocked on auditd, auditd SEND-blocked on planner",
+  "culprit": "planner.c: ChannelCreate(_NTO_CHF_FIXED_PRIORITY); masked: auditd.c qd_send(planner) inside the audit handler while planner waits for the audit reply",
+  "fix": "both: drop _NTO_CHF_FIXED_PRIORITY and break the audit callback (planner sends its count with the audit / audit as a pulse / auditd replies first). A chain-only fix should fail its re-run",
+  "loop_logs": [
+   "pilot"
+  ],
+  "expect": {
+   "pilot": "stops"
+  },
+  "scoring": "kind hit = priority_chain (the only hang visible in the first run). Naming the latent deadlock too is a bonus noted by hand.",
+  "design": "multi_chain_dl"
+ }
+}

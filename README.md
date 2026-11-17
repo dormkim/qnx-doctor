@@ -1,6 +1,17 @@
 # qnx-doctor
 
-A host tool for QNX 8.0 that finds why something is stuck or broken, proposes a fix as data, applies it to a copy, and re-runs it. It only says "solved" when the re-run shows the problem is gone.
+A host tool for QNX 8.0 programs that stop making progress because of message passing. It boots the program in QEMU,
+reads `pidin` on the target, and builds the wait-for graph in code. If the graph shows a cause (a send cycle, a
+priority chain, a server that never replies), an AI proposes a source edit as data; qnx-doctor applies it to a copy,
+rebuilds, boots and reruns it, and reports "fixed" only when the rerun shows the stopped loop running again with the
+same message structure. If the graph shows no message-passing cause, it says it cannot tell and does not try a fix.
+
+What we claim, and only this: **it says when it cannot know, and it does not claim a fix that a rerun did not prove.**
+On a test set written by someone who never saw our code, it said "cannot tell" on 3 of 4 cases that message passing
+does not explain; two baselines using the same model said 0 of 4 and "fixed" two cases whose cause is outside the
+given sources. It did not fix more hangs than a baseline given the same retry (3 of 8 each), it raised one false
+alarm on a healthy program, and it missed one deadlock that the baselines found. Details and caveats:
+[What we measured](#what-we-measured-and-what-got-worse) and [JUDGES.md](JUDGES.md).
 
 ## Why this matters on QNX
 
@@ -73,12 +84,79 @@ A hang scenario (the test loop) is a directory with `*.c` sources and a `run.sh`
 
 Harness rules for steady verdicts (2026-11-17): `check.sh` runs under `hi` at priority 50, but every scenario program starts at the normal priority 10 (`common/qd_start.c`, linked in like `qd_trace.c`), so a busy program cannot starve the serial or disk driver. `snap` writes nothing to the console while it looks: `pidin` goes to `/dev/shmem` first, and two more snapshots follow a moment later. A priority chain or a missing reply counts only if the same waiter → server pair is in all three. Only one QEMU guest runs at a time on a host (`bin/qd-target-exec` takes a lock).
 
-## How it is measured
+## What we measured, and what got worse
 
-- `tests/sealed_hang/`: 7 hand-written scenarios with an answer key, sealed before the judge existed. Five are faults (2-way and 3-way SEND cycles, a REPLY chain behind a cycle, a synchronous callback, a priority chain on a fixed-priority channel). Two are healthy systems that must not be reported (a slow server, and idle receivers fed by pulses).
-- `tests/gen_hang/`: seeded random generators. v1 (`gen.py`): Each scenario has 2–6 processes, a random cycle length, mixed SEND/REPLY waits, waiters behind the cycle, decoys with long but legitimate waits, and random names and layout. The answer key is written outside the scenario directories. The `dev` seeds are for development. The `heldout` seeds were sealed before tuning, and results are reported on held-out only. v2 (`gen2.py`, sealed with answer-key hashes in `sealed2.json`) draws more priority chains and adds cases where the source alone does not tell which hang happens: ring members that pick "send first" or "serve first" from a bit mask given at run time (argument or environment), a second hang pattern that does not fire at run time (a fixed-priority server whose load sits below it, or a mixed-mode ring) with logs that show no TICK, run-time priorities, a chain that clears before the snapshot, roles split over several programs, and a name table. `traps.py` adds QNX trap scenarios to the dev pool only (a server that sends back to a client waiting for its reply, `_NTO_CHF_FIXED_PRIORITY` hidden in a flag constant, a path that never calls `MsgReply`).
-- Arms: AI off (code names the hang, no fix) vs AI on (fix + re-run) vs a naive baseline (`bench/naive_hang.py`): the same model reads only the source and the TICK logs, with no `pidin` snapshot, wait graph, docs or probes, and its fix goes through the same re-run check. Our arm gets up to 2 tries, the naive arm 1, so every table shows **first try fixed** next to **fixed incl. retries** (v2 held-out: ours 24/25 first try, 25/25 with retries; naive 20/25 in its one try). A "naive + the same retries" arm (`--attempts 2`: told the rerun's TICK counts and verdict, never the wait graph) is prepared for the next sealed set (`bench/run_sealed3.sh`). False "solved" on healthy controls must be 0. Scoring: `bench/score_hang.py` and `bench/score_structure.py` (the only code that reads the answer keys). `bench/fake_fix_check.py` attacks the verifier on the target with shortcut fixes on dev scenarios; `bench/rejudge_hang.py` re-judges recorded fixes without a new AI call.
-- Only states are reported (blocked or running, TICK or no TICK). No QNX timing or performance numbers are published (QNX licence 4.6(i)).
+### Sealed set v3 (2026-11-17): the first set we did not write
+
+How the set was made, before any number:
+- An agent that had not read qnx-doctor's source, prompts, verifier or past results wrote 21 QNX 8.0 scenarios and
+  their answer key (`bench/sealed_v3_1117/README.md` lists exactly what it read). Names, comments and log lines are
+  written as a developer would write them, and some mislead on purpose.
+- The answer key and the scenario tree were hashed and committed before any run (`bench/sealed_v3_1117/SEAL.md`,
+  commit d9d562b). The scoring rules were committed next (caecd37), then a reproducibility check of the unmodified
+  scenarios (b075721). Then one run with four arms. Nothing was tuned on this set.
+- 5 of 21 were excluded before scoring, with their reasons; no label was edited (`bench/sealed_v3_1117/excluded.json`).
+  Four (q02, q06, q09, q21) because our second observer never returned a second TICK count: it reads logs from the
+  disk, and these scenarios load the CPUs above the disk driver. Those four are all of the priority-chain cases, so
+  **this set says nothing about priority chains**. One (q16) because a loop that should keep running printed nothing;
+  most likely our own harness bug, described below.
+- Arms, all with the same model: **ours** (code names the kind from the wait graph; the AI fixes, up to 2 tries);
+  **naive** (source and TICK logs only, no `pidin`, no graph, no docs, 1 try); **naive_x2** (naive plus one retry,
+  told the rerun's TICK counts and verdict). Every arm's fix goes through the same rerun check.
+- Small numbers: 16 scenarios scored, of which 8 are fixable faults, 4 are healthy, 4 are "unknown" (the loop stops,
+  but not because of a send cycle, a priority chain or a missing reply).
+- "Unknown" for ours: qnx-doctor has no literal "unknown" output yet. It prints "loop not running but no wait cycle
+  or chain found" and then does not call the AI; the scoring rule committed before the run reads that as "cannot tell".
+
+| arm | kind found | deadlock | missing reply | healthy left alone | unknown said "cannot tell" | false alarm on healthy | fixed (rerun-proven) | "fixed" on an unknown case | false fix |
+|---|---|---|---|---|---|---|---|---|---|
+| ours | 13/16 | 4/5 | 3/3 | 3/4 | 3/4 | 1/4 | 3/8 | 0 | 0 |
+| naive | 12/16 | 5/5 | 3/3 | 4/4 | 0/4 | 0/4 | 2/8 | 2 | 0 |
+| naive_x2 | 11/16 | 4/5 | 3/3 | 4/4 | 0/4 | 0/4 | 3/8 | 3 | 0 |
+
+Source: `results/sealed3_20261117/score.md` (copied from the run; per-axis table and literal outputs are there).
+
+What held:
+- On the 4 unknown cases the baselines named a hang kind every time. On the two whose cause is outside the given
+  sources (q12: a server waits for a signal from a supervisor that is not in the scenario; q17: it waits for a
+  semaphore an external calibration tool should post), both baselines deleted the wait or posted the semaphore
+  themselves, and the rerun check accepted it because the loop ran again. ours made no fix on any unknown case.
+- False fixes on healthy programs: 0 in every arm.
+
+What got worse, or did not get better:
+- **Fix rate is a tie** with the same-retry baseline: 3/8 and 3/8, the same three scenarios. On this set the wait
+  graph and the docs added no fixes over a second try.
+- **One false alarm on a healthy program** (q19), baselines 0. A server holds each reply until a periodic pulse, so
+  every snapshot shows the client REPLY-blocked on a server waiting in RECEIVE: the picture of a missing reply. The
+  client was still printing TICKs. Our judge looks at thread states, not at whether the TICK count grows.
+- **One missed deadlock** (q10), naive 5/5. The most likely cause is our harness: the recorder we link into every
+  scenario (`common/qd_trace.c`) made its own kernel calls between the program's `TimerTimeout()` and its
+  `MsgReceive`, so the timeout was used up, the program never reached the deadlock, and the snapshot showed no cycle.
+  The baselines named the deadlock from the source. The same bug can affect q13 and q16 (the other two scenarios
+  that use `TimerTimeout`). A fix is on branch `fix/trace-timertimeout`; it was checked on a new harness test, not
+  on this set.
+- **One unknown case called healthy** (q11, a CPU spin): the loop had printed TICKs before it stopped, and the code
+  treats "some TICKs" as running.
+
+We do not rerun v3 with any of these fixes. They will be measured on a new sealed set (v4), written by a new author,
+sealed before the run and run once. Analysis (Korean): [docs/분석_sealed3_1117.md](docs/분석_sealed3_1117.md).
+
+### Earlier sets (shaped by people who knew the code)
+
+These came first and were written by the same people who wrote qnx-doctor: the generators, the verifier, the
+baseline prompt and the scorer. The verifier rule was changed once after looking at v1 results. Read them as
+development numbers.
+
+- `tests/sealed_hang/`: 7 hand-written scenarios, sealed before the judge existed (file names hint at the bug).
+- `tests/gen_hang/` v1 (20 held-out seeds) and v2 (30 held-out seeds, `sealed2.json`): seeded random generators with
+  decoys, run-time wiring and priorities. On v2 every arm named all 30 kinds. Fixed on the first try: ours 24/25,
+  naive 20/25 (ours could also retry, 25/25; the naive arm had one try, so "25 vs 20" mixes two effects). Records:
+  [docs/measure_structure_1116.md](docs/measure_structure_1116.md), [docs/measure_holdout_1116.md](docs/measure_holdout_1116.md).
+- None of these sets use `TimerTimeout`, so the recorder bug above does not touch them.
+
+Scoring code: `bench/score_hang.py`, `bench/score_structure.py` (the only code that reads answer keys).
+`bench/fake_fix_check.py` attacks the verifier with shortcut fixes on dev scenarios. Only states are reported
+(blocked or running, TICK or no TICK); no QNX timing or performance numbers are published (QNX licence 4.6(i)).
 
 Unit tests (no SDP needed): `python3 -m unittest discover tests/unit`.
 
@@ -108,6 +186,8 @@ qnx_doctor/  waitgraph.py (pidin → graph → verdict, pure)  structure.py (sam
              doctor.py / rules.py / runner.py (build/boot doctor)  cli.py
 bin/         qd-target-exec (boot image in QEMU, run one command, return its status)  qd-boot
 tests/       unit/  sealed_hang/  gen_hang/  sealed/ (build/boot set)
+bench/       scorers, baseline arms, sealed_v3_1117/ (the independent sealed set: pool, answer key, SEAL.md)
+results/     recorded runs judges can re-score (sealed3_20261117/)
 scenarios/   hang_demo/control_loop (sensor → control → actuator)
 ```
 

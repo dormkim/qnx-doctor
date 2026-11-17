@@ -1,0 +1,21 @@
+{"id": "q01", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q02", "mode": "ai", "detected": "priority_chain", "solved": false, "by": "ai", "cause": null}
+{"id": "q03", "mode": "ai", "detected": "missing_reply", "solved": false, "by": "ai", "cause": null}
+{"id": "q04", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q05", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q06", "mode": "ai", "detected": "priority_chain", "solved": false, "by": "ai", "cause": null}
+{"id": "q07", "mode": "ai", "detected": "missing_reply", "solved": false, "by": "ai", "cause": null}
+{"id": "q08", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "Each non-origin relay (parse, archive) forwards the message with a synchronous MsgSend to the next relay before replying to its sender. The ring closes when archive sends to ingest, but ingest is still REPLY-blocked waiting on parse's reply, so all three wait on each other."}
+{"id": "q09", "mode": "ai", "detected": "priority_chain", "solved": false, "by": "ai", "cause": null}
+{"id": "q10", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q11", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q12", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q13", "mode": "ai", "detected": "missing_reply", "solved": false, "by": "ai", "cause": null}
+{"id": "q14", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "lockd keeps only one waiter slot; with three cells, a second lock request while busy overwrites the stored rcvid of the first waiter, so that client (painter) is never replied and stays REPLY-blocked forever"}
+{"id": "q15", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "The two single-threaded svc instances (ledger and stock) each receive a client request and then MsgSend synchronously to the other svc before replying. When both do this at the same time, each is SEND-blocked on the other and neither returns to MsgReceive, so the clients stay REPLY-blocked forever."}
+{"id": "q16", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q17", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q18", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "q19", "mode": "ai", "detected": "missing_reply", "solved": false, "by": "ai", "cause": null}
+{"id": "q20", "mode": "ai", "detected": "deadlock", "solved": false, "by": "ai", "cause": null}
+{"id": "q21", "mode": "ai", "detected": "priority_chain", "solved": false, "by": "ai", "cause": null}
