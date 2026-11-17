@@ -18,7 +18,13 @@
  * fixed-priority server at 3-8 and its client at 25-40, that made the observer's own printing the «middle» thread of a
  * priority chain, while the server was busy on a request. Two v2 held-out reruns were judged «chain» that way.
  * The same day: two more pidin snapshots follow a moment later (PIDIN2, PIDIN3); waitgraph.judge counts a chain or a
- * missing reply only if it is in all three. The first snapshot and the TICK counts are taken as before. */
+ * missing reply only if it is in all three. The first snapshot and the TICK counts are taken as before.
+ *
+ * TICKS2 (2026-11-17, before sealed v4; docs/분석_sealed3_1117.md J1/H2): after PIDIN3 and a short wait the TICK
+ * lines are counted again, in the same boot. A state snapshot alone cannot tell a server that answers on every timer
+ * pulse (client REPLY-blocked in all three looks, loop still running) from a lost reply, nor a loop that spins on the
+ * CPU from a healthy one; the judge now asks «did the count grow». /tmp is a RAM link (check.sh), so this count does
+ * not wait for the disk driver the way the v3 reproducibility observer did. */
 #include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -57,6 +63,21 @@ static void cat(const char *path) {
   fflush(stdout);
 }
 
+static void count_ticks(char *out, size_t cap) {   /* one "/tmp/d0<role>.log <n>" line per role log */
+  char path[300];
+  size_t n = 0;
+  DIR *d = opendir("/tmp");
+  struct dirent *e;
+  out[0] = 0;
+  while (d && (e = readdir(d)) && n < cap - 400) {
+    size_t l = strlen(e->d_name);
+    if (strncmp(e->d_name, "d0", 2) || l < 6 || strcmp(e->d_name + l - 4, ".log")) continue;
+    snprintf(path, sizeof path, "/tmp/%s", e->d_name);
+    n += snprintf(out + n, cap - n, "%s %d\n", path, ticks(path));
+  }
+  if (d) closedir(d);
+}
+
 int main(void) {
   sigset_t s;
   sigemptyset(&s); sigaddset(&s, SIGUSR1);
@@ -64,28 +85,23 @@ int main(void) {
   pthread_setschedprio(pthread_self(), 63);
   int sig = 0;
   sigwait(&s, &sig);
-  char out[4096], path[300];
-  size_t n = 0;
-  DIR *d = opendir("/tmp");
-  struct dirent *e;
-  while (d && (e = readdir(d)) && n < sizeof out - 400) {
-    size_t l = strlen(e->d_name);
-    if (strncmp(e->d_name, "d0", 2) || l < 6 || strcmp(e->d_name + l - 4, ".log")) continue;
-    snprintf(path, sizeof path, "/tmp/%s", e->d_name);
-    n += snprintf(out + n, sizeof out - n, "%s %d\n", path, ticks(path));
-  }
-  if (d) closedir(d);
+  static char out[4096], out2[4096];
+  char path[300];
+  count_ticks(out, sizeof out);
   pidin_to(NULL, "/dev/shmem/qd.pidin");
   pidin_to("arg", "/dev/shmem/qd.args");
   usleep(300000); pidin_to(NULL, "/dev/shmem/qd.pidin2");   /* two more looks a moment later: a chain must persist */
   usleep(300000); pidin_to(NULL, "/dev/shmem/qd.pidin3");
+  usleep(1500000); count_ticks(out2, sizeof out2);   /* progress: the same logs counted again */
   puts("=== PIDIN ==="); cat("/dev/shmem/qd.pidin");
   printf("=== TICKS ===\n%s", out);
   puts("=== ARGS ==="); cat("/dev/shmem/qd.args");
   puts("=== PIDIN2 ==="); cat("/dev/shmem/qd.pidin2");
   puts("=== PIDIN3 ==="); cat("/dev/shmem/qd.pidin3");
+  printf("=== TICKS2 ===\n%s", out2);
   puts("=== MSGS ===");
-  d = opendir("/dev/shmem");
+  DIR *d = opendir("/dev/shmem");
+  struct dirent *e;
   while (d && (e = readdir(d))) {
     if (strncmp(e->d_name, "qdm.", 4)) continue;
     snprintf(path, sizeof path, "/dev/shmem/%s", e->d_name);

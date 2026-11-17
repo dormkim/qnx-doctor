@@ -8,6 +8,13 @@ agree or not, the observed counts per role, and on a disagreement the expected w
 States only (QNX licence 4.6(i)).
 
   python3 bench/repro_v3.py POOL LABELS.json OUT.json [--retry-missing]
+  python3 bench/repro_v3.py POOL LABELS.json OUT.json --same-boot      (for sealed v4 and later)
+
+--same-boot (2026-11-17, after v3, before v4): no second observer. The two counts are snap's own TICKS and TICKS2 of
+the same check.sh run (snap.c). Why: under a CPU load above the disk driver the second observer was woken but hung
+after its fork, before pidin printed anything, while check.sh's own observer had worked a moment earlier (harness
+check oc01, `bench/harness_check.py tests/harness_checks/oc01 --twice`; v3 excluded q02, q06, q09, q21 that way). The
+first observer is the path every arm's observation uses, so the check now measures what the arms see.
 """
 import json
 import os
@@ -28,7 +35,7 @@ def _counts(text):
     return wg.split_check(text)[1] if "=== TICKS ===" in text else None
 
 
-def observe_twice(scen, early_timer=False):
+def observe_twice(scen, early_timer=False, same_boot=False):
     name = os.path.basename(os.path.normpath(scen))
     env = sdp_env(base_env())
     work = hang.prepare(scen)
@@ -45,9 +52,13 @@ def observe_twice(scen, early_timer=False):
             # the old observer (snap.c); here the timer is forked and loaded BEFORE the scenario starts.
             cmd = (f"/var/qd/hi /bin/sh -c '/var/qd/snap & s=$!; (sleep {EARLY_TIMER_S}; kill -USR1 $s) & "
                    f"/var/qd/check.sh {name}; wait $s; echo QDLATER'")
+        if same_boot:  # wins over early_timer: no second observer at all
+            cmd = f"/var/qd/hi /var/qd/check.sh {name}"
         rc, out = hang._sh(["qd-target-exec", vm, cmd], vm, dict(env, QD_EXEC_TIMEOUT="90"), timeout=1500)
         if "QDDONE" not in out:
             return {"error": "target run did not finish"}
+        if same_boot:
+            return {"snap": _counts(out), "later": wg.tick_counts(out, "TICKS2"), "method": "same boot (TICKS, TICKS2)"}
         first, later = out.split("QDDONE", 1)
         return {"snap": _counts(first), "later": _counts(later) if "QDLATER" in later else None}
     finally:
@@ -87,15 +98,16 @@ def main(pool, labels_path, out_path):
     labels = {k: v for k, v in json.load(open(labels_path)).items() if not k.startswith("_")}
     done = json.load(open(out_path)) if os.path.exists(out_path) else {}
     retry = "--retry-missing" in sys.argv  # second pass: only scenarios whose second count was missing
+    same = "--same-boot" in sys.argv
     for sid in sorted(labels):
         if sid in done and not (retry and done[sid].get("later") is None):
             continue
         if retry:
             done[sid + "#first_pass"] = done[sid]
-        obs = observe_twice(os.path.join(pool, sid), early_timer=retry)
+        obs = observe_twice(os.path.join(pool, sid), early_timer=retry, same_boot=same)
         agree, why = check(labels[sid].get("expect", {}), obs)
         done[sid] = {"agree": agree, "why": why, "snap": obs.get("snap"), "later": obs.get("later"), "error": obs.get("error"),
-                     "method": "early timer 20 s" if retry else "sleep 3 after check.sh"}
+                     "method": obs.get("method") or ("early timer 20 s" if retry else "sleep 3 after check.sh")}
         json.dump(done, open(out_path, "w"), indent=1)
         print(sid, "agree" if agree else "DISAGREE " + "; ".join(why), flush=True)
 
