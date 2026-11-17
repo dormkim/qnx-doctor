@@ -21,6 +21,9 @@ import re
 from dataclasses import dataclass
 
 LINE = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)\s*(\d+)?\s*$")
+# Any Blocked column (SEM, CONDVAR, MUTEX show an address there). Only progress.classify reads these threads, to say
+# where a stopped loop waits (harness check bo01, 2026-11-17); the judge keeps LINE, so its findings are unchanged.
+LINE_ANY = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)(?:\s+(\S+))?\s*$")
 WAIT = ("SEND", "REPLY")
 RUNNABLE = ("RUNNING", "READY")
 
@@ -35,18 +38,19 @@ class Thread:
     blocked: int | None
 
 
-def parse(text: str) -> list[Thread]:
-    """Threads from the first pidin table in `text` (later repeats of the same pid/tid are ignored)."""
+def parse(text: str, any_blocked: bool = False) -> list[Thread]:
+    """Threads from the first pidin table in `text` (later repeats of the same pid/tid are ignored). `any_blocked`
+    also keeps threads whose Blocked column is not a pid (blocked = None for those)."""
     seen, out = set(), []
     for line in text.splitlines():
-        m = LINE.match(line)
+        m = (LINE_ANY if any_blocked else LINE).match(line)
         if not m:
             continue
         pid, tid = int(m[1]), int(m[2])
         if (pid, tid) in seen:
             continue
         seen.add((pid, tid))
-        out.append(Thread(pid, tid, m[3], int(m[4]) if m[4] else None, m[6], int(m[7]) if m[7] else None))
+        out.append(Thread(pid, tid, m[3], int(m[4]) if m[4] else None, m[6], int(m[7]) if m[7] and m[7].isdigit() else None))
     return out
 
 
@@ -145,9 +149,12 @@ def _persists(found, later, finder):
     return found
 
 
-def judge(threads, focus=None, later=()) -> dict:
+def judge(threads, focus=None, later=(), moving=frozenset()) -> dict:
     """`later`: further pidin snapshots of the same boot, taken a moment after the first (snap.c, 2026-11-17). A
     priority chain or a missing reply counts only if the same waiter → server pair is there in every snapshot.
+    `moving`: pids whose loop's TICK count grew between the two counts of the same boot (progress.py). A chain or a
+    missing reply whose waiter is one of them is a slow wait, not a hang, and is dropped (2026-11-17, before sealed
+    v4: a server that answers on every timer pulse looks like a lost reply in all three snapshots; v3 q19).
     Why: one snapshot catches passing states. After a ring was fixed (v2 held-out, naive arm, 2 cases) a ring member
     or the serial driver was runnable for an instant while the fixed-priority server was busy with a request, and the
     rerun was judged «chain». A real chain (a CPU load holding the server down) is still there a moment later; a
@@ -163,13 +170,14 @@ def judge(threads, focus=None, later=()) -> dict:
                 "cycles": [[{"pid": p, "name": names.get(p, "?"), "state": state.get(p)} for p in c] for c in cyc],
                 "behind": [{"pid": t.pid, "name": t.name, "state": f"{t.state}-blocked on {t.blocked}"}
                            for t in behind(threads, {p for c in cyc for p in c})]}
-    inv = _persists([i for i in inversions(threads) if keep([i["waiter"].pid, i["server"].pid])], later, inversions)
+    stuck = lambda i: keep([i["waiter"].pid, i["server"].pid]) and i["waiter"].pid not in moving  # noqa: E731
+    inv = _persists([i for i in inversions(threads) if stuck(i)], later, inversions)
     if inv:
         return {"kind": "priority_chain", "chains": [
             {"waiter": {"pid": i["waiter"].pid, "name": i["waiter"].name, "prio": i["waiter"].prio, "state": i["waiter"].state},
              "server": {"pid": i["server"].pid, "name": i["server"].name, "prio": i["server"].prio, "state": "READY"},
              "running": sorted({(r.pid, r.name, r.prio) for r in i["running"]})} for i in inv]}
-    lost = _persists([i for i in missing_replies(threads) if keep([i["waiter"].pid, i["server"].pid])], later, missing_replies)
+    lost = _persists([i for i in missing_replies(threads) if stuck(i)], later, missing_replies)
     if lost:
         return {"kind": "missing_reply", "waits": [
             {"waiter": {"pid": i["waiter"].pid, "name": i["waiter"].name}, "server": {"pid": i["server"].pid, "name": i["server"].name}}
@@ -204,10 +212,19 @@ def describe(j: dict) -> str:
 def split_check(out: str) -> tuple[str, dict[str, int]]:
     """check.sh output → (pidin text, {role log: TICK count})."""
     pid = out.split("=== PIDIN ===", 1)[-1].split("=== TICKS ===", 1)[0]
+    return pid, tick_counts(out)
+
+
+def tick_counts(out: str, section: str = "TICKS") -> dict[str, int] | None:
+    """{role log: TICK count} of one snap section (TICKS = first count, TICKS2 = the second, snap.c 2026-11-17).
+    Stops at the next «=== » header, so a later section is never read into an earlier one. None if the section is
+    absent (older recordings have no TICKS2); {} if it is there but empty."""
+    if f"=== {section} ===" not in out:
+        return None if section != "TICKS" else {}
     ticks = {}
-    tail = out.split("=== TICKS ===", 1)[1] if "=== TICKS ===" in out else ""
+    tail = out.split(f"=== {section} ===", 1)[1].split("\n=== ", 1)[0]
     for line in tail.splitlines():
         m = re.match(r"\s*/tmp/(\S+)\.log\s+(\d+)\s*$", line)
         if m:
             ticks[m[1]] = int(m[2])
-    return pid, ticks
+    return ticks

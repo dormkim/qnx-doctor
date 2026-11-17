@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 
 from . import actions as act
+from . import progress as pg
 from . import structure as st
 from . import waitgraph as wg
 from .runner import base_env, sdp_env, tail
@@ -138,8 +139,11 @@ def observe(work: str, name: str, focus=None) -> dict:
     pidin, ticks = wg.split_check(out)
     threads = wg.parse(pidin)
     later = [wg.parse(_section(out, k)) for k in ("PIDIN2", "PIDIN3") if f"=== {k} ===" in out]  # snap.c 2026-11-17
-    j = wg.judge(threads, focus, later)
-    involved = _involved(j)
+    mv = pg.moves(ticks, wg.tick_counts(out, "TICKS2"))  # progress in the same boot (snap.c TICKS2, 2026-11-17)
+    j = wg.judge(threads, focus, later, pg.moving_pids(threads, name, mv))
+    every = [wg.parse(x, any_blocked=True) for x in (pidin, *(_section(out, k) for k in ("PIDIN2", "PIDIN3") if f"=== {k} ===" in out))]
+    live = pg.classify(j["kind"], every[0], every[1:], name, ticks, mv)
+    involved = _involved(j) or set(pg.programs(threads, name))  # judged none: keep every program's lines (H3)
     lines = [l for l in pidin.splitlines() if any(l.strip().startswith(f"{p} ") for p in involved)]
     alive = len({t.pid for t in threads if f"var/qd/{name}/" in t.name})  # program processes still there
     structure = None
@@ -148,8 +152,12 @@ def observe(work: str, name: str, focus=None) -> dict:
         structure = st.build(args, st.parse_msgs(_section(out, "MSGS")), threads)
     # Runnable threads at the snapshot (not the idle thread): shows what held the CPUs when a chain is judged (2026-11-17).
     runnable = sorted({(t.name.split("/")[-1], t.prio, t.state) for t in threads if t.state in wg.RUNNABLE and t.prio})
-    return {"stage": "target", "ok": True, "judge": j, "graph": wg.describe(j), "ticks": ticks, "alive": alive, "runnable": runnable,
-            "healthy": j["kind"] == "none" and sum(ticks.values()) > 0, "pidin_lines": lines, "structure": structure}
+    # What the states alone would have said (before progress): kept so a dropped «slow wait» stays visible.
+    state_only = wg.judge(threads, focus, later)["kind"] if mv else j["kind"]
+    return {"stage": "target", "ok": True, "judge": j, "graph": wg.describe(j), "ticks": ticks, "progress": mv,
+            "state_only": state_only,
+            "liveness": live, "alive": alive, "runnable": runnable,
+            "healthy": live["state"] == "healthy", "pidin_lines": lines, "structure": structure}
 
 
 def _section(out: str, name: str) -> str:

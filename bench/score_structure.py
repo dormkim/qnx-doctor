@@ -14,9 +14,11 @@ score_hang.py). One table row per arm:
 
 Sealed v3 rules (bench/sealed_v3_1117/README.md, added before its single run, 2026-11-17):
   unknown        label for a stop outside the closed vocabulary. Hit = the arm names none of the three hang kinds AND
-                 does not call the system healthy. The code/our arm says this as detected «none» with the note
-                 «loop not running but no wait cycle or chain found» (hangdoctor.py) -> read as «unknown». A naive
-                 arm only has the four words; its literal output is listed and it scores 0 unless it says «unknown».
+                 does not call the system healthy. Up to v3 the code/our arm said this as detected «none» with the note
+                 «loop not running but no wait cycle or chain found» -> read as «unknown». Since 2026-11-17 (before
+                 sealed v4) hangdoctor says detected «unknown» itself (note «unknown (spinning|blocked_other|no_info):
+                 ...»); both forms read as «unknown», so v3 outputs score exactly as before. A naive arm only has the
+                 four words; its literal output is listed and it scores 0 unless it says «unknown».
   accept_kinds   multi-cause label: the kind counts as found if the arm names any of them.
   loop_logs      «fixed» also needs every loop in loop_logs that printed no TICK first to tick again (>= 2) in the
                  rerun of the try that fixed it. A loop_logs role not found in the TICK counts is reported, not skipped.
@@ -45,8 +47,10 @@ def _first_ok(e):
 
 
 def _detected(r):
+    """The kind an arm named. «unknown» either way: the explicit word (hangdoctor since 2026-11-17) or the v3-era
+    «none» + NOT_RUNNING_NOTE. A healthy «none» («no hang found») stays «none»."""
     d = r.get("detected")
-    if d == "none" and str(r.get("note", "")).startswith(NOT_RUNNING_NOTE):
+    if d == "unknown" or (d == "none" and str(r.get("note", "")).startswith(NOT_RUNNING_NOTE)):
         return "unknown"
     return d
 

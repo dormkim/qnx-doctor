@@ -47,6 +47,8 @@ def score(labels, rows):
             s["harness"] += 1
             continue
         got = r.get("detected")
+        if got == "unknown":  # hangdoctor's explicit «unknown» (2026-11-17) was «none» + a note before: same score
+            got = "none"
         s["hit"][k] += got == k
         s["false_alarm"] += k == "none" and got not in ("none", None)
         s["missed"] += k != "none" and got in ("none", None)

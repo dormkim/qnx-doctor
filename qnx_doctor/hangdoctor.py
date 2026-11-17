@@ -5,6 +5,7 @@ Timeline kinds (report.py): symptom, graph, probe, docs, ai_fix, give_up. No tim
 import shutil
 
 from . import hang
+from . import progress as pg
 from . import structure as st
 
 AI_OFF_NOTE = "code judgment only: the hang is named, no fix is attempted"
@@ -38,8 +39,26 @@ def verdict(first, res) -> dict:
             "unread": st.unread(first.get("structure"), res.get("structure")) if res.get("ok") else []}
 
 
+UNKNOWN_NOTE = "unknown"  # every «unknown» note starts with this word (bench/score_structure.py reads it)
+
+
+def named(obs) -> tuple[str, str]:
+    """(detected, note). detected: a hang kind, «none» (healthy) or «unknown» (2026-11-17, before sealed v4).
+    Before, a stop the wait graph could not name came out as detected «none» with the note «loop not running but no
+    wait cycle or chain found», and only the scorer read that as «unknown». Now the tool says «unknown» itself and
+    why: spinning on the CPU, blocked outside message passing, or not enough information (progress.classify)."""
+    live = obs.get("liveness") or pg.classify(obs["judge"]["kind"], [], [], "", obs["ticks"], None)
+    d = pg.detected(live["state"], obs["judge"]["kind"])
+    if d == "none":
+        return d, "no hang found"
+    if d == "unknown":
+        return d, f"{UNKNOWN_NOTE} ({live['state']}): {live['why']}"
+    return d, ""
+
+
 def _graph_entry(obs):
     return {"kind": "graph", "verdict": obs["judge"]["kind"], "graph": obs["graph"], "ticks": obs["ticks"],
+            "progress": obs.get("progress"), "liveness": obs.get("liveness"),
             "alive": obs.get("alive"), "lines": obs["pidin_lines"], "structure": obs.get("structure")}
 
 
@@ -56,12 +75,11 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
     timeline.append({"kind": "symptom", "reason": "loop stopped" if not first["healthy"] else "loop running",
                      "out": "TICKs per role: " + ", ".join(f"{k} {'yes' if v else 'no'}" for k, v in first["ticks"].items())})
     timeline.append(_graph_entry(first))
-    detected = first["judge"]["kind"]
-    if first["healthy"] or detected == "none":
+    detected, why = named(first)
+    if detected in ("none", "unknown"):  # nothing to fix: the AI is not called and no fix is claimed
         shutil.rmtree(work, ignore_errors=True)
-        return {"id": sid, "solved": None, "by": "code", "detected": detected,
-                "note": "no hang found" if first["healthy"] else "loop not running but no wait cycle or chain found",
-                "timeline": timeline}
+        return {"id": sid, "solved": None, "by": "code", "detected": detected, "note": why,
+                "liveness": first.get("liveness", {}).get("state"), "timeline": timeline}
     if not use_ai:
         shutil.rmtree(work, ignore_errors=True)
         return {"id": sid, "solved": False, "by": "code", "detected": detected, "note": AI_OFF_NOTE, "timeline": timeline}
