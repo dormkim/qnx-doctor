@@ -35,12 +35,59 @@
 #include <sys/iomsg.h>
 #include <sys/neutrino.h>
 #include <pthread.h>
+#include <time.h>
 
 #define QDT_MAX 32
 struct qdt_rec { char dir, kind; int peer; unsigned att, done; };
 static struct qdt_rec qdt[QDT_MAX];
 static int qdt_n;
 static pthread_mutex_t qdt_mx = PTHREAD_MUTEX_INITIALIZER;
+
+/* Kernel timeouts (2026-11-17, sealed v3 q10/q16; docs/분석_sealed3_1117.md): TimerTimeout() arms a timeout for the
+ * NEXT kernel call only. The wrappers below make kernel calls of their own before the real one (ConnectServerInfo,
+ * MsgInfo, and open/write of /dev/shmem/qdm.<pid> when a count is flushed), so a program's
+ * `TimerTimeout(...); MsgSend(...)` could lose its timeout to the recorder and block forever. On v3 q10 that most likely
+ * turned navcore's 50 ms «receive with timeout» into a receive that never returned: no send, no cycle, no TICK, for
+ * every arm. Fix: remember the last TimerTimeout/timer_timeout of this thread and arm it again right before the real
+ * call. Known gap: a program that arms a timeout and then makes another, unwrapped kernel call first gets the timeout
+ * back here, which QNX would not do; no scenario so far does that. */
+static __thread struct { int armed, flags, has_ev, has_ns; clockid_t id; struct sigevent ev; uint64_t ns; } qdt_tt;
+extern int __real_TimerTimeout(clockid_t, int, const struct sigevent *, const uint64_t *, uint64_t *);
+
+static void qdt_tt_keep(int ok, clockid_t id, int flags, const struct sigevent *ev, const uint64_t *ns) {
+  qdt_tt.armed = ok && flags != 0;
+  if (!qdt_tt.armed) return;
+  qdt_tt.id = id; qdt_tt.flags = flags;
+  qdt_tt.has_ev = ev != NULL; if (ev) qdt_tt.ev = *ev;
+  qdt_tt.has_ns = ns != NULL; if (ns) qdt_tt.ns = *ns;
+}
+
+static void qdt_rearm(void) {   /* right before the real call */
+  if (!qdt_tt.armed) return;
+  qdt_tt.armed = 0;
+  int s = errno;
+  (void)__real_TimerTimeout(qdt_tt.id, qdt_tt.flags, qdt_tt.has_ev ? &qdt_tt.ev : NULL, qdt_tt.has_ns ? &qdt_tt.ns : NULL, NULL);
+  errno = s;
+}
+
+int __wrap_TimerTimeout(clockid_t id, int flags, const struct sigevent *ev, const uint64_t *ns, uint64_t *old) {
+  int v = __real_TimerTimeout(id, flags, ev, ns, old);
+  qdt_tt_keep(v != -1, id, flags, ev, ns);
+  return v;
+}
+extern int __real_TimerTimeout_r(clockid_t, int, const struct sigevent *, const uint64_t *, uint64_t *);
+int __wrap_TimerTimeout_r(clockid_t id, int flags, const struct sigevent *ev, const uint64_t *ns, uint64_t *old) {
+  int v = __real_TimerTimeout_r(id, flags, ev, ns, old);
+  qdt_tt_keep(v == EOK, id, flags, ev, ns);
+  return v;
+}
+extern int __real_timer_timeout(clockid_t, int, const struct sigevent *, const struct timespec *, struct timespec *);
+int __wrap_timer_timeout(clockid_t id, int flags, const struct sigevent *ev, const struct timespec *ts, struct timespec *old) {
+  int v = __real_timer_timeout(id, flags, ev, ts, old);
+  uint64_t ns = ts ? (uint64_t)ts->tv_sec * 1000000000ULL + (uint64_t)ts->tv_nsec : 0;
+  qdt_tt_keep(v != -1, id, flags, ev, ts ? &ns : NULL);
+  return v;
+}
 
 static int qdt_mark(unsigned v) { return v <= 4 || (v & (v - 1)) == 0; }
 
@@ -142,6 +189,7 @@ static void qdt_got(long rcvid, const void *msg, size_t bytes) {   /* receiver s
   long __wrap_##name(int coid, A s, size_t sn, B r, size_t rn) {                        \
     int peer = qdt_server(coid);                                                         \
     qdt_add('S', 'M', peer, 1, 0);                                                       \
+    qdt_rearm();                                                                         \
     long v = __real_##name(coid, s, sn, r, rn);                                          \
     if (v != -1 && !(v < 0 && (C))) qdt_add('S', 'M', peer, 0, 1);                       \
     (void)(D);                                                                           \
@@ -170,6 +218,7 @@ QDT_SEND(MsgSendvnc_r, const struct iovec *, const struct iovec *, 1, 0)
   int __wrap_##name(int coid, int prio, int code, V val) {                              \
     int peer = qdt_server(coid);                                                         \
     qdt_add('S', 'P', peer, 1, 0);                                                       \
+    qdt_rearm();                                                                         \
     int v = __real_##name(coid, prio, code, val);                                        \
     if (v != -1 && !(v < 0 && (C))) qdt_add('S', 'P', peer, 0, 1);                       \
     return v;                                                                            \
@@ -183,6 +232,7 @@ QDT_PULSE(MsgSendPulsePtr_r, void *, 1)
   extern RET __real_##name(int, B, size_t, struct _msg_info *);                        \
   RET __wrap_##name(int chid, B m, size_t n, struct _msg_info *info) {                  \
     qdt_add('W', 'C', getpid(), 1, 0);                                                   \
+    qdt_rearm();                                                                         \
     RET v = __real_##name(chid, m, n, info);                                             \
     if (v >= 0) qdt_got(v, (C) ? NULL : (const void *)m, (C) ? 0 : n);                   \
     return v;                                                                            \
@@ -200,6 +250,7 @@ QDT_RECV(MsgReceivePulse_r, void *, int, 0)
   int __wrap_##name(rcvid_t rcvid, const struct sigevent *ev) {                         \
     int peer = qdt_rcvid_pid(rcvid);                                                     \
     qdt_add('S', 'E', peer, 1, 0);                                                       \
+    qdt_rearm();                                                                         \
     int v = __real_##name(rcvid, ev);                                                    \
     if (v != -1 && !(v < 0 && (C))) qdt_add('S', 'E', peer, 0, 1);                       \
     return v;                                                                            \
