@@ -1,17 +1,36 @@
-# Reproducibility check — v4 (2026-11-17, before scoring)
+# sealed hang v4 — reproducibility result (2026-11-18)
 
-bench/repro_v3.py pool answers/labels.json repro_20261117.json --same-boot, no doctor, H2 harness (same-boot TICKS/TICKS2).
+States only (QNX licence 4.6(i)). No doctor, judge, prompt or scorer output here.
 
-## Result: STOPPED — harness failure, not scored (README rule 2 stop rule)
+## First pass (2026-11-17): stopped by the stop rule
 
-- Reproduced (agree): 19 / 24.
-- Disagree: 5 — D08, D13, D17, D20, D23. Every one is "expected stops, kept ticking": a role the answer key marks as hung kept making progress.
-  - priority_chain: D08, D13, D17, D23 (4)
-  - multi (priority inversion + spin): D20 (1)
-- Stop rule (2 or more priority_chain fail reproduction for a harness reason) triggered (4). The run is not scored.
+`QD_SMP` default (2 cores), `repro_v3.py --same-boot`: **19/24 agree**; 5 disagreed, all "expected stops, kept ticking":
+D08, D13, D17, D23 (priority_chain) + D20 (multi). Per V4_PLAN ("≥2 priority_chain fail reproduction → harness failure, not scored"), the run was stopped and **not scored** (commit `343ccfc`).
 
-## Likely cause (not yet fixed)
-The chain scenarios did not starve their low-priority waiter: the counts grow 15-21 ticks in the window (free progress), not a stall. This matches the v3 caveat (docs/measure_structure_1116.md "Chains are sensitive to host load"; scenario processes inherit priority 50 from hi, so an intended priority gap may be flattened). Whether it is the launcher priority, host load, or the independent author's chain design is the next thing to examine on dev — as v3 also left "why the chain appeared" open.
+## Diagnosis (2026-11-18): the scenarios could not hang as written
 
-## Next
-Fix chain reproduction on dev (document the harness change here; the seal's scenarios and answers are unchanged, scenarios-only hash 547cfa55). Re-run this check. Score only after at most 1 priority_chain fails reproduction.
+Confirmed by `pidin`:
+- `name_attach()` ignores its `flags` arg (QNX lib ref: "Currently not used") → the "fixed-priority" servers inherited the client's priority (observed `30r`), beat the hog, served every request. (D08, D13, D20, D23)
+- D17's `PTHREAD_PRIO_PROTECT` ceiling-15 refuses a prio-30 locker (`EINVAL`) → the high thread never blocked (observed `30f NANOSLEEP`). Priority ceiling cannot produce this inversion; the label was impossible.
+- On 2 cores one mid hog cannot starve a low server (spare core).
+
+Full detail and the fix: `SEAL.md` → "Correction 2".
+
+## Fix + second pass (2026-11-18): all reproduce
+
+- `qd.h`: genuine fixed-priority endpoint via `ChannelCreate(_NTO_CHF_FIXED_PRIORITY)` (`qd_fixed_chan`/`qd_open_fixed`).
+- D08/D13/D20/D23: one-line swaps (labels unchanged).
+- D17: rewritten to classic `PRIO_NONE` priority inversion; label corrected (kind/expect unchanged).
+- Target single-core (`QD_SMP=1`).
+
+`QD_SMP=1 python3 bench/repro_v3.py bench/sealed_v4_1117/pool bench/sealed_v4_1117/answers/labels.json out.json --same-boot`
+
+**24/24 agree, 0 errors, 0 missing counts.** Stop rule not triggered. The set is run-verified.
+
+Representative counts (snap == later, i.e. no progress = hung as labeled):
+- D08 client/server 0, hog 1 · D13 all stages 0, hog 1 · D20 all 0, hog 1 · D23 0, hog 1
+- D17 high 1 (blocked before its post-lock tick), low 2 (holds mx, preempted), hog 1
+
+## Scoring gate
+
+The single scored run (code / ours / naive / naive_x2) stays gated on explicit user confirmation and must set `QD_SMP=1`.

@@ -9,7 +9,7 @@ lock = open(os.environ.get("QD_QEMU_LOCK", "/tmp/qd-qemu.lock"), "w")
 fcntl.flock(lock, fcntl.LOCK_EX)
 root = os.environ["QD_QEMU_ROOT"]
 env = dict(os.environ, QEMU_MODULE_DIR=f"{root}/usr/lib/x86_64-linux-gnu/qemu", LD_LIBRARY_PATH=f"{root}/usr/lib/x86_64-linux-gnu")
-args = [f"{root}/usr/bin/qemu-system-x86_64", "-L", f"{root}/usr/share/qemu", "-m", "1G", "-smp", "2", "-cpu", "max", "-nographic",
+args = [f"{root}/usr/bin/qemu-system-x86_64", "-L", f"{root}/usr/share/qemu", "-m", "1G", "-smp", os.environ.get("QD_SMP", "2"), "-cpu", "max", "-nographic",
         "-serial", "mon:stdio", "-kernel", f"{img}/output/ifs.bin", "-drive", f"file={img}/output/disk-qemu.vmdk,if=ide", "-nic", "none"]
 if os.access("/dev/kvm", os.W_OK): args += ["-enable-kvm"]
 p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)

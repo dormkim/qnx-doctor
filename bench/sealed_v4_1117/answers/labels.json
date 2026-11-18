@@ -1,780 +1,780 @@
 {
-  "_note": "qnx-doctor 소스·프롬프트·결과를 안 보고 작성; 결과에 맞춰 수정하지 않음. (authored blind to the doctor's code, prompts, and scores; never tuned to match run results.)",
-  "D01": {
-    "kind": "healthy",
-    "category": "two-process request/reply",
-    "info_insufficient": false,
-    "axes": [
-      "resembles the D01 pingpong send-deadlock"
-    ],
-    "members": [
-      "d001a",
-      "d001b"
-    ],
-    "states": {
-      "d001a": "RECEIVE on its channel between knocks (normal idle)",
-      "d001b": "running; sends every 150ms"
-    },
-    "culprit": "none: server replies to every message; client sends then gets its reply. Correct.",
-    "fix": "n/a (healthy)",
-    "accept_kinds": [
-      "healthy"
-    ],
-    "loop_logs": [
-      "d001a",
-      "d001b"
-    ],
-    "expect": {
-      "d001a": "ticks",
-      "d001b": "ticks"
-    },
-    "design": "healthy-relay-looks-like-deadlock"
+ "_note": "qnx-doctor 소스·프롬프트·결과를 안 보고 작성; 결과에 맞춰 수정하지 않음. (authored blind to the doctor's code, prompts, and scores; never tuned to match run results.)",
+ "D01": {
+  "kind": "healthy",
+  "category": "two-process request/reply",
+  "info_insufficient": false,
+  "axes": [
+   "resembles the D01 pingpong send-deadlock"
+  ],
+  "members": [
+   "d001a",
+   "d001b"
+  ],
+  "states": {
+   "d001a": "RECEIVE on its channel between knocks (normal idle)",
+   "d001b": "running; sends every 150ms"
   },
-  "D02": {
-    "kind": "priority_chain",
-    "category": "mutex priority inversion (no inheritance)",
-    "info_insufficient": false,
-    "axes": [
-      "priority inheritance vs none",
-      "who holds the lock vs who hogs the CPU"
-    ],
-    "members": [
-      "d002a",
-      "d002b",
-      "d002c"
-    ],
-    "states": {
-      "d002a": "READY at prio 10, holds mx, preempted (never unlocks)",
-      "d002b": "RUNNING at prio 20, busy loop",
-      "d002c": "MUTEX-blocked at prio 30 on mx"
-    },
-    "culprit": "prio_none.c: mutex created PTHREAD_PRIO_NONE, so the low holder is not boosted to the high waiter's priority; the medium busy loop preempts it forever.",
-    "fix": "create mx with PTHREAD_PRIO_INHERIT (QNX default) so the holder inherits 30 and finishes.",
-    "accept_kinds": [
-      "priority_chain"
-    ],
-    "loop_logs": [
-      "d002a",
-      "d002b",
-      "d002c"
-    ],
-    "expect": {
-      "d002a": "stops",
-      "d002b": "stops",
-      "d002c": "stops"
-    },
-    "design": "classic-mutex-inversion"
+  "culprit": "none: server replies to every message; client sends then gets its reply. Correct.",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d001a",
+   "d001b"
+  ],
+  "expect": {
+   "d001a": "ticks",
+   "d001b": "ticks"
   },
-  "D03": {
-    "kind": "deadlock",
-    "category": "circular synchronous MsgSend (3-node ring)",
-    "info_insufficient": false,
-    "axes": [
-      "timeout present but on the wrong state",
-      "cycle length 3 not 2"
-    ],
-    "members": [
-      "d003a",
-      "d003b",
-      "d003c"
-    ],
-    "states": {
-      "d003a": "SEND-blocked on d003b",
-      "d003b": "SEND-blocked on d003c",
-      "d003c": "SEND-blocked on d003a"
-    },
-    "culprit": "ring.c: each node MsgSends to its neighbour before anyone MsgReceives, so the three form a send cycle. d003c arms TimerTimeout on _NTO_TIMEOUT_RECEIVE but is SEND-blocked, so the guard never fires.",
-    "fix": "break the cycle: one node must MsgReceive first (or use non-blocking/pulse), or put the timeout on _NTO_TIMEOUT_SEND.",
-    "accept_kinds": [
-      "deadlock"
-    ],
-    "loop_logs": [
-      "d003a",
-      "d003b",
-      "d003c"
-    ],
-    "expect": {
-      "d003a": "stops",
-      "d003b": "stops",
-      "d003c": "stops"
-    },
-    "design": "ring-deadlock-with-misarmed-timeout"
+  "design": "healthy-relay-looks-like-deadlock"
+ },
+ "D02": {
+  "kind": "priority_chain",
+  "category": "mutex priority inversion (no inheritance)",
+  "info_insufficient": false,
+  "axes": [
+   "priority inheritance vs none",
+   "who holds the lock vs who hogs the CPU"
+  ],
+  "members": [
+   "d002a",
+   "d002b",
+   "d002c"
+  ],
+  "states": {
+   "d002a": "READY at prio 10, holds mx, preempted (never unlocks)",
+   "d002b": "RUNNING at prio 20, busy loop",
+   "d002c": "MUTEX-blocked at prio 30 on mx"
   },
-  "D04": {
-    "kind": "unknown",
-    "category": "busy-wait on a flag never set",
-    "info_insufficient": false,
-    "axes": [
-      "looks like a hang but burns CPU",
-      "no message passing involved"
-    ],
-    "members": [
-      "d004a"
-    ],
-    "states": {
-      "d004a": "RUNNING at user prio, spinning in while(!drained)"
-    },
-    "culprit": "spin_flag.c: the loop spins on 'drained', which nothing in the program ever sets; it ticks 3 times then spins forever.",
-    "fix": "set drained from the real completion path (or block on a pulse/semaphore instead of spinning).",
-    "accept_kinds": [
-      "unknown"
-    ],
-    "loop_logs": [
-      "d004a"
-    ],
-    "expect": {
-      "d004a": "stops"
-    },
-    "design": "cpu-spin-then-stop"
+  "culprit": "prio_none.c: mutex created PTHREAD_PRIO_NONE, so the low holder is not boosted to the high waiter's priority; the medium busy loop preempts it forever.",
+  "fix": "create mx with PTHREAD_PRIO_INHERIT (QNX default) so the holder inherits 30 and finishes.",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d002a",
+   "d002b",
+   "d002c"
+  ],
+  "expect": {
+   "d002a": "stops",
+   "d002b": "stops",
+   "d002c": "stops"
   },
-  "D05": {
-    "kind": "missing_reply",
-    "category": "server drops the reply on the good path",
-    "info_insufficient": false,
-    "axes": [
-      "reply missing vs server starved",
-      "which code path replies"
-    ],
-    "members": [
-      "d005a",
-      "d005b"
-    ],
-    "states": {
-      "d005a": "REPLY-blocked on d005b (first send never answered)",
-      "d005b": "RECEIVE on its channel (no further messages arrive)"
-    },
-    "culprit": "halfreply_srv.c: MsgReply is only called when m.app.v<0; normal requests (v>=0) fall through with no reply, so the client stays REPLY-blocked.",
-    "fix": "MsgReply on every received request, not only the error path.",
-    "accept_kinds": [
-      "missing_reply"
-    ],
-    "loop_logs": [
-      "d005a",
-      "d005b"
-    ],
-    "expect": {
-      "d005a": "stops",
-      "d005b": "stops"
-    },
-    "design": "half-reply"
+  "design": "classic-mutex-inversion"
+ },
+ "D03": {
+  "kind": "deadlock",
+  "category": "circular synchronous MsgSend (3-node ring)",
+  "info_insufficient": false,
+  "axes": [
+   "timeout present but on the wrong state",
+   "cycle length 3 not 2"
+  ],
+  "members": [
+   "d003a",
+   "d003b",
+   "d003c"
+  ],
+  "states": {
+   "d003a": "SEND-blocked on d003b",
+   "d003b": "SEND-blocked on d003c",
+   "d003c": "SEND-blocked on d003a"
   },
-  "D06": {
-    "kind": "healthy",
-    "category": "server idle in receive between knocks",
-    "info_insufficient": false,
-    "axes": [
-      "RECEIVE state read as a deadlock",
-      "misleading QD-CULPRIT comment"
-    ],
-    "members": [
-      "d006a",
-      "d006b"
-    ],
-    "states": {
-      "d006a": "RECEIVE on its channel (snapshot catches it parked, but a knock arrives every 400ms)",
-      "d006b": "running; sends every 400ms"
-    },
-    "culprit": "none: healthy request/reply. The QD-CULPRIT comment on the receive is a decoy.",
-    "fix": "n/a (healthy)",
-    "accept_kinds": [
-      "healthy"
-    ],
-    "loop_logs": [
-      "d006a",
-      "d006b"
-    ],
-    "expect": {
-      "d006a": "ticks",
-      "d006b": "ticks"
-    },
-    "design": "healthy-looks-parked"
+  "culprit": "ring.c: each node MsgSends to its neighbour before anyone MsgReceives, so the three form a send cycle. d003c arms TimerTimeout on _NTO_TIMEOUT_RECEIVE but is SEND-blocked, so the guard never fires.",
+  "fix": "break the cycle: one node must MsgReceive first (or use non-blocking/pulse), or put the timeout on _NTO_TIMEOUT_SEND.",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "loop_logs": [
+   "d003a",
+   "d003b",
+   "d003c"
+  ],
+  "expect": {
+   "d003a": "stops",
+   "d003b": "stops",
+   "d003c": "stops"
   },
-  "D07": {
-    "kind": "multi",
-    "category": "mutual-send deadlock + a never-replying server (independent)",
-    "info_insufficient": false,
-    "axes": [
-      "two unrelated faults in one capture",
-      "one pair blocks on SEND, one client on REPLY"
-    ],
-    "members": [
-      "d007a",
-      "d007b",
-      "d007c",
-      "d007d"
-    ],
-    "states": {
-      "d007a": "SEND-blocked on d007b",
-      "d007b": "SEND-blocked on d007a",
-      "d007c": "REPLY-blocked on d007d",
-      "d007d": "RECEIVE (never replies)"
-    },
-    "culprit": "pair_send.c: d007a and d007b each MsgSend to the other before receiving (2-node send deadlock). noreply_srv.c: d007d receives d007c's request and never MsgReplys.",
-    "fix": "pair: one side receives first. server: add MsgReply for each request.",
-    "accept_kinds": [
-      "multi",
-      "deadlock",
-      "missing_reply"
-    ],
-    "loop_logs": [
-      "d007a",
-      "d007b",
-      "d007c",
-      "d007d"
-    ],
-    "expect": {
-      "d007a": "stops",
-      "d007b": "stops",
-      "d007c": "stops",
-      "d007d": "stops"
-    },
-    "design": "multi-deadlock-plus-missing-reply"
+  "design": "ring-deadlock-with-misarmed-timeout"
+ },
+ "D04": {
+  "kind": "unknown",
+  "category": "busy-wait on a flag never set",
+  "info_insufficient": false,
+  "axes": [
+   "looks like a hang but burns CPU",
+   "no message passing involved"
+  ],
+  "members": [
+   "d004a"
+  ],
+  "states": {
+   "d004a": "RUNNING at user prio, spinning in while(!drained)"
   },
-  "D08": {
-    "kind": "priority_chain",
-    "category": "low fixed-priority server starved by a mid hog",
-    "info_insufficient": false,
-    "axes": [
-      "priority starvation vs missing reply",
-      "fixed-priority channel breaks inheritance"
-    ],
-    "members": [
-      "d008a",
-      "d008b",
-      "d008c"
-    ],
-    "states": {
-      "d008a": "REPLY-blocked on d008b",
-      "d008b": "RECEIVE at prio 12 (ready but never scheduled)",
-      "d008c": "RUNNING at prio 20 busy loop"
-    },
-    "culprit": "lowfix_srv.c: server runs at prio 12 with a _NTO_CHF_FIXED_PRIORITY channel, so it does not inherit the prio-30 client; the prio-20 hog preempts it and it never receives.",
-    "fix": "drop _NTO_CHF_FIXED_PRIORITY so the server inherits the client's priority (or raise the server above the hog).",
-    "accept_kinds": [
-      "priority_chain"
-    ],
-    "loop_logs": [
-      "d008a",
-      "d008b",
-      "d008c"
-    ],
-    "expect": {
-      "d008a": "stops",
-      "d008b": "stops",
-      "d008c": "stops"
-    },
-    "design": "fixed-prio-server-starved"
+  "culprit": "spin_flag.c: the loop spins on 'drained', which nothing in the program ever sets; it ticks 3 times then spins forever.",
+  "fix": "set drained from the real completion path (or block on a pulse/semaphore instead of spinning).",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d004a"
+  ],
+  "expect": {
+   "d004a": "stops"
   },
-  "D09": {
-    "kind": "unknown",
-    "category": "waits for an external producer not in the capture",
-    "info_insufficient": true,
-    "axes": [
-      "bug vs missing external stimulus",
-      "cause is not in the provided source"
-    ],
-    "members": [
-      "d009a"
-    ],
-    "states": {
-      "d009a": "RECEIVE on its channel, waiting for a sensor that never connects"
-    },
-    "culprit": "wait_sensor.c: blocks in MsgReceive for a 'field sensor' process that is not part of this capture; from the source alone you cannot tell whether the sensor is buggy, absent, or simply idle.",
-    "fix": "cannot be determined from the capture; needs the sensor process / its logs.",
-    "accept_kinds": [
-      "unknown"
-    ],
-    "loop_logs": [
-      "d009a"
-    ],
-    "expect": {
-      "d009a": "stops"
-    },
-    "design": "info-insufficient-external-producer"
+  "design": "cpu-spin-then-stop"
+ },
+ "D05": {
+  "kind": "missing_reply",
+  "category": "server drops the reply on the good path",
+  "info_insufficient": false,
+  "axes": [
+   "reply missing vs server starved",
+   "which code path replies"
+  ],
+  "members": [
+   "d005a",
+   "d005b"
+  ],
+  "states": {
+   "d005a": "REPLY-blocked on d005b (first send never answered)",
+   "d005b": "RECEIVE on its channel (no further messages arrive)"
   },
-  "D10": {
-    "kind": "deadlock",
-    "category": "ABBA mutex lock-ordering deadlock",
-    "info_insufficient": false,
-    "axes": [
-      "lock-order inversion",
-      "two locks, opposite order"
-    ],
-    "members": [
-      "d010a",
-      "d010b"
-    ],
-    "states": {
-      "d010a": "MUTEX-blocked on m2 (holds m1)",
-      "d010b": "MUTEX-blocked on m1 (holds m2)"
-    },
-    "culprit": "abba.c: d010a locks m1 then m2; d010b locks m2 then m1. After each takes its first lock they deadlock taking the second.",
-    "fix": "acquire m1 and m2 in one global order in both threads.",
-    "accept_kinds": [
-      "deadlock"
-    ],
-    "loop_logs": [
-      "d010a",
-      "d010b"
-    ],
-    "expect": {
-      "d010a": "stops",
-      "d010b": "stops"
-    },
-    "design": "abba-mutex"
+  "culprit": "halfreply_srv.c: MsgReply is only called when m.app.v<0; normal requests (v>=0) fall through with no reply, so the client stays REPLY-blocked.",
+  "fix": "MsgReply on every received request, not only the error path.",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "loop_logs": [
+   "d005a",
+   "d005b"
+  ],
+  "expect": {
+   "d005a": "stops",
+   "d005b": "stops"
   },
-  "D11": {
-    "kind": "healthy",
-    "category": "periodic worker on a receive timeout",
-    "info_insufficient": false,
-    "axes": [
-      "RECEIVE-with-timeout read as blocked",
-      "TimerTimeout used correctly"
-    ],
-    "members": [
-      "d011a"
-    ],
-    "states": {
-      "d011a": "RECEIVE with a 300ms timeout pending (wakes, ticks, repeats)"
-    },
-    "culprit": "none: TimerTimeout(_NTO_TIMEOUT_RECEIVE) wakes the loop every 300ms; healthy.",
-    "fix": "n/a (healthy)",
-    "accept_kinds": [
-      "healthy"
-    ],
-    "loop_logs": [
-      "d011a"
-    ],
-    "expect": {
-      "d011a": "ticks"
-    },
-    "design": "healthy-timed-receive"
+  "design": "half-reply"
+ },
+ "D06": {
+  "kind": "healthy",
+  "category": "server idle in receive between knocks",
+  "info_insufficient": false,
+  "axes": [
+   "RECEIVE state read as a deadlock",
+   "misleading QD-CULPRIT comment"
+  ],
+  "members": [
+   "d006a",
+   "d006b"
+  ],
+  "states": {
+   "d006a": "RECEIVE on its channel (snapshot catches it parked, but a knock arrives every 400ms)",
+   "d006b": "running; sends every 400ms"
   },
-  "D12": {
-    "kind": "missing_reply",
-    "category": "off-by-one reply (replies the previous rcvid)",
-    "info_insufficient": false,
-    "axes": [
-      "reply lost vs reply delayed",
-      "rcvid bookkeeping"
-    ],
-    "members": [
-      "d012a",
-      "d012b"
-    ],
-    "states": {
-      "d012a": "REPLY-blocked on d012b (its request is only answered when a NEXT one arrives)",
-      "d012b": "RECEIVE (waiting for a next request that cannot come)"
-    },
-    "culprit": "offbyone_srv.c: it stores each rcvid in 'prev' and replies 'prev' on the following iteration; with one client, the client blocks before a next request can arrive, so every request hangs.",
-    "fix": "reply the current rcvid in the same iteration.",
-    "accept_kinds": [
-      "missing_reply"
-    ],
-    "loop_logs": [
-      "d012a",
-      "d012b"
-    ],
-    "expect": {
-      "d012a": "stops",
-      "d012b": "stops"
-    },
-    "design": "off-by-one-reply"
+  "culprit": "none: healthy request/reply. The QD-CULPRIT comment on the receive is a decoy.",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d006a",
+   "d006b"
+  ],
+  "expect": {
+   "d006a": "ticks",
+   "d006b": "ticks"
   },
-  "D13": {
-    "kind": "priority_chain",
-    "category": "priority drop in the middle of a server chain",
-    "info_insufficient": false,
-    "axes": [
-      "long REPLY chain",
-      "inheritance broken mid-chain",
-      "idle tail stage"
-    ],
-    "members": [
-      "d013a",
-      "d013b",
-      "d013c",
-      "d013d",
-      "d013e"
-    ],
-    "states": {
-      "d013a": "REPLY-blocked on d013b",
-      "d013b": "REPLY-blocked on d013c (boosted to 30 but waiting)",
-      "d013c": "RECEIVE at prio 12 (starved)",
-      "d013d": "RECEIVE (idle; never reached)",
-      "d013e": "RUNNING at prio 20 busy loop"
-    },
-    "culprit": "chain_s2.c: the middle stage uses a _NTO_CHF_FIXED_PRIORITY channel at prio 12, so the inherited prio-30 request from s1 does not carry through; the prio-20 hog starves s2 and the whole chain stalls.",
-    "fix": "remove _NTO_CHF_FIXED_PRIORITY on s2 (let inheritance propagate), or lift s2 above the hog.",
-    "accept_kinds": [
-      "priority_chain"
-    ],
-    "loop_logs": [
-      "d013a",
-      "d013b",
-      "d013c",
-      "d013d",
-      "d013e"
-    ],
-    "expect": {
-      "d013a": "stops",
-      "d013b": "stops",
-      "d013c": "stops",
-      "d013d": "stops",
-      "d013e": "stops"
-    },
-    "design": "priority-chain-broken-mid-stage"
+  "design": "healthy-looks-parked"
+ },
+ "D07": {
+  "kind": "multi",
+  "category": "mutual-send deadlock + a never-replying server (independent)",
+  "info_insufficient": false,
+  "axes": [
+   "two unrelated faults in one capture",
+   "one pair blocks on SEND, one client on REPLY"
+  ],
+  "members": [
+   "d007a",
+   "d007b",
+   "d007c",
+   "d007d"
+  ],
+  "states": {
+   "d007a": "SEND-blocked on d007b",
+   "d007b": "SEND-blocked on d007a",
+   "d007c": "REPLY-blocked on d007d",
+   "d007d": "RECEIVE (never replies)"
   },
-  "D14": {
-    "kind": "unknown",
-    "category": "lost wakeup on a condvar (outside message passing)",
-    "info_insufficient": false,
-    "axes": [
-      "signal before wait",
-      "no predicate loop",
-      "live producer masks the stuck consumer"
-    ],
-    "members": [
-      "d014a",
-      "d014b"
-    ],
-    "states": {
-      "d014a": "running; keeps ticking (producer already signalled)",
-      "d014b": "CONDVAR-blocked forever"
-    },
-    "culprit": "lostwake.c: the producer pthread_cond_signals before the consumer reaches pthread_cond_wait, and the consumer waits with no predicate, so the wakeup is lost and the consumer blocks forever.",
-    "fix": "use a predicate guarded by the mutex (while(!ready) cond_wait) so a prior signal is not lost.",
-    "accept_kinds": [
-      "unknown"
-    ],
-    "loop_logs": [
-      "d014a",
-      "d014b"
-    ],
-    "expect": {
-      "d014a": "ticks",
-      "d014b": "stops"
-    },
-    "design": "lost-wakeup-condvar"
+  "culprit": "pair_send.c: d007a and d007b each MsgSend to the other before receiving (2-node send deadlock). noreply_srv.c: d007d receives d007c's request and never MsgReplys.",
+  "fix": "pair: one side receives first. server: add MsgReply for each request.",
+  "accept_kinds": [
+   "multi",
+   "deadlock",
+   "missing_reply"
+  ],
+  "loop_logs": [
+   "d007a",
+   "d007b",
+   "d007c",
+   "d007d"
+  ],
+  "expect": {
+   "d007a": "stops",
+   "d007b": "stops",
+   "d007c": "stops",
+   "d007d": "stops"
   },
-  "D15": {
-    "kind": "healthy",
-    "category": "timer-pulse driven server",
-    "info_insufficient": false,
-    "axes": [
-      "RECEIVE state read as blocked",
-      "pulse arrives every 400ms"
-    ],
-    "members": [
-      "d015a"
-    ],
-    "states": {
-      "d015a": "RECEIVE on its channel; a timer pulse arrives every 400ms"
-    },
-    "culprit": "none: a periodic timer pulse drives one tick every 400ms; healthy.",
-    "fix": "n/a (healthy)",
-    "accept_kinds": [
-      "healthy"
-    ],
-    "loop_logs": [
-      "d015a"
-    ],
-    "expect": {
-      "d015a": "ticks"
-    },
-    "design": "healthy-timer-pulse"
+  "design": "multi-deadlock-plus-missing-reply"
+ },
+ "D08": {
+  "kind": "priority_chain",
+  "category": "low fixed-priority server starved by a mid hog",
+  "info_insufficient": false,
+  "axes": [
+   "priority starvation vs missing reply",
+   "fixed-priority channel breaks inheritance"
+  ],
+  "members": [
+   "d008a",
+   "d008b",
+   "d008c"
+  ],
+  "states": {
+   "d008a": "REPLY-blocked on d008b",
+   "d008b": "RECEIVE at prio 12 (ready but never scheduled)",
+   "d008c": "RUNNING at prio 20 busy loop"
   },
-  "D16": {
-    "kind": "deadlock",
-    "category": "two servers call each other while handling (reentrancy)",
-    "info_insufficient": false,
-    "axes": [
-      "REPLY vs SEND in a 2-server cycle",
-      "call-back during handling"
-    ],
-    "members": [
-      "d016a",
-      "d016b",
-      "d016c"
-    ],
-    "states": {
-      "d016a": "REPLY-blocked on d016b",
-      "d016b": "REPLY-blocked on d016c (inside its handler)",
-      "d016c": "SEND-blocked on d016b (which is not receiving)"
-    },
-    "culprit": "reentr_s1.c/reentr_s2.c: s1 MsgSends to s2 while handling the client; s2, handling s1's call, MsgSends back to s1, which is REPLY-blocked on s2 and not receiving.",
-    "fix": "do not call back synchronously while handling; reply first, or use a pulse / separate worker for the cross-call.",
-    "accept_kinds": [
-      "deadlock"
-    ],
-    "loop_logs": [
-      "d016a",
-      "d016b",
-      "d016c"
-    ],
-    "expect": {
-      "d016a": "stops",
-      "d016b": "stops",
-      "d016c": "stops"
-    },
-    "design": "two-server-reentrancy"
+  "culprit": "lowfix_srv.c: server runs at prio 12 with a _NTO_CHF_FIXED_PRIORITY channel, so it does not inherit the prio-30 client; the prio-20 hog preempts it and it never receives.",
+  "fix": "drop _NTO_CHF_FIXED_PRIORITY so the server inherits the client's priority (or raise the server above the hog).",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d008a",
+   "d008b",
+   "d008c"
+  ],
+  "expect": {
+   "d008a": "stops",
+   "d008b": "stops",
+   "d008c": "stops"
   },
-  "D17": {
-    "kind": "priority_chain",
-    "category": "mutex priority inversion (ceiling too low)",
-    "info_insufficient": false,
-    "axes": [
-      "PRIO_PROTECT ceiling vs PRIO_INHERIT",
-      "ceiling value below the waiter"
-    ],
-    "members": [
-      "d017a",
-      "d017b",
-      "d017c"
-    ],
-    "states": {
-      "d017a": "READY at boosted prio 15, holds mx, preempted",
-      "d017b": "RUNNING at prio 20 busy loop",
-      "d017c": "MUTEX-blocked at prio 30 on mx"
-    },
-    "culprit": "prio_ceiling.c: the mutex is PTHREAD_PRIO_PROTECT with ceiling 15; the low holder is only boosted to 15, below the prio-20 hog, so it is preempted and the prio-30 waiter is starved.",
-    "fix": "raise the ceiling to >= the highest user priority (30), or use PTHREAD_PRIO_INHERIT.",
-    "accept_kinds": [
-      "priority_chain"
-    ],
-    "loop_logs": [
-      "d017a",
-      "d017b",
-      "d017c"
-    ],
-    "expect": {
-      "d017a": "stops",
-      "d017b": "stops",
-      "d017c": "stops"
-    },
-    "design": "ceiling-too-low"
+  "design": "fixed-prio-server-starved"
+ },
+ "D09": {
+  "kind": "unknown",
+  "category": "waits for an external producer not in the capture",
+  "info_insufficient": true,
+  "axes": [
+   "bug vs missing external stimulus",
+   "cause is not in the provided source"
+  ],
+  "members": [
+   "d009a"
+  ],
+  "states": {
+   "d009a": "RECEIVE on its channel, waiting for a sensor that never connects"
   },
-  "D18": {
-    "kind": "unknown",
-    "category": "behaviour depends on a config file not in the capture",
-    "info_insufficient": true,
-    "axes": [
-      "bug vs missing external data",
-      "cause is not in the provided source"
-    ],
-    "members": [
-      "d018a"
-    ],
-    "states": {
-      "d018a": "RECEIVE on its channel; the upstream it should pull from is named in an absent config file"
-    },
-    "culprit": "need_conf.c: it reads /var/qd/D18/upstream.conf (not shipped with the capture) to learn its upstream; without it the process just waits. You cannot tell from the source whether this is a bug or a deployment/data problem.",
-    "fix": "cannot be determined from the capture; needs upstream.conf / the deployment config.",
-    "accept_kinds": [
-      "unknown"
-    ],
-    "loop_logs": [
-      "d018a"
-    ],
-    "expect": {
-      "d018a": "stops"
-    },
-    "design": "info-insufficient-missing-file"
+  "culprit": "wait_sensor.c: blocks in MsgReceive for a 'field sensor' process that is not part of this capture; from the source alone you cannot tell whether the sensor is buggy, absent, or simply idle.",
+  "fix": "cannot be determined from the capture; needs the sensor process / its logs.",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d009a"
+  ],
+  "expect": {
+   "d009a": "stops"
   },
-  "D19": {
-    "kind": "missing_reply",
-    "category": "server waits for a second message before replying",
-    "info_insufficient": false,
-    "axes": [
-      "protocol expects 2 messages, client sends 1",
-      "timeout armed on the wrong state"
-    ],
-    "members": [
-      "d019a",
-      "d019b"
-    ],
-    "states": {
-      "d019a": "REPLY-blocked on d019b (TimerTimeout armed on RECEIVE, so it does not fire)",
-      "d019b": "RECEIVE, waiting for a 'body' message that never comes"
-    },
-    "culprit": "twomsg_srv.c: the server MsgReceives twice (header then body) before replying, but the client sends only one message per request, so it blocks on the second receive and the client stays REPLY-blocked. The client's TimerTimeout uses _NTO_TIMEOUT_RECEIVE, which does not guard its MsgSend.",
-    "fix": "reply after the single request (or have the client send both header and body); arm the client guard with _NTO_TIMEOUT_REPLY|_NTO_TIMEOUT_SEND.",
-    "accept_kinds": [
-      "missing_reply"
-    ],
-    "loop_logs": [
-      "d019a",
-      "d019b"
-    ],
-    "expect": {
-      "d019a": "stops",
-      "d019b": "stops"
-    },
-    "design": "wait-for-second-message"
+  "design": "info-insufficient-external-producer"
+ },
+ "D10": {
+  "kind": "deadlock",
+  "category": "ABBA mutex lock-ordering deadlock",
+  "info_insufficient": false,
+  "axes": [
+   "lock-order inversion",
+   "two locks, opposite order"
+  ],
+  "members": [
+   "d010a",
+   "d010b"
+  ],
+  "states": {
+   "d010a": "MUTEX-blocked on m2 (holds m1)",
+   "d010b": "MUTEX-blocked on m1 (holds m2)"
   },
-  "D20": {
-    "kind": "multi",
-    "category": "priority inversion + a CPU spinner (independent)",
-    "info_insufficient": false,
-    "axes": [
-      "two unrelated faults",
-      "one REPLY-starved, one RUNNING spinner"
-    ],
-    "members": [
-      "d020a",
-      "d020b",
-      "d020c",
-      "d020d"
-    ],
-    "states": {
-      "d020a": "REPLY-blocked on d020b",
-      "d020b": "RECEIVE at prio 12 (starved)",
-      "d020c": "RUNNING at prio 20 busy loop",
-      "d020d": "RUNNING, spinning on a flag never set"
-    },
-    "culprit": "lowfix_srv.c: prio-12 fixed-priority server starved by the prio-20 hog (d020c) while the prio-30 client (d020a) is REPLY-blocked. Independently, spin_flag.c (d020d) busy-waits on a flag nothing sets.",
-    "fix": "server: drop fixed priority / raise above the hog. spinner: set the flag from the real path or block instead of spin.",
-    "accept_kinds": [
-      "multi",
-      "priority_chain",
-      "unknown"
-    ],
-    "loop_logs": [
-      "d020a",
-      "d020b",
-      "d020c",
-      "d020d"
-    ],
-    "expect": {
-      "d020a": "stops",
-      "d020b": "stops",
-      "d020c": "stops",
-      "d020d": "stops"
-    },
-    "design": "multi-inversion-plus-spin"
+  "culprit": "abba.c: d010a locks m1 then m2; d010b locks m2 then m1. After each takes its first lock they deadlock taking the second.",
+  "fix": "acquire m1 and m2 in one global order in both threads.",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "loop_logs": [
+   "d010a",
+   "d010b"
+  ],
+  "expect": {
+   "d010a": "stops",
+   "d010b": "stops"
   },
-  "D21": {
-    "kind": "healthy",
-    "category": "dispatcher + worker pool",
-    "info_insufficient": false,
-    "axes": [
-      "an idle worker read as stuck",
-      "round-robin every 300ms"
-    ],
-    "members": [
-      "d021a",
-      "d021b",
-      "d021c"
-    ],
-    "states": {
-      "d021a": "running; dispatches to both workers every 300ms",
-      "d021b": "RECEIVE between jobs (served every 300ms)",
-      "d021c": "RECEIVE between jobs (served every 300ms)"
-    },
-    "culprit": "none: the dispatcher sends a job to each worker every 300ms and both reply; healthy. A snapshot catches a worker parked in RECEIVE.",
-    "fix": "n/a (healthy)",
-    "accept_kinds": [
-      "healthy"
-    ],
-    "loop_logs": [
-      "d021a",
-      "d021b",
-      "d021c"
-    ],
-    "expect": {
-      "d021a": "ticks",
-      "d021b": "ticks",
-      "d021c": "ticks"
-    },
-    "design": "healthy-worker-pool"
+  "design": "abba-mutex"
+ },
+ "D11": {
+  "kind": "healthy",
+  "category": "periodic worker on a receive timeout",
+  "info_insufficient": false,
+  "axes": [
+   "RECEIVE-with-timeout read as blocked",
+   "TimerTimeout used correctly"
+  ],
+  "members": [
+   "d011a"
+  ],
+  "states": {
+   "d011a": "RECEIVE with a 300ms timeout pending (wakes, ticks, repeats)"
   },
-  "D22": {
-    "kind": "deadlock",
-    "category": "single-thread send to its own channel",
-    "info_insufficient": false,
-    "axes": [
-      "self-send with no receiver",
-      "one process, one thread"
-    ],
-    "members": [
-      "d022a"
-    ],
-    "states": {
-      "d022a": "SEND-blocked on its own channel (no thread is receiving)"
-    },
-    "culprit": "selfsend.c: the only thread ConnectAttaches to its own channel and MsgSends, but there is no second thread to MsgReceive, so it blocks on SEND forever.",
-    "fix": "receive on the channel from a separate thread, or do not message your own channel synchronously.",
-    "accept_kinds": [
-      "deadlock"
-    ],
-    "loop_logs": [
-      "d022a"
-    ],
-    "expect": {
-      "d022a": "stops"
-    },
-    "design": "self-send"
+  "culprit": "none: TimerTimeout(_NTO_TIMEOUT_RECEIVE) wakes the loop every 300ms; healthy.",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d011a"
+  ],
+  "expect": {
+   "d011a": "ticks"
   },
-  "D23": {
-    "kind": "priority_chain",
-    "category": "low fixed-priority server starved; send guard set too long",
-    "info_insufficient": false,
-    "axes": [
-      "priority starvation",
-      "timeout present but value far too large"
-    ],
-    "members": [
-      "d023a",
-      "d023b",
-      "d023c"
-    ],
-    "states": {
-      "d023a": "REPLY-blocked on d023b (TimerTimeout armed, but for 3600s)",
-      "d023b": "RECEIVE at prio 12 (starved)",
-      "d023c": "RUNNING at prio 20 busy loop"
-    },
-    "culprit": "lowfix_srv.c: prio-12 fixed-priority server starved by the prio-20 hog. pp_client.c arms a REPLY timeout but the value is 1*1000*1000*1000*3600 ns (3600s), so the '1s guard' never fires within the window.",
-    "fix": "server: drop fixed priority / raise above the hog. client: set the guard to 1e9 ns (1s), not 3600e9.",
-    "accept_kinds": [
-      "priority_chain"
-    ],
-    "loop_logs": [
-      "d023a",
-      "d023b",
-      "d023c"
-    ],
-    "expect": {
-      "d023a": "stops",
-      "d023b": "stops",
-      "d023c": "stops"
-    },
-    "design": "inversion-with-oversized-timeout"
+  "design": "healthy-timed-receive"
+ },
+ "D12": {
+  "kind": "missing_reply",
+  "category": "off-by-one reply (replies the previous rcvid)",
+  "info_insufficient": false,
+  "axes": [
+   "reply lost vs reply delayed",
+   "rcvid bookkeeping"
+  ],
+  "members": [
+   "d012a",
+   "d012b"
+  ],
+  "states": {
+   "d012a": "REPLY-blocked on d012b (its request is only answered when a NEXT one arrives)",
+   "d012b": "RECEIVE (waiting for a next request that cannot come)"
   },
-  "D24": {
-    "kind": "unknown",
-    "category": "absurd sleep from an arithmetic bug",
-    "info_insufficient": false,
-    "axes": [
-      "NANOSLEEP read as a hang",
-      "unit/overflow mistake"
-    ],
-    "members": [
-      "d024a"
-    ],
-    "states": {
-      "d024a": "NANOSLEEP for ~3,600,000s after one tick"
-    },
-    "culprit": "longsleep.c: intended ~1s backoff, but ts.tv_sec = base*1000 with base=3600 yields 3,600,000 seconds; it ticks once then sleeps effectively forever.",
-    "fix": "set the backoff to the intended value (e.g. tv_sec=1), not base*1000.",
-    "accept_kinds": [
-      "unknown"
-    ],
-    "loop_logs": [
-      "d024a"
-    ],
-    "expect": {
-      "d024a": "stops"
-    },
-    "design": "nanosleep-arith-bug"
-  }
+  "culprit": "offbyone_srv.c: it stores each rcvid in 'prev' and replies 'prev' on the following iteration; with one client, the client blocks before a next request can arrive, so every request hangs.",
+  "fix": "reply the current rcvid in the same iteration.",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "loop_logs": [
+   "d012a",
+   "d012b"
+  ],
+  "expect": {
+   "d012a": "stops",
+   "d012b": "stops"
+  },
+  "design": "off-by-one-reply"
+ },
+ "D13": {
+  "kind": "priority_chain",
+  "category": "priority drop in the middle of a server chain",
+  "info_insufficient": false,
+  "axes": [
+   "long REPLY chain",
+   "inheritance broken mid-chain",
+   "idle tail stage"
+  ],
+  "members": [
+   "d013a",
+   "d013b",
+   "d013c",
+   "d013d",
+   "d013e"
+  ],
+  "states": {
+   "d013a": "REPLY-blocked on d013b",
+   "d013b": "REPLY-blocked on d013c (boosted to 30 but waiting)",
+   "d013c": "RECEIVE at prio 12 (starved)",
+   "d013d": "RECEIVE (idle; never reached)",
+   "d013e": "RUNNING at prio 20 busy loop"
+  },
+  "culprit": "chain_s2.c: the middle stage uses a _NTO_CHF_FIXED_PRIORITY channel at prio 12, so the inherited prio-30 request from s1 does not carry through; the prio-20 hog starves s2 and the whole chain stalls.",
+  "fix": "remove _NTO_CHF_FIXED_PRIORITY on s2 (let inheritance propagate), or lift s2 above the hog.",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d013a",
+   "d013b",
+   "d013c",
+   "d013d",
+   "d013e"
+  ],
+  "expect": {
+   "d013a": "stops",
+   "d013b": "stops",
+   "d013c": "stops",
+   "d013d": "stops",
+   "d013e": "stops"
+  },
+  "design": "priority-chain-broken-mid-stage"
+ },
+ "D14": {
+  "kind": "unknown",
+  "category": "lost wakeup on a condvar (outside message passing)",
+  "info_insufficient": false,
+  "axes": [
+   "signal before wait",
+   "no predicate loop",
+   "live producer masks the stuck consumer"
+  ],
+  "members": [
+   "d014a",
+   "d014b"
+  ],
+  "states": {
+   "d014a": "running; keeps ticking (producer already signalled)",
+   "d014b": "CONDVAR-blocked forever"
+  },
+  "culprit": "lostwake.c: the producer pthread_cond_signals before the consumer reaches pthread_cond_wait, and the consumer waits with no predicate, so the wakeup is lost and the consumer blocks forever.",
+  "fix": "use a predicate guarded by the mutex (while(!ready) cond_wait) so a prior signal is not lost.",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d014a",
+   "d014b"
+  ],
+  "expect": {
+   "d014a": "ticks",
+   "d014b": "stops"
+  },
+  "design": "lost-wakeup-condvar"
+ },
+ "D15": {
+  "kind": "healthy",
+  "category": "timer-pulse driven server",
+  "info_insufficient": false,
+  "axes": [
+   "RECEIVE state read as blocked",
+   "pulse arrives every 400ms"
+  ],
+  "members": [
+   "d015a"
+  ],
+  "states": {
+   "d015a": "RECEIVE on its channel; a timer pulse arrives every 400ms"
+  },
+  "culprit": "none: a periodic timer pulse drives one tick every 400ms; healthy.",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d015a"
+  ],
+  "expect": {
+   "d015a": "ticks"
+  },
+  "design": "healthy-timer-pulse"
+ },
+ "D16": {
+  "kind": "deadlock",
+  "category": "two servers call each other while handling (reentrancy)",
+  "info_insufficient": false,
+  "axes": [
+   "REPLY vs SEND in a 2-server cycle",
+   "call-back during handling"
+  ],
+  "members": [
+   "d016a",
+   "d016b",
+   "d016c"
+  ],
+  "states": {
+   "d016a": "REPLY-blocked on d016b",
+   "d016b": "REPLY-blocked on d016c (inside its handler)",
+   "d016c": "SEND-blocked on d016b (which is not receiving)"
+  },
+  "culprit": "reentr_s1.c/reentr_s2.c: s1 MsgSends to s2 while handling the client; s2, handling s1's call, MsgSends back to s1, which is REPLY-blocked on s2 and not receiving.",
+  "fix": "do not call back synchronously while handling; reply first, or use a pulse / separate worker for the cross-call.",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "loop_logs": [
+   "d016a",
+   "d016b",
+   "d016c"
+  ],
+  "expect": {
+   "d016a": "stops",
+   "d016b": "stops",
+   "d016c": "stops"
+  },
+  "design": "two-server-reentrancy"
+ },
+ "D17": {
+  "kind": "priority_chain",
+  "category": "mutex priority inversion (no priority inheritance)",
+  "info_insufficient": false,
+  "axes": [
+   "PRIO_NONE vs PRIO_INHERIT",
+   "low holder preempted by a mid hog"
+  ],
+  "members": [
+   "d017a",
+   "d017b",
+   "d017c"
+  ],
+  "states": {
+   "d017a": "holds mx at prio 10, preempted by the prio-20 hog",
+   "d017b": "RUNNING at prio 20 busy loop",
+   "d017c": "MUTEX-blocked at prio 30 on mx"
+  },
+  "culprit": "prio_ceiling.c: the mutex has no priority inheritance (PTHREAD_PRIO_NONE); the prio-10 holder is not boosted, the prio-20 hog preempts it, so it never releases and the prio-30 waiter is starved.",
+  "fix": "use PTHREAD_PRIO_INHERIT so the holder inherits the prio-30 waiter (or raise the holder above the hog).",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d017a",
+   "d017b",
+   "d017c"
+  ],
+  "expect": {
+   "d017a": "stops",
+   "d017b": "stops",
+   "d017c": "stops"
+  },
+  "design": "no-inheritance-inversion"
+ },
+ "D18": {
+  "kind": "unknown",
+  "category": "behaviour depends on a config file not in the capture",
+  "info_insufficient": true,
+  "axes": [
+   "bug vs missing external data",
+   "cause is not in the provided source"
+  ],
+  "members": [
+   "d018a"
+  ],
+  "states": {
+   "d018a": "RECEIVE on its channel; the upstream it should pull from is named in an absent config file"
+  },
+  "culprit": "need_conf.c: it reads /var/qd/D18/upstream.conf (not shipped with the capture) to learn its upstream; without it the process just waits. You cannot tell from the source whether this is a bug or a deployment/data problem.",
+  "fix": "cannot be determined from the capture; needs upstream.conf / the deployment config.",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d018a"
+  ],
+  "expect": {
+   "d018a": "stops"
+  },
+  "design": "info-insufficient-missing-file"
+ },
+ "D19": {
+  "kind": "missing_reply",
+  "category": "server waits for a second message before replying",
+  "info_insufficient": false,
+  "axes": [
+   "protocol expects 2 messages, client sends 1",
+   "timeout armed on the wrong state"
+  ],
+  "members": [
+   "d019a",
+   "d019b"
+  ],
+  "states": {
+   "d019a": "REPLY-blocked on d019b (TimerTimeout armed on RECEIVE, so it does not fire)",
+   "d019b": "RECEIVE, waiting for a 'body' message that never comes"
+  },
+  "culprit": "twomsg_srv.c: the server MsgReceives twice (header then body) before replying, but the client sends only one message per request, so it blocks on the second receive and the client stays REPLY-blocked. The client's TimerTimeout uses _NTO_TIMEOUT_RECEIVE, which does not guard its MsgSend.",
+  "fix": "reply after the single request (or have the client send both header and body); arm the client guard with _NTO_TIMEOUT_REPLY|_NTO_TIMEOUT_SEND.",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "loop_logs": [
+   "d019a",
+   "d019b"
+  ],
+  "expect": {
+   "d019a": "stops",
+   "d019b": "stops"
+  },
+  "design": "wait-for-second-message"
+ },
+ "D20": {
+  "kind": "multi",
+  "category": "priority inversion + a CPU spinner (independent)",
+  "info_insufficient": false,
+  "axes": [
+   "two unrelated faults",
+   "one REPLY-starved, one RUNNING spinner"
+  ],
+  "members": [
+   "d020a",
+   "d020b",
+   "d020c",
+   "d020d"
+  ],
+  "states": {
+   "d020a": "REPLY-blocked on d020b",
+   "d020b": "RECEIVE at prio 12 (starved)",
+   "d020c": "RUNNING at prio 20 busy loop",
+   "d020d": "RUNNING, spinning on a flag never set"
+  },
+  "culprit": "lowfix_srv.c: prio-12 fixed-priority server starved by the prio-20 hog (d020c) while the prio-30 client (d020a) is REPLY-blocked. Independently, spin_flag.c (d020d) busy-waits on a flag nothing sets.",
+  "fix": "server: drop fixed priority / raise above the hog. spinner: set the flag from the real path or block instead of spin.",
+  "accept_kinds": [
+   "multi",
+   "priority_chain",
+   "unknown"
+  ],
+  "loop_logs": [
+   "d020a",
+   "d020b",
+   "d020c",
+   "d020d"
+  ],
+  "expect": {
+   "d020a": "stops",
+   "d020b": "stops",
+   "d020c": "stops",
+   "d020d": "stops"
+  },
+  "design": "multi-inversion-plus-spin"
+ },
+ "D21": {
+  "kind": "healthy",
+  "category": "dispatcher + worker pool",
+  "info_insufficient": false,
+  "axes": [
+   "an idle worker read as stuck",
+   "round-robin every 300ms"
+  ],
+  "members": [
+   "d021a",
+   "d021b",
+   "d021c"
+  ],
+  "states": {
+   "d021a": "running; dispatches to both workers every 300ms",
+   "d021b": "RECEIVE between jobs (served every 300ms)",
+   "d021c": "RECEIVE between jobs (served every 300ms)"
+  },
+  "culprit": "none: the dispatcher sends a job to each worker every 300ms and both reply; healthy. A snapshot catches a worker parked in RECEIVE.",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d021a",
+   "d021b",
+   "d021c"
+  ],
+  "expect": {
+   "d021a": "ticks",
+   "d021b": "ticks",
+   "d021c": "ticks"
+  },
+  "design": "healthy-worker-pool"
+ },
+ "D22": {
+  "kind": "deadlock",
+  "category": "single-thread send to its own channel",
+  "info_insufficient": false,
+  "axes": [
+   "self-send with no receiver",
+   "one process, one thread"
+  ],
+  "members": [
+   "d022a"
+  ],
+  "states": {
+   "d022a": "SEND-blocked on its own channel (no thread is receiving)"
+  },
+  "culprit": "selfsend.c: the only thread ConnectAttaches to its own channel and MsgSends, but there is no second thread to MsgReceive, so it blocks on SEND forever.",
+  "fix": "receive on the channel from a separate thread, or do not message your own channel synchronously.",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "loop_logs": [
+   "d022a"
+  ],
+  "expect": {
+   "d022a": "stops"
+  },
+  "design": "self-send"
+ },
+ "D23": {
+  "kind": "priority_chain",
+  "category": "low fixed-priority server starved; send guard set too long",
+  "info_insufficient": false,
+  "axes": [
+   "priority starvation",
+   "timeout present but value far too large"
+  ],
+  "members": [
+   "d023a",
+   "d023b",
+   "d023c"
+  ],
+  "states": {
+   "d023a": "REPLY-blocked on d023b (TimerTimeout armed, but for 3600s)",
+   "d023b": "RECEIVE at prio 12 (starved)",
+   "d023c": "RUNNING at prio 20 busy loop"
+  },
+  "culprit": "lowfix_srv.c: prio-12 fixed-priority server starved by the prio-20 hog. pp_client.c arms a REPLY timeout but the value is 1*1000*1000*1000*3600 ns (3600s), so the '1s guard' never fires within the window.",
+  "fix": "server: drop fixed priority / raise above the hog. client: set the guard to 1e9 ns (1s), not 3600e9.",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d023a",
+   "d023b",
+   "d023c"
+  ],
+  "expect": {
+   "d023a": "stops",
+   "d023b": "stops",
+   "d023c": "stops"
+  },
+  "design": "inversion-with-oversized-timeout"
+ },
+ "D24": {
+  "kind": "unknown",
+  "category": "absurd sleep from an arithmetic bug",
+  "info_insufficient": false,
+  "axes": [
+   "NANOSLEEP read as a hang",
+   "unit/overflow mistake"
+  ],
+  "members": [
+   "d024a"
+  ],
+  "states": {
+   "d024a": "NANOSLEEP for ~3,600,000s after one tick"
+  },
+  "culprit": "longsleep.c: intended ~1s backoff, but ts.tv_sec = base*1000 with base=3600 yields 3,600,000 seconds; it ticks once then sleeps effectively forever.",
+  "fix": "set the backoff to the intended value (e.g. tv_sec=1), not base*1000.",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d024a"
+  ],
+  "expect": {
+   "d024a": "stops"
+  },
+  "design": "nanosleep-arith-bug"
+ }
 }

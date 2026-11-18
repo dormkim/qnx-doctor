@@ -43,5 +43,28 @@ static int qd_send(int coid, int v) {      /* synchronous: blocks until the peer
   qd_msg_t m; m.app.type = QD_MSG; m.app.v = v; int r = 0;
   return MsgSend(coid, &m.app, sizeof m.app, &r, sizeof r) == -1 ? -1 : r;
 }
+/* A genuinely fixed-priority named endpoint. name_attach() ignores its flags arg (QNX lib ref: "Currently
+ * not used"), so a channel it makes is NOT _NTO_CHF_FIXED_PRIORITY and its receiver inherits the caller's
+ * priority — a "low" server then runs at the client's priority and is never starved. ChannelCreate() does honor
+ * the flag. We publish pid+chid at /tmp/<me>.id (atomic rename) so a peer connects by ConnectAttach instead of
+ * name_open. Harness helper added 2026-11-18 (sealed v4 reproducibility fix); labels unchanged. */
+static int qd_fixed_chan(const char *me) {
+  int chid = ChannelCreate(_NTO_CHF_FIXED_PRIORITY | _NTO_CHF_DISCONNECT | _NTO_CHF_UNBLOCK | _NTO_CHF_COID_DISCONNECT);
+  if (chid == -1) { perror("ChannelCreate"); exit(1); }
+  char p[64], t[80]; snprintf(p, sizeof p, "/tmp/%s.id", me); snprintf(t, sizeof t, "/tmp/%s.id.tmp", me);
+  FILE *f = fopen(t, "w"); if (!f) { perror("fopen id"); exit(1); }
+  fprintf(f, "%d %d\n", getpid(), chid); fclose(f); rename(t, p);
+  return chid;
+}
+static int qd_open_fixed(const char *peer) {   /* connect to a qd_fixed_chan() endpoint by name */
+  char p[64]; snprintf(p, sizeof p, "/tmp/%s.id", peer);
+  for (int i = 0; i < 200; i++) {
+    FILE *f = fopen(p, "r");
+    if (f) { int pid = -1, chid = -1, ok = (fscanf(f, "%d %d", &pid, &chid) == 2); fclose(f);
+      if (ok) { int c = ConnectAttach(0, pid, chid, _NTO_SIDE_CHANNEL, 0); if (c != -1) return c; } }
+    usleep(50000);
+  }
+  perror("qd_open_fixed"); exit(1);
+}
 static void qd_tick(const char *role, int n) { printf("TICK %s %d\n", role, n); fflush(stdout); }
 #endif

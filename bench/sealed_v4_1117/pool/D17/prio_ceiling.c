@@ -1,4 +1,5 @@
-/* prio_ceiling <low> <med> <high>: three workers share one ceiling-protected lock. */
+/* prio_ceiling <low> <med> <high>: three workers share one lock with NO priority inheritance
+ * (PTHREAD_PRIO_NONE) — the low holder is not boosted, a mid hog preempts it, the high waiter is starved. */
 #include "../common/qd.h"
 #include <sched.h>
 static pthread_mutex_t mx; static const char*R[3];
@@ -22,8 +23,7 @@ int main(int argc,char**argv){
   R[0]=argv[1];R[1]=argv[2];R[2]=argv[3];
   pthread_setschedprio(pthread_self(),40);
   pthread_mutexattr_t ma;pthread_mutexattr_init(&ma);
-  pthread_mutexattr_setprotocol(&ma,PTHREAD_PRIO_PROTECT);
-  pthread_mutexattr_setprioceiling(&ma,15);   /* ceiling below med(20) and high(30) */
+  pthread_mutexattr_setprotocol(&ma,PTHREAD_PRIO_NONE);   /* QD-CULPRIT: no inheritance, holder stays at its own prio */
   pthread_mutex_init(&mx,&ma);
   sp(low,10); usleep(200000); sp(med,20); usleep(50000);
   pthread_t h=sp(hi,30); pthread_join(h,0); return 0;
