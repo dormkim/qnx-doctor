@@ -1,0 +1,12 @@
+{"id": "E01", "mode": "code", "detected": "priority_chain", "solved": false, "by": "code", "cause": null}
+{"id": "E02", "mode": "code", "detected": "priority_chain", "solved": false, "by": "code", "cause": null}
+{"id": "E03", "mode": "code", "detected": "priority_chain", "solved": false, "by": "code", "cause": null}
+{"id": "E04", "mode": "code", "detected": "priority_chain", "solved": false, "by": "code", "cause": null}
+{"id": "E05", "mode": "code", "detected": "deadlock", "solved": false, "by": "code", "cause": null}
+{"id": "E06", "mode": "code", "detected": "deadlock", "solved": false, "by": "code", "cause": null}
+{"id": "E07", "mode": "code", "detected": "missing_reply", "solved": false, "by": "code", "cause": null}
+{"id": "E08", "mode": "code", "detected": "missing_reply", "solved": false, "by": "code", "cause": null}
+{"id": "E09", "mode": "code", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "E10", "mode": "code", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "E11", "mode": "code", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "E12", "mode": "code", "detected": "unknown", "solved": null, "by": "code", "cause": null}

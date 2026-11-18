@@ -1,0 +1,12 @@
+{"id": "E01", "detected": "priority_chain", "solved": true}
+{"id": "E02", "detected": "priority_chain", "solved": true}
+{"id": "E03", "detected": "priority_chain", "solved": true}
+{"id": "E04", "detected": "priority_chain", "solved": false}
+{"id": "E05", "detected": "deadlock", "solved": false}
+{"id": "E06", "detected": "deadlock", "solved": false}
+{"id": "E07", "detected": "missing_reply", "solved": true}
+{"id": "E08", "detected": "missing_reply", "solved": false}
+{"id": "E09", "detected": "none", "solved": null}
+{"id": "E10", "detected": "none", "solved": null}
+{"id": "E11", "detected": "none", "solved": null}
+{"id": "E12", "detected": "none", "solved": null}

@@ -1,0 +1,12 @@
+{"id": "E01", "mode": "ai", "detected": "priority_chain", "solved": true, "by": "ai", "cause": "lowsrv creates its channel with _NTO_CHF_FIXED_PRIORITY (via qd_fixed_chan), so it does not inherit hicli's priority 30. It stays at priority 12 and the CPU hog at 20 (and io-sock at 21) keep it off the CPU. hicli stays REPLY-blocked forever: a priority inversion."}
+{"id": "E02", "mode": "ai", "detected": "priority_chain", "solved": true, "by": "ai", "cause": "lowsrv (prio 3) creates its channel with _NTO_CHF_FIXED_PRIORITY via qd_fixed_chan(), so it does not inherit hicli's priority 40 when it receives. hicli's request is then served at priority 3, and lowsrv is starved by hog (20) and other READY threads at prio 10-21. hicli stays REPLY-blocked: priority inversion."}
+{"id": "E03", "mode": "ai", "detected": "priority_chain", "solved": true, "by": "ai", "cause": "lowsrv (prio 10) serves its channel created with _NTO_CHF_FIXED_PRIORITY via qd_fixed_chan(), so it does not inherit the priority of the hicli clients (28/32). The CPU hog at prio 20 and io-sock at 21 keep it from running, and both high-priority clients stay blocked on it (priority inversion)."}
+{"id": "E04", "mode": "ai", "detected": "priority_chain", "solved": false, "by": "ai", "cause": null}
+{"id": "E05", "mode": "ai", "detected": "deadlock", "solved": false, "by": "ai", "cause": null}
+{"id": "E06", "mode": "ai", "detected": "deadlock", "solved": false, "by": "ai", "cause": null}
+{"id": "E07", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "halfsrv only calls MsgReply when the message value is negative; sender sends n>=0, so the received message is never replied and sender stays REPLY-blocked forever"}
+{"id": "E08", "mode": "ai", "detected": "missing_reply", "solved": false, "by": "ai", "cause": null}
+{"id": "E09", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "E10", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "E11", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "E12", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
