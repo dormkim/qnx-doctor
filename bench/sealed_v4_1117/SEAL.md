@@ -63,3 +63,31 @@ The reproducibility check (`bench/repro_v3.py --same-boot`) found that the five 
 | tests/sealed_hang/common tree | `29b290d53e7ec77c02d70424a8fb3e8ed327eb979e6bbd9d5a8574adb58d0024` | changed (qd.h helpers) |
 
 The scored run must set `QD_SMP=1`. The commit carrying this correction is recorded in `repro_result_1117.md`.
+
+---
+
+## Correction 3 (2026-11-18, AFTER the single scored run) — the real cause of priority_chain 0/5
+
+The scored run (`scored_1118/`) gave **priority_chain 0/5**: ours said `unknown` on every inversion
+scenario. That was read as «the provable detector refuses to guess». Re-booting the scenarios for
+diagnosis (v4 stays frozen — not re-scored) showed the true cause, and it is **not** a detector weakness:
+
+- **`qd_fixed_chan()` published its id file with a temp-file + `rename()`.** `/tmp` is a `/dev/shmem`
+  symlink (check.sh) and **shmem does not honor `rename()`** — the final `/tmp/<me>.id` never appeared.
+  The client looped in `qd_open_fixed()`'s connect-retry (`NANOSLEEP`) and **never connected, never sent**
+  (confirmed live: client in `NANOSLEEP`, server idle in `RECEIVE`, message trace has 0 `S` records).
+- With no `MsgSend`, there is **no waiter->server edge**, so no snapshot-based inversion can be proved. The
+  tool correctly said `unknown` — but the scenario it was handed was a *failed connect*, not an inversion.
+- **The repro stop-rule hid it**: a client stuck in a connect-retry also stops ticking, so `repro_v3.py`
+  counted all 24 as «agree». Stop != the intended mechanism.
+
+**Fix** (canonical `tests/sealed_hang/common/qd.h`): write the id file directly (one `fprintf`, no rename;
+a torn read just fails `fscanf != 2` and retries). Verified live, single-core: the sealed **D08** scenario
+now forms the textbook inversion and the tool judges it `priority_chain` —
+`hiclient prio 30 REPLY-blocked on lowfix_srv READY at prio 12 while hog prio 20 is runnable`.
+
+**v4 is not re-scored.** It stands as the scored-once record; `scored_1118/` and `결과_1118.md` are unchanged.
+The canonical qd.h edit changes the `common` tree hash above (post-seal, documented here). The clean
+re-measurement of the provable-inversion detector happens on a **fresh sealed set (v5)** with its own sealed
+copy of `common` (so later harness edits cannot disturb its seal). Detector code (`waitgraph.inversions`) is
+**unchanged** by this correction — it was always correct; only the scenario harness was broken.

@@ -46,14 +46,18 @@ static int qd_send(int coid, int v) {      /* synchronous: blocks until the peer
 /* A genuinely fixed-priority named endpoint. name_attach() ignores its flags arg (QNX lib ref: "Currently
  * not used"), so a channel it makes is NOT _NTO_CHF_FIXED_PRIORITY and its receiver inherits the caller's
  * priority — a "low" server then runs at the client's priority and is never starved. ChannelCreate() does honor
- * the flag. We publish pid+chid at /tmp/<me>.id (atomic rename) so a peer connects by ConnectAttach instead of
+ * the flag. We publish pid+chid at /tmp/<me>.id (direct write; shmem has no working rename, see below) so a peer connects by ConnectAttach instead of
  * name_open. Harness helper added 2026-11-18 (sealed v4 reproducibility fix); labels unchanged. */
 static int qd_fixed_chan(const char *me) {
   int chid = ChannelCreate(_NTO_CHF_FIXED_PRIORITY | _NTO_CHF_DISCONNECT | _NTO_CHF_UNBLOCK | _NTO_CHF_COID_DISCONNECT);
   if (chid == -1) { perror("ChannelCreate"); exit(1); }
-  char p[64], t[80]; snprintf(p, sizeof p, "/tmp/%s.id", me); snprintf(t, sizeof t, "/tmp/%s.id.tmp", me);
-  FILE *f = fopen(t, "w"); if (!f) { perror("fopen id"); exit(1); }
-  fprintf(f, "%d %d\n", getpid(), chid); fclose(f); rename(t, p);
+  /* Write the id file directly, NOT via a temp + rename(): /tmp is a /dev/shmem link (check.sh) and shmem does
+   * not honor rename() across names, so the final /tmp/<me>.id never appeared and a peer could never connect —
+   * the hang was a failed connect, not the priority inversion (found 2026-11-18, explains v4 priority_chain 0/5).
+   * A reader (qd_open_fixed) that catches a half-written file just gets fscanf != 2 and retries, so one write is safe. */
+  char p[64]; snprintf(p, sizeof p, "/tmp/%s.id", me);
+  FILE *f = fopen(p, "w"); if (!f) { perror("fopen id"); exit(1); }
+  fprintf(f, "%d %d\n", getpid(), chid); fflush(f); fclose(f);
   return chid;
 }
 static int qd_open_fixed(const char *peer) {   /* connect to a qd_fixed_chan() endpoint by name */
