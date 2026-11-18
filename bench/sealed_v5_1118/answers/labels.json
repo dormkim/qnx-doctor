@@ -1,0 +1,389 @@
+{
+ "_note": "sealed v5 (2026-11-18). Independent new set to re-measure the provable priority-inversion detector after the /dev/shmem rename harness fix (see v4 SEAL.md Correction 3). Own copy of common/ (not a symlink), scored single-core (QD_SMP=1). Detector code (waitgraph) was committed/frozen BEFORE authoring and is not tuned on this set. Answer-key markers (/* QD-CULPRIT ... */) are stripped before any arm sees the sources.",
+ "E01": {
+  "kind": "priority_chain",
+  "category": "low fixed-priority server starved by a mid hog",
+  "info_insufficient": false,
+  "axes": [
+   "priority starvation vs missing reply",
+   "fixed-priority channel breaks inheritance"
+  ],
+  "members": [
+   "d0e01a",
+   "d0e01b",
+   "d0e01c"
+  ],
+  "states": {
+   "d0e01a": "REPLY-blocked on d0e01b",
+   "d0e01b": "READY at prio 12 (runnable, never scheduled)",
+   "d0e01c": "RUNNING at prio 20 busy loop"
+  },
+  "culprit": "lowsrv.c: server runs at prio 12 on a _NTO_CHF_FIXED_PRIORITY channel, so it never inherits the prio-30 client; the prio-20 hog preempts it and it never receives.",
+  "fix": "drop _NTO_CHF_FIXED_PRIORITY so the server inherits the client's priority (or raise the server above the hog).",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d0e01a",
+   "d0e01b",
+   "d0e01c"
+  ],
+  "expect": {
+   "d0e01a": "stops",
+   "d0e01b": "stops",
+   "d0e01c": "stops"
+  },
+  "design": "fixed-prio-server-starved"
+ },
+ "E02": {
+  "kind": "priority_chain",
+  "category": "wide-gap inversion: prio-3 server, prio-20 hog, prio-40 client",
+  "info_insufficient": false,
+  "axes": [
+   "priority starvation vs missing reply",
+   "fixed-priority channel breaks inheritance"
+  ],
+  "members": [
+   "d0e02a",
+   "d0e02b",
+   "d0e02c"
+  ],
+  "states": {
+   "d0e02a": "REPLY-blocked on d0e02b",
+   "d0e02b": "READY at prio 3 (runnable, never scheduled)",
+   "d0e02c": "RUNNING at prio 20 busy loop"
+  },
+  "culprit": "lowsrv.c: server at prio 3 on a fixed-priority channel cannot inherit the prio-40 client; the prio-20 hog sits between them and starves it.",
+  "fix": "drop the fixed-priority channel (inherit) or raise the server above the hog.",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d0e02a",
+   "d0e02b",
+   "d0e02c"
+  ],
+  "expect": {
+   "d0e02a": "stops",
+   "d0e02b": "stops",
+   "d0e02c": "stops"
+  },
+  "design": "fixed-prio-server-starved-wide-gap"
+ },
+ "E03": {
+  "kind": "priority_chain",
+  "category": "two high clients on one starved fixed-priority server",
+  "info_insufficient": false,
+  "axes": [
+   "priority starvation vs missing reply",
+   "fixed-priority channel breaks inheritance"
+  ],
+  "members": [
+   "d0e03a",
+   "d0e03b",
+   "d0e03c",
+   "d0e03d"
+  ],
+  "states": {
+   "d0e03a": "REPLY-blocked on d0e03c (prio 28)",
+   "d0e03b": "REPLY-blocked on d0e03c (prio 32)",
+   "d0e03c": "READY at prio 10 (runnable, never scheduled)",
+   "d0e03d": "RUNNING at prio 20 busy loop"
+  },
+  "culprit": "lowsrv.c: the single prio-10 fixed-priority server serves two clients (28,32) but the prio-20 hog preempts it, so neither client is ever answered.",
+  "fix": "let the server inherit (drop fixed-priority) or raise it above the hog.",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d0e03a",
+   "d0e03b",
+   "d0e03c",
+   "d0e03d"
+  ],
+  "expect": {
+   "d0e03a": "stops",
+   "d0e03b": "stops",
+   "d0e03c": "stops",
+   "d0e03d": "stops"
+  },
+  "design": "two-waiters-one-starved-server"
+ },
+ "E04": {
+  "kind": "priority_chain",
+  "category": "fixed-priority server starved by two mid hogs",
+  "info_insufficient": false,
+  "axes": [
+   "priority starvation vs missing reply",
+   "fixed-priority channel breaks inheritance"
+  ],
+  "members": [
+   "d0e04a",
+   "d0e04b",
+   "d0e04c",
+   "d0e04d"
+  ],
+  "states": {
+   "d0e04a": "REPLY-blocked on d0e04b",
+   "d0e04b": "READY at prio 15 (runnable, never scheduled)",
+   "d0e04c": "RUNNING at prio 20 busy loop",
+   "d0e04d": "RUNNING at prio 22 busy loop"
+  },
+  "culprit": "lowsrv.c: the prio-15 fixed-priority server is preempted by two hogs (20,22); it never inherits the prio-30 client and never receives.",
+  "fix": "inherit the client's priority (drop fixed-priority) or raise the server above both hogs.",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "loop_logs": [
+   "d0e04a",
+   "d0e04b",
+   "d0e04c",
+   "d0e04d"
+  ],
+  "expect": {
+   "d0e04a": "stops",
+   "d0e04b": "stops",
+   "d0e04c": "stops",
+   "d0e04d": "stops"
+  },
+  "design": "fixed-prio-server-two-hogs"
+ },
+ "E05": {
+  "kind": "deadlock",
+  "category": "two-node synchronous send cycle",
+  "info_insufficient": false,
+  "axes": [
+   "send cycle vs priority starvation"
+  ],
+  "members": [
+   "d0e05a",
+   "d0e05b"
+  ],
+  "states": {
+   "d0e05a": "SEND/REPLY-blocked on d0e05b",
+   "d0e05b": "SEND/REPLY-blocked on d0e05a"
+  },
+  "culprit": "ring.c: each node MsgSends to its peer before serving its own channel; the two synchronous sends form a cycle neither can leave.",
+  "fix": "serve the channel (receive then reply) before sending to the peer, or send a non-blocking pulse instead of a synchronous MsgSend.",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "loop_logs": [
+   "d0e05a",
+   "d0e05b"
+  ],
+  "expect": {
+   "d0e05a": "stops",
+   "d0e05b": "stops"
+  },
+  "design": "two-node-send-cycle"
+ },
+ "E06": {
+  "kind": "deadlock",
+  "category": "three-node synchronous send ring",
+  "info_insufficient": false,
+  "axes": [
+   "send cycle vs priority starvation"
+  ],
+  "members": [
+   "d0e06a",
+   "d0e06b",
+   "d0e06c"
+  ],
+  "states": {
+   "d0e06a": "SEND/REPLY-blocked on d0e06b",
+   "d0e06b": "SEND/REPLY-blocked on d0e06c",
+   "d0e06c": "SEND/REPLY-blocked on d0e06a"
+  },
+  "culprit": "ring.c: a->b->c->a, each node sends before receiving; the three synchronous sends close a ring.",
+  "fix": "serve the channel (receive then reply) before sending to the peer, or send a non-blocking pulse instead of a synchronous MsgSend.",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "loop_logs": [
+   "d0e06a",
+   "d0e06b",
+   "d0e06c"
+  ],
+  "expect": {
+   "d0e06a": "stops",
+   "d0e06b": "stops",
+   "d0e06c": "stops"
+  },
+  "design": "three-node-send-ring"
+ },
+ "E07": {
+  "kind": "missing_reply",
+  "category": "server replies only on the error path",
+  "info_insufficient": false,
+  "axes": [
+   "missing reply vs priority starvation"
+  ],
+  "members": [
+   "d0e07a",
+   "d0e07b"
+  ],
+  "states": {
+   "d0e07a": "REPLY-blocked on d0e07b",
+   "d0e07b": "RECEIVE (idle on its channel; took the message, never replied)"
+  },
+  "culprit": "halfsrv.c: only the v<0 error path calls MsgReply; a good request is received and the loop goes back to MsgReceive without replying.",
+  "fix": "reply (MsgReply or MsgError) on every path that receives a message.",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "loop_logs": [
+   "d0e07a",
+   "d0e07b"
+  ],
+  "expect": {
+   "d0e07a": "stops",
+   "d0e07b": "stops"
+  },
+  "design": "good-path-no-reply"
+ },
+ "E08": {
+  "kind": "missing_reply",
+  "category": "server stops replying after the first few requests",
+  "info_insufficient": false,
+  "axes": [
+   "missing reply vs priority starvation"
+  ],
+  "members": [
+   "d0e08a",
+   "d0e08b"
+  ],
+  "states": {
+   "d0e08a": "REPLY-blocked on d0e08b",
+   "d0e08b": "RECEIVE (idle; receives but no longer replies)"
+  },
+  "culprit": "stopsrv.c: after 3 requests it keeps calling MsgReceive but never MsgReply, so the sender's next request is never answered.",
+  "fix": "reply (MsgReply or MsgError) on every path that receives a message.",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "loop_logs": [
+   "d0e08a",
+   "d0e08b"
+  ],
+  "expect": {
+   "d0e08a": "stops",
+   "d0e08b": "stops"
+  },
+  "design": "reply-credits-exhausted"
+ },
+ "E09": {
+  "kind": "healthy",
+  "category": "normal request/reply link",
+  "info_insufficient": false,
+  "axes": [
+   "healthy vs a hang"
+  ],
+  "members": [
+   "d0e09a",
+   "d0e09b"
+  ],
+  "states": {
+   "d0e09a": "RECEIVE on its channel between knocks (normal idle)",
+   "d0e09b": "running; sends every 150ms and gets a reply"
+  },
+  "culprit": "none: server replies to every message and the client gets its reply. Correct.",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d0e09a",
+   "d0e09b"
+  ],
+  "expect": {
+   "d0e09a": "ticks",
+   "d0e09b": "ticks"
+  },
+  "design": "healthy-relay"
+ },
+ "E10": {
+  "kind": "healthy",
+  "category": "healthy link with a harmless low-priority CPU load",
+  "info_insufficient": false,
+  "axes": [
+   "healthy vs a hang"
+  ],
+  "members": [
+   "d0e10a",
+   "d0e10b",
+   "d0e10c"
+  ],
+  "states": {
+   "d0e10a": "RECEIVE idle between knocks (prio 15)",
+   "d0e10b": "sends every 150ms (prio 25)",
+   "d0e10c": "RUNNING busy loop at prio 5 — below the server, runs only when the link is idle, starves nobody"
+  },
+  "culprit": "none: the prio-5 load sits below the prio-15 server, so it never preempts the server; all loops make progress. (A snapshot that reads the load as the 'middle' thread of a chain would be a false alarm.)",
+  "fix": "n/a (healthy)",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "loop_logs": [
+   "d0e10a",
+   "d0e10b"
+  ],
+  "expect": {
+   "d0e10a": "ticks",
+   "d0e10b": "ticks"
+  },
+  "design": "healthy-with-harmless-low-load"
+ },
+ "E11": {
+  "kind": "unknown",
+  "category": "CPU spin, not a message-passing hang",
+  "info_insufficient": false,
+  "axes": [
+   "message-passing hang vs out-of-scope hang"
+  ],
+  "members": [
+   "d0e11a"
+  ],
+  "states": {
+   "d0e11a": "RUNNING busy-wait at its own prio; never blocks on a peer, no SEND/REPLY edge"
+  },
+  "culprit": "spin.c: busy-waits on a flag nothing ever sets. It is a CPU spin, not a message cycle or priority chain, so the message-graph tool correctly declines to name a message-passing cause.",
+  "fix": "n/a for the message layer (the loop never blocks on a peer); fix the drain/flag logic.",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d0e11a"
+  ],
+  "expect": {
+   "d0e11a": "stops"
+  },
+  "design": "cpu-spin-then-stop"
+ },
+ "E12": {
+  "kind": "unknown",
+  "category": "thread-sync hang (semaphore), not a message-passing hang",
+  "info_insufficient": false,
+  "axes": [
+   "message-passing hang vs out-of-scope hang"
+  ],
+  "members": [
+   "d0e12a"
+  ],
+  "states": {
+   "d0e12a": "SEM-blocked (sem_wait on a 0-count semaphore never posted); no SEND/REPLY edge"
+  },
+  "culprit": "sem.c: sem_wait on a semaphore with count 0 that nobody posts. A thread-synchronization hang, not a message cycle; the message-graph tool has no edge to reason about and declines.",
+  "fix": "post the semaphore / fix the producer (outside the message-passing layer).",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "loop_logs": [
+   "d0e12a"
+  ],
+  "expect": {
+   "d0e12a": "stops"
+  },
+  "design": "semaphore-never-posted"
+ }
+}
