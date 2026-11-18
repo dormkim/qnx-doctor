@@ -32,8 +32,8 @@ States only, no timing (QNX licence 4.6(i)).
 import json
 import sys
 
-KINDS = ("deadlock", "priority_chain", "missing_reply", "none", "unknown")
-HANGS = ("deadlock", "priority_chain", "missing_reply")
+KINDS = ("deadlock", "priority_chain", "missing_reply", "multi", "healthy", "unknown")  # match sealed labels (healthy, multi)
+HANGS = ("deadlock", "priority_chain", "missing_reply", "multi")
 NOT_RUNNING_NOTE = "loop not running"  # hangdoctor.diagnose_hang: stopped, but no cycle or chain in the graph
 MIN_TICKS = 2  # the same «a loop, not one print» bar as hangdoctor.MIN_TICKS
 
@@ -156,14 +156,14 @@ def score(labels, rows):
         if r is None or r["harness"]:
             s["harness"] += 1
             continue
-        fault = k not in ("none", "unknown")
+        fault = k not in ("healthy", "unknown")
         fx = _fixed(lab, r)
         s["hit"][k] += hit(lab, r["detected"])
-        s["fa"] += k == "none" and r["detected"] not in ("none", None)
+        s["fa"] += k == "healthy" and r["detected"] not in ("none", None)
         s["fixed"] += fx and fault
         s["loop_cut"] += r["fixed"] and not fx and fault
         s["first"] += bool(_first(lab, r)) and fault
-        s["ff"] += r["fixed"] and k == "none"
+        s["ff"] += r["fixed"] and k == "healthy"
         s["fu"] += r["fixed"] and k == "unknown"
         s["short"] += r["shortcuts"]
         s["live"] += r["live_only"] and fault
@@ -172,8 +172,8 @@ def score(labels, rows):
 
 def table(labels, arms):
     faults = sum(v["kind"] not in ("none", "unknown") for v in labels.values())
-    out = ["| arm | kind found | deadlock | priority chain | missing reply | healthy | unknown | false alarm | first try fixed | fixed incl. retries (same structure) | shortcut rejected | liveness-only would accept | false fix | fixed on unknown |",
-           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    out = ["| arm | kind found | deadlock | priority chain | missing reply | multi | healthy | unknown | false alarm | first try fixed | fixed incl. retries (same structure) | shortcut rejected | liveness-only would accept | false fix | fixed on unknown |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for arm, rows in arms.items():
         s = score(labels, rows)
         tot = sum(s["hit"].values())
@@ -182,7 +182,7 @@ def table(labels, arms):
         short = "-" if arm == "code" else str(s["short"])
         live = "-" if arm == "code" else f"{s['live']}/{faults}"
         out.append(f"| {arm} | {tot}/{len(labels)} | " + " | ".join(f"{s['hit'][k]}/{s['n'][k]}" for k in KINDS) +
-                   f" | {s['fa']}/{s['n']['none']} | {first} | {fix} | {short} | {live} | {s['ff']} | {'-' if arm == 'code' else s['fu']} |"
+                   f" | {s['fa']}/{s['n']['healthy']} | {first} | {fix} | {short} | {live} | {s['ff']} | {'-' if arm == 'code' else s['fu']} |"
                    + (f" harness {s['harness']}" if s["harness"] else "") + (f" loop_logs cut {s['loop_cut']}" if s["loop_cut"] else ""))
     return "\n".join(out)
 
@@ -215,7 +215,7 @@ def by_axis(labels, arms):
     for ax in axes:
         ids = [k for k, v in labels.items() if ax in v.get("axes", [])]
         cells = [f"{sum(hit(labels[i], arms[a].get(i, {}).get('detected')) for i in ids)}/{len(ids)}" for a in arms]
-        fl = [i for i in ids if labels[i]["kind"] not in ("none", "unknown")]
+        fl = [i for i in ids if labels[i]["kind"] not in ("healthy", "unknown")]
         fx = [f"{sum(bool(arms[a].get(i)) and _fixed(labels[i], arms[a][i]) for i in fl)}/{len(fl)}" for a in arms if a != "code"]
         out.append(f"| {ax} | {len(ids)} | " + " | ".join(cells) + " | " + " | ".join(fx) + " |")
     return "\n".join(out)

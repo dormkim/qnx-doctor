@@ -1,0 +1,24 @@
+{"id": "D01", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "D02", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D03", "mode": "ai", "detected": "deadlock", "solved": false, "by": "ai", "cause": null}
+{"id": "D04", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D05", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "halfreply_srv only calls MsgReply when the message value is negative; sender sends n>=0, so the first message is received and never replied, leaving sender REPLY-blocked forever"}
+{"id": "D06", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "D07", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "Both pair_send processes (d007a, d007b) call MsgSend to each other before calling MsgReceive on their own channel. Each one is SEND-blocked on the other, and neither ever serves its channel. Separately, noreply_srv never replies, so sender d007c stays REPLY-blocked on d007d."}
+{"id": "D08", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D09", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D10", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D11", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "D12", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "offbyone_srv replies to the previous rcvid only after the next MsgReceive returns. The single sender stays REPLY-blocked on its first message, so no next message ever arrives and the server waits in RECEIVE forever."}
+{"id": "D13", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D14", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D15", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "D16", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "reentr_s1 (204821) receives the sender's message and, before replying, MsgSends to reentr_s2 (204820). reentr_s2 then MsgSends back to reentr_s1 before replying. s1 is REPLY-blocked on s2 and cannot receive, so s2 stays SEND-blocked on s1 and the sender waits behind them. The callback send on s2's reply path closes the cycle."}
+{"id": "D17", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D18", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D19", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "twomsg_srv receives a first message, then blocks in a second MsgReceive before replying. The only client (timed_client) sends one message at a time and stays REPLY-blocked, so the second message never arrives and the first is never replied to. The client's TimerTimeout only covers RECEIVE state, not REPLY, so it never unblocks."}
+{"id": "D20", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D21", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "D22", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D23", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "D24", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
