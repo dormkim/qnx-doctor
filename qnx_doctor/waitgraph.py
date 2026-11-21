@@ -16,6 +16,11 @@ Findings:
                   MsgReply). Added 2026-11-17 for the QNX trap scenarios (dev pool). System processes (proc/boot/,
                   system/) are left out: a resource manager holding a blocked read is normal.
   none            neither; long waits on a sleeping server or idle RECEIVE are normal
+
+A thread SEND-blocked on its own process while no thread of that process is RECEIVE-blocked (in every snapshot, loop
+not ticking) is reported as a deadlock of one member (`self_sends`, 2026-11-21, from dev set v4 D22). Waits outside
+message passing (MUTEX, CONDVAR, SEM, JOIN ...) are parsed with `any_blocked` and shown as printed in an «unknown»
+reason (progress.classify); they are NOT edges of the graph and get no name (2026-11-21).
 """
 import re
 from dataclasses import dataclass
@@ -23,7 +28,10 @@ from dataclasses import dataclass
 LINE = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)\s*(\d+)?\s*$")
 # Any Blocked column (SEM, CONDVAR, MUTEX show an address there). Only progress.classify reads these threads, to say
 # where a stopped loop waits (harness check bo01, 2026-11-17); the judge keeps LINE, so its findings are unchanged.
-LINE_ANY = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)(?:\s+(\S+))?\s*$")
+# 2026-11-21: the Blocked column may hold several tokens. In our recordings a MUTEX wait printed three
+# («(0x30afe0d030) 204820-02 #0», dev set v4 D02/D10/D17); the one-token form dropped those lines whole, so the thread
+# was missing from the «unknown» reason. The column is kept as text (Thread.detail) and is not interpreted.
+LINE_ANY = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)(?:\s+(\S.*?))?\s*$")
 WAIT = ("SEND", "REPLY")
 RUNNABLE = ("RUNNING", "READY")
 
@@ -36,11 +44,12 @@ class Thread:
     prio: int | None
     state: str
     blocked: int | None
+    detail: str | None = None  # the Blocked column as printed (any_blocked parse only); shown, never interpreted
 
 
 def parse(text: str, any_blocked: bool = False) -> list[Thread]:
     """Threads from the first pidin table in `text` (later repeats of the same pid/tid are ignored). `any_blocked`
-    also keeps threads whose Blocked column is not a pid (blocked = None for those)."""
+    also keeps threads whose Blocked column is not a pid (blocked = None for those) and the column's text (detail)."""
     seen, out = set(), []
     for line in text.splitlines():
         m = (LINE_ANY if any_blocked else LINE).match(line)
@@ -50,7 +59,8 @@ def parse(text: str, any_blocked: bool = False) -> list[Thread]:
         if (pid, tid) in seen:
             continue
         seen.add((pid, tid))
-        out.append(Thread(pid, tid, m[3], int(m[4]) if m[4] else None, m[6], int(m[7]) if m[7] and m[7].isdigit() else None))
+        out.append(Thread(pid, tid, m[3], int(m[4]) if m[4] else None, m[6], int(m[7]) if m[7] and m[7].isdigit() else None,
+                          m[7] if any_blocked else None))
     return out
 
 
@@ -58,6 +68,26 @@ def edges(threads) -> list[tuple[Thread, int]]:
     """(waiting thread, peer pid) for every SEND/REPLY wait on another application process."""
     return [(t, t.blocked) for t in threads
             if t.state in WAIT and t.blocked is not None and t.blocked > 1 and t.blocked != t.pid]
+
+
+def _self_send(threads) -> set[int]:
+    by_pid: dict[int, list[Thread]] = {}
+    for t in threads:
+        by_pid.setdefault(t.pid, []).append(t)
+    return {p for p, ts in by_pid.items() if p > 1 and any(t.state == "SEND" and t.blocked == p for t in ts)
+            and not any(t.state == "RECEIVE" for t in ts)}
+
+
+def self_sends(threads, later=(), moving=frozenset()) -> list[int]:
+    """Pids with a thread SEND-blocked on its own process while no thread of that process is RECEIVE-blocked: nobody
+    is on the channel to take the message. Only SEND (the message was not received; REPLY on the own pid means
+    another thread took it and is working). It must hold in every snapshot and the process's loop must not be
+    ticking (`moving`), because a receiving thread that is only busy for a moment looks the same in one snapshot.
+    `edges` still leaves self-waits out: they are not edges between processes (2026-11-21, dev set v4 D22)."""
+    found = _self_send(threads) - set(moving)
+    for th in later:
+        found &= _self_send(th)
+    return sorted(found)
 
 
 def cycles(threads) -> list[list[int]]:
@@ -164,7 +194,10 @@ def judge(threads, focus=None, later=(), moving=frozenset()) -> dict:
     state = {}
     for t, peer in edges(threads):
         state.setdefault(t.pid, f"{t.state}-blocked on {peer}")
-    cyc = [c for c in cycles(threads) if keep(c)]
+    alone = self_sends(threads, later, moving)
+    for p in alone:
+        state.setdefault(p, f"SEND-blocked on {p} (its own process, no thread RECEIVE-blocked there)")
+    cyc = [c for c in cycles(threads) + [[p] for p in alone] if keep(c)]
     if cyc:
         return {"kind": "deadlock",
                 "cycles": [[{"pid": p, "name": names.get(p, "?"), "state": state.get(p)} for p in c] for c in cyc],

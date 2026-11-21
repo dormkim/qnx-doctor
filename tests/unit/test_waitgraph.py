@@ -136,3 +136,78 @@ class Persistence(unittest.TestCase):
     def test_persistent_chain_kept(self):
         j = wg.judge(wg.parse(table(*self.CHAIN)), later=[wg.parse(table(*self.CHAIN))] * 2)
         self.assertEqual(j["kind"], "priority_chain")
+
+
+# pidin lines as recorded in the dev-set runs (v4 D02, D10, D22: bench/sealed_v4_1117/scored_1118/code.jsonl, the
+# «lines» of the graph entry). Kept as text fixtures for the parser; what QNX means by each column is not asserted.
+D10 = """  204820   1 var/qd/D10/abba               10r JOIN           2
+  204820   2 var/qd/D10/abba               10r MUTEX          (0x3f08248038) 204820-03 #0
+  204820   3 var/qd/D10/abba               10r MUTEX          (0x3f08248030) 204820-02 #0
+"""
+D02 = """  204820   1 var/qd/D02/prio_none          40r JOIN           4
+  204820   2 var/qd/D02/prio_none          10f READY
+  204820   3 var/qd/D02/prio_none          20f READY
+  204820   4 var/qd/D02/prio_none          30f MUTEX          (0x30afe0d030) 204820-02 #0
+"""
+D22 = "  204820   1 var/qd/D22/selfsend           10r SEND           204820\n"
+
+
+class NonMessageWaits(unittest.TestCase):
+    """2026-11-21: a Blocked column of several tokens is kept (any_blocked parse) and shown, not interpreted."""
+
+    def test_mutex_lines_are_kept_with_the_column_as_printed(self):
+        th = wg.parse(D10, any_blocked=True)
+        self.assertEqual([(t.tid, t.state, t.blocked, t.detail) for t in th],
+                         [(1, "JOIN", 2, "2"), (2, "MUTEX", None, "(0x3f08248038) 204820-03 #0"),
+                          (3, "MUTEX", None, "(0x3f08248030) 204820-02 #0")])
+
+    def test_priority_30_thread_is_no_longer_missing(self):
+        th = wg.parse(D02, any_blocked=True)
+        self.assertEqual([(t.tid, t.prio, t.state) for t in th], [(1, 40, "JOIN"), (2, 10, "READY"), (3, 20, "READY"), (4, 30, "MUTEX")])
+        self.assertEqual(th[3].detail, "(0x30afe0d030) 204820-02 #0")
+
+    def test_one_token_columns_parse_as_before(self):
+        th = wg.parse("  7 1 var/qd/x/a 10r CONDVAR (0x518de30a4c)\n  7 2 var/qd/x/a 10r SEM 518de4f0d8\n  7 3 var/qd/x/a 10r READY\n", any_blocked=True)
+        self.assertEqual([(t.state, t.blocked, t.detail) for t in th], [("CONDVAR", None, "(0x518de30a4c)"), ("SEM", None, "518de4f0d8"), ("READY", None, None)])
+
+    def test_the_judge_parse_is_unchanged(self):  # strict parse: still drops them, findings and structure as before
+        self.assertEqual([(t.tid, t.state) for t in wg.parse(D10)], [(1, "JOIN")])
+        self.assertEqual(wg.parse(D10)[0].detail, None)
+
+    def test_mutex_waits_get_no_name(self):  # not edges: the judge says none, the tool says unknown
+        self.assertEqual(wg.judge(wg.parse(D10, any_blocked=True))["kind"], "none")
+        self.assertEqual(wg.judge(wg.parse(D02, any_blocked=True))["kind"], "none")
+
+
+class SelfSend(unittest.TestCase):
+    def test_recorded_self_send_is_a_deadlock_of_one(self):
+        th = wg.parse(D22)
+        j = wg.judge(th, later=[th, th])
+        self.assertEqual(j["kind"], "deadlock")
+        self.assertEqual([[m["pid"] for m in c] for c in j["cycles"]], [[204820]])
+        self.assertIn("SEND-blocked on 204820 (its own process, no thread RECEIVE-blocked there)", wg.describe(j))
+
+    def test_a_receiving_thread_in_the_same_process_is_not_a_deadlock(self):
+        th = wg.parse(table((50, 1, "var/qd/x/a", "10r", "SEND", 50), (50, 2, "var/qd/x/a", "10r", "RECEIVE", 1)))
+        self.assertEqual(wg.self_sends(th), [])
+        self.assertEqual(wg.judge(th)["kind"], "none")
+
+    def test_must_hold_in_every_snapshot(self):  # the receiver thread was only busy at the first snapshot
+        first = wg.parse(table((50, 1, "var/qd/x/a", "10r", "SEND", 50), (50, 2, "var/qd/x/a", "10r", "READY", "")))
+        later = wg.parse(table((50, 1, "var/qd/x/a", "10r", "NANOSLEEP", ""), (50, 2, "var/qd/x/a", "10r", "RECEIVE", 1)))
+        self.assertEqual(wg.judge(first, later=[later])["kind"], "none")
+        self.assertEqual(wg.judge(first, later=[first])["kind"], "deadlock")
+
+    def test_a_ticking_loop_is_not_hung(self):
+        th = wg.parse(D22)
+        self.assertEqual(wg.judge(th, later=[th], moving=frozenset({204820}))["kind"], "none")
+
+    def test_reply_on_own_pid_is_not_a_self_send(self):  # another thread took the message and is working on it
+        th = wg.parse(table((50, 1, "var/qd/x/a", "10r", "REPLY", 50), (50, 2, "var/qd/x/a", "10r", "READY", "")))
+        self.assertEqual(wg.judge(th)["kind"], "none")
+
+    def test_edges_still_leave_self_out(self):
+        self.assertEqual(wg.edges(wg.parse(D22)), [])
+
+    def test_kernel_is_never_a_self_send(self):
+        self.assertEqual(wg.self_sends(wg.parse(KERNEL.replace("REPLY", "SEND "))), [])

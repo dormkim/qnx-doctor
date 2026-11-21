@@ -64,6 +64,20 @@ def _spinning(pids, snaps) -> list[int]:
     return out
 
 
+def _waits(suspects, snaps, progs) -> str:
+    """Waits outside message passing of the suspect programs, with pidin's Blocked column as printed (first snapshot
+    that shows each thread). Added to every «unknown» reason (2026-11-21): a MUTEX wait used to be dropped by the
+    parser, so the reason for dev set v4 D02/D10/D17 did not mention it. Shown, not interpreted: what the column means
+    (for example whether a MUTEX line's last value is the thread that holds the lock) is not decided here."""
+    seen, out = set(), []
+    for th in snaps:
+        for t in th:
+            if t.pid in suspects and (t.pid, t.tid) not in seen and t.state not in MESSAGE_STATES and t.state not in RUNNABLE:
+                seen.add((t.pid, t.tid))
+                out.append(f"{progs[t.pid]} thread {t.tid} {t.state}" + (f" {t.detail}" if t.detail else ""))
+    return (" Waits outside message passing, as pidin printed them (not interpreted): " + "; ".join(out) + ".") if out else ""
+
+
 def classify(kind: str, threads, later, name: str, ticks: dict, mv: dict | None) -> dict:
     """-> {state, why, roles}. state: hang (the wait graph named one) | healthy | spinning | blocked_other | no_info.
     Without a second count (mv None) the old rule stays: healthy = no finding and TICK total > 0."""
@@ -82,6 +96,7 @@ def classify(kind: str, threads, later, name: str, ticks: dict, mv: dict | None)
     suspects = [p for p in progs if p not in grown]
     stalled = {p for r, s in (mv or {r: FLAT for r in ticks}).items() if s != GREW for p in rp.get(r, ())}
     snaps = [threads, *later]
+    waits = _waits(suspects, snaps, progs)
     # A program whose own loop stalled first; any other program only if none of those spins (a CPU-load program
     # without a TICK log is busy by design and should not be named while the stalled loop is the one spinning).
     spin = _spinning([p for p in suspects if p in stalled], snaps) or _spinning(suspects, snaps)
@@ -89,16 +104,16 @@ def classify(kind: str, threads, later, name: str, ticks: dict, mv: dict | None)
         who = ", ".join(f"{p}({progs[p]})" for p in spin)
         return {"state": "spinning", "roles": mv,
                 "why": f"not a message-passing hang: {who} is running on the CPU (RUNNING/READY in every snapshot) "
-                       "while its loop does not tick"}
+                       "while its loop does not tick." + waits}
     other = sorted({(progs[t.pid], t.state) for th in snaps for t in th if t.pid in suspects
                     and t.state not in MESSAGE_STATES and t.state not in RUNNABLE})
     if other:
         return {"state": "blocked_other", "roles": mv,
                 "why": "not a message-passing hang: loop stopped while blocked outside message passing ("
-                       + ", ".join(f"{p} {s}" for p, s in other) + "); the cause is not in the wait graph"}
+                       + ", ".join(f"{p} {s}" for p, s in other) + "); the cause is not in the wait graph." + waits}
     return {"state": "no_info", "roles": mv,
             "why": "not enough information: loop stopped, but no wait cycle, priority chain, lost reply or CPU loop "
-                   "was seen"}
+                   "was seen." + waits}
 
 
 def detected(state: str, kind: str) -> str:

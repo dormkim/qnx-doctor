@@ -27,6 +27,43 @@ def spin():
     return [T(30, 1, N + "meter", 10, "RUNNING", None), T(31, 1, N + "store", 10, "RECEIVE", 1)]
 
 
+class UnknownShowsWaits(unittest.TestCase):
+    """2026-11-21: an «unknown» reason shows waits outside message passing with pidin's column as printed. The lines
+    are the recorded ones of dev set v4 D10 and D02; the tool still names nothing."""
+    D10 = ("  204820   1 var/qd/D10/abba               10r JOIN           2\n"
+           "  204820   2 var/qd/D10/abba               10r MUTEX          (0x3f08248038) 204820-03 #0\n"
+           "  204820   3 var/qd/D10/abba               10r MUTEX          (0x3f08248030) 204820-02 #0\n")
+    D02 = ("  204820   1 var/qd/D02/prio_none          40r JOIN           4\n"
+           "  204820   2 var/qd/D02/prio_none          10f READY\n"
+           "  204820   3 var/qd/D02/prio_none          20f READY\n"
+           "  204820   4 var/qd/D02/prio_none          30f MUTEX          (0x30afe0d030) 204820-02 #0\n")
+
+    def named(self, text, name, ticks):
+        th = wg.parse(text, any_blocked=True)
+        mv = {k: "flat" for k in ticks}
+        live = pg.classify("none", th, [th, th], name, ticks, mv)
+        return hd.named({"judge": {"kind": "none"}, "ticks": ticks, "liveness": live})
+
+    def test_blocked_other_shows_the_mutex_lines(self):
+        d, why = self.named(self.D10, "D10", {"d010a": 2, "d010b": 2})
+        self.assertEqual(d, "unknown")
+        self.assertTrue(why.startswith("unknown (blocked_other)"))
+        self.assertIn("abba thread 2 MUTEX (0x3f08248038) 204820-03 #0", why)
+        self.assertIn("abba thread 3 MUTEX (0x3f08248030) 204820-02 #0", why)
+        self.assertIn("not interpreted", why)
+
+    def test_spinning_also_shows_the_mutex_line(self):
+        d, why = self.named(self.D02, "D02", {"d002a": 2, "d002b": 1, "d002c": 1})
+        self.assertEqual(d, "unknown")
+        self.assertTrue(why.startswith("unknown (spinning)"))
+        self.assertIn("prio_none thread 4 MUTEX (0x30afe0d030) 204820-02 #0", why)
+
+    def test_no_wait_no_extra_text(self):
+        live = pg.classify("none", spin(), [spin()], "xx", {"d0meter": 3}, {"d0meter": "flat"})
+        self.assertEqual(live["state"], "spinning")
+        self.assertNotIn("Waits outside", live["why"])
+
+
 class Moves(unittest.TestCase):
     def test_states(self):
         mv = pg.moves({"d0a": 3, "d0b": 3, "d0c": 0, "d0d": 1}, {"d0a": 9, "d0b": 3, "d0c": 0})
@@ -161,7 +198,7 @@ class ScorerUnknown(unittest.TestCase):
         self.assertEqual([r[i]["detected"] for i in ("old", "new", "ok")], ["unknown", "unknown", "none"])
         labels = {"old": {"kind": "unknown"}, "new": {"kind": "unknown"}, "ok": {"kind": "none"}}
         s = ss.score(labels, r)
-        self.assertEqual((s["hit"]["unknown"], s["hit"]["none"], s["fa"]), (2, 1, 0))
+        self.assertEqual((s["hit"]["unknown"], s["hit"]["healthy"], s["fa"]), (2, 1, 0))
 
     def test_v1_v2_scorer_reads_new_unknown_as_old_none(self):
         labels = {"a": {"kind": "deadlock"}, "b": {"kind": "none"}}
