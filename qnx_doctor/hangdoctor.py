@@ -14,28 +14,71 @@ AI_OFF_NOTE = "code judgment only: the hang is named, no fix is attempted"
 MIN_TICKS = 2  # a loop, not one print on the way out
 
 
-def restarted(first, res):
-    """Fixed = the rerun has no cycle/chain AND at least one loop that printed no TICK before now ticks (at least
-    MIN_TICKS) AND no loop that was ticking before has stopped AND no process of the program has gone away.
-    A «fix» that prints one TICK and exits, breaks a working loop, or makes a peer quit does not count.
-    Not «every 0-TICK log must resume»: some roles write a log but never print TICK (sealed D03 server/logger) —
+STOPPED = (pg.FLAT, pg.IDLE, pg.GONE)
+NOT_ALIVE = "not proven alive"  # every liveness failure that is not «still hung» starts with these words
+
+
+def stopped_roles(first) -> list[str]:
+    """Role logs whose loop was not moving at the hung observation: flat, idle or missing between the two TICK counts
+    of that boot (progress.moves). Recordings without a second count (older harness) fall back to «printed no TICK»."""
+    mv = first.get("progress")
+    if mv:
+        return [k for k in first["ticks"] if mv.get(k) in STOPPED]
+    return [k for k, v in first["ticks"].items() if v == 0]
+
+
+def not_restarted(first, res) -> str | None:
+    """None = alive again. Otherwise the condition that failed, in words (given back to the AI and the baseline, so
+    a retry is aimed at what actually failed).
+
+    Alive again = the rerun has no cycle/chain AND at least one loop that was stopped at the first observation printed
+    at least MIN_TICKS more TICKs than it had then AND (when the rerun has a second count) was still ticking between
+    the rerun's two counts AND no loop that had ticked prints nothing now AND no program process has gone away.
+
+    Changed 2026-11-21 (dev sets v3-v5, before sealed v6). Until then «stopped» meant «printed no TICK at all». A
+    ring whose members each print one TICK before the first send, or a server that stops replying after a few
+    rounds, has no 0-TICK role, so no fix of any arm could pass (v4 D03, v5 E05/E06/E08; the recorded reruns showed no
+    cycle, the same processes and far more TICKs). «Stopped» is now read from progress. The bar moved with it: more
+    TICKs than before, not just MIN_TICKS, and still growing at the second count, so a «fix» that lets a loop print a
+    little more and stop again does not count.
+    Not «every stopped log must resume»: some roles write a log but never print TICK (sealed D03 server/logger) —
     that stricter rule (set 2026-11-16 before the held-out run) rejected real fixes; replaced after that run."""
-    if not res.get("ok") or res["judge"]["kind"] != "none":
-        return False
+    if not res.get("ok"):
+        return f"rerun did not finish: {res.get('stage')} failed: {res.get('log', '')}".rstrip(": ")
+    if res["judge"]["kind"] != "none":
+        return f"still hung: {res.get('graph') or res['judge']['kind']}"
     before, after = first["ticks"], res["ticks"]
-    if not any(v == 0 and after.get(k, 0) >= MIN_TICKS for k, v in before.items()):
-        return False
-    if any(v > 0 and after.get(k, 0) == 0 for k, v in before.items()):
-        return False
-    return res.get("alive", 0) >= first.get("alive", 0)
+    stopped = stopped_roles(first)
+    if not stopped:
+        return f"{NOT_ALIVE}: no loop was stopped at the first observation, so there is nothing to show as restarted"
+    more = [k for k in stopped if after.get(k, 0) >= before[k] + MIN_TICKS]
+    if not more:
+        return (f"{NOT_ALIVE}: no cycle or chain in the rerun, but no stopped loop printed at least {MIN_TICKS} more "
+                "TICKs than before (TICK counts before -> after: "
+                + ", ".join(f"{k} {before[k]} -> {after.get(k, 'no log')}" for k in stopped) + ")")
+    mv = res.get("progress")
+    if mv is not None and not any(mv.get(k) == pg.GREW for k in more):
+        return (f"{NOT_ALIVE}: a stopped loop printed more TICKs but was not ticking any more at the second count of "
+                "the rerun (" + ", ".join(f"{k} {mv.get(k)}" for k in more) + ")")
+    quiet = [k for k, v in before.items() if v > 0 and after.get(k, 0) == 0]
+    if quiet:
+        return f"{NOT_ALIVE}: a loop that had printed TICKs prints none in the rerun ({', '.join(quiet)})"
+    if res.get("alive", 0) < first.get("alive", 0):
+        return f"{NOT_ALIVE}: a program process is gone ({first.get('alive', 0)} -> {res.get('alive', 0)} processes)"
+    return None
+
+
+def restarted(first, res) -> bool:
+    return not_restarted(first, res) is None
 
 
 def verdict(first, res) -> dict:
     """Fixed = alive again (restarted) AND the same message structure (structure.compare). Both parts are kept, so
     a fix that only passes liveness is counted as a rejected shortcut, not silently as a failure."""
-    live = restarted(first, res)
+    not_live = not_restarted(first, res)
+    live = not_live is None
     why = st.compare(first.get("structure"), res.get("structure")) if res.get("ok") else []
-    return {"fixed": live and not why, "live": live, "structure": why,
+    return {"fixed": live and not why, "live": live, "structure": why, "why_not_live": not_live,
             "unread": st.unread(first.get("structure"), res.get("structure")) if res.get("ok") else []}
 
 
@@ -54,6 +97,16 @@ def named(obs) -> tuple[str, str]:
     if d == "unknown":
         return d, f"{UNKNOWN_NOTE} ({live['state']}): {live['why']}"
     return d, ""
+
+
+def result_text(v) -> str:
+    """One line for the timeline and for the next try. A failed try names the condition that failed (2026-11-21:
+    «still hung: no wait cycle and no priority chain» sent retries the wrong way, v5 E08)."""
+    if v["fixed"]:
+        return "SOLVED (rerun: no cycle/chain, the stopped loop ticks again, same message structure)"
+    if v["live"]:
+        return "rejected: alive again but the message structure changed: " + "; ".join(v["structure"])
+    return v["why_not_live"]
 
 
 def _graph_entry(obs):
@@ -92,7 +145,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
             break
         acts = payload.get("actions", [])
         fixed, err = hang.apply_fix(scen_dir, acts)
-        v = {"fixed": False, "live": None, "structure": []}
+        v = {"fixed": False, "live": None, "structure": [], "why_not_live": None}
         if err:
             msg = err
             res = None
@@ -100,9 +153,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
             res = hang.observe(fixed, name, focus)
             v = verdict(first, res)
             res["healthy"] = v["fixed"]
-            msg = ("SOLVED (rerun: no cycle/chain, the stopped loop ticks again, same message structure)" if v["fixed"] else
-                   "rejected: alive again but the message structure changed: " + "; ".join(v["structure"]) if v["live"] else
-                   f"still hung: {res.get('graph') or res.get('stage') + ' failed: ' + res.get('log', '')}")
+            msg = result_text(v)
         entry = {"kind": "ai_fix", "cause": payload.get("cause"), "culprit": payload.get("culprit"),
                  "evidence": payload.get("evidence"), "doc_refs": payload.get("doc_refs"), "actions": acts,
                  "diff": hang.diff(work, fixed, name), "result": msg, "live": v["live"], "structure_why": v["structure"], "unread": v.get("unread"),
@@ -112,6 +163,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
             entry["rerun_graph"] = res["graph"]
             entry["rerun_ticks"] = {k: ("yes" if v else "no") for k, v in res["ticks"].items()}
             entry["rerun_tick_counts"], entry["rerun_alive"] = res["ticks"], res.get("alive")  # states for re-judging
+            entry["rerun_progress"] = res.get("progress")  # the rerun's second count (kept since 2026-11-21)
         timeline.append(entry)
         tried.append({"actions": acts, "result": msg})
         shutil.rmtree(fixed, ignore_errors=True)

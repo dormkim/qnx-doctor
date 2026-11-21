@@ -16,7 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from qnx_doctor import hang  # noqa: E402
 from qnx_doctor.hangdoctor import restarted  # noqa: E402
 
-GONE = "still hung: no wait cycle and no priority chain"
+# Recorded up to 2026-11-21 as «still hung: no wait cycle ...»; since then the failed condition is named (NOT_ALIVE).
+GONE = ("still hung: no wait cycle and no priority chain", "not proven alive")
 
 
 def attempts(row):
