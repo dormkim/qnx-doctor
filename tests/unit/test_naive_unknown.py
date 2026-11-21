@@ -1,5 +1,6 @@
 """The baseline's optional fifth answer «unknown» (bench/naive_hang.py --allow-unknown, for sealed v6). No model is
 called here: the prompt text, the reply reader and the «no rerun, no fix» path are pure."""
+import importlib.util
 import json
 import os
 import shutil
@@ -35,6 +36,8 @@ class Prompt(unittest.TestCase):
         self.assertIn("You have no other tools or observations", nh.system_prompt(True))
 
 
+# read_reply uses the JSON reader in qnx_doctor/ai.py, which imports the SDK at module level. No call is made.
+@unittest.skipUnless(importlib.util.find_spec("anthropic"), "anthropic SDK not installed in this interpreter")
 class Reply(unittest.TestCase):
     def test_unknown_is_a_wrong_word_without_the_flag(self):
         r = nh.read_reply('{"kind": "unknown", "roles": [], "cause": "spins"}')
