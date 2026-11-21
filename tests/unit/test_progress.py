@@ -58,6 +58,17 @@ class UnknownShowsWaits(unittest.TestCase):
         self.assertTrue(why.startswith("unknown (spinning)"))
         self.assertIn("prio_none thread 4 MUTEX (0x30afe0d030) 204820-02 #0", why)
 
+    def test_self_send_is_shown_and_stays_unknown(self):  # dev set v4 D22: shown as printed, no deadlock named
+        d, why = self.named("  204820   1 var/qd/D22/selfsend           10r SEND           204820\n", "D22", {"d022a": 1})
+        self.assertEqual(d, "unknown")
+        self.assertTrue(why.startswith("unknown (no_info)"))
+        self.assertIn("selfsend thread 1 SEND 204820", why)
+        self.assertIn("shown, not named", why)
+
+    def test_self_send_with_a_receiving_thread_is_not_shown(self):
+        d, why = self.named("  50 1 var/qd/D22/selfsend 10r SEND 50\n  50 2 var/qd/D22/selfsend 10r RECEIVE 1\n", "D22", {"d022a": 1})
+        self.assertNotIn("its own process", why)
+
     def test_no_wait_no_extra_text(self):
         live = pg.classify("none", spin(), [spin()], "xx", {"d0meter": 3}, {"d0meter": "flat"})
         self.assertEqual(live["state"], "spinning")

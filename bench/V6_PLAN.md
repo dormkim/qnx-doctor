@@ -105,7 +105,8 @@ Brief (pasted as is):
 The first nine rows are the shapes named in the 2026-11-21 failure classification (section 4 of that note); the
 next three rows cover shapes never measured (pool exhaustion, cycles with three or more parties, causes outside
 the sources); the last three are controls. Mutex scenarios are in the set although the tool gives them no name
-(expected answer from ours: `unknown`, a miss on those 4 hang labels, with the mutex lines shown in the reason). That
+(expected answer from ours: `unknown`, a miss on those 4 hang labels, with the mutex lines shown in the reason;
+the same holds for the self-send scenario unless naming it has been checked on a target before the freeze). That
 cost is taken on purpose, so that «says unknown» is measured where it is uncomfortable.
 
 ## 4. Gates before the seal (in this order)
@@ -116,7 +117,10 @@ cost is taken on purpose, so that «says unknown» is measured where it is uncom
    - `bench/fake_fix_check.py` on a dev ring whose members print a TICK before the first send: the real fix must be
      fixed, every fake rejected, under the rule that now also reads the rerun's second count. If a real fix is
      rejected because the fixed loop does not grow between the two counts, the rule is corrected before the freeze.
-   - one dev scenario for the self-send finding and one where a second thread receives (no deadlock named).
+   - self-send: the tool only shows it in the «unknown» reason. Naming a self-send as a deadlock is added only
+     after a new dev scenario (one self-send, one where a second thread receives) has been checked on a target; if
+     that is not done before the freeze, v6 is run with «shown, not named» and the self-send scenario is an expected
+     miss for ours.
    - structure record and MUTEX threads: the first observation counts threads from the strict pidin parse, which
      drops threads in a MUTEX wait. On the dev sets this made a baseline's mutex fix look like «threads changed»
      (v4 D02, D10, D17, D22). Decide on a dev mutex scenario whether the structure record should read all threads;

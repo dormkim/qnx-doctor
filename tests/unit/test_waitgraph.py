@@ -180,31 +180,30 @@ class NonMessageWaits(unittest.TestCase):
 
 
 class SelfSend(unittest.TestCase):
-    def test_recorded_self_send_is_a_deadlock_of_one(self):
-        th = wg.parse(D22)
-        j = wg.judge(th, later=[th, th])
-        self.assertEqual(j["kind"], "deadlock")
-        self.assertEqual([[m["pid"] for m in c] for c in j["cycles"]], [[204820]])
-        self.assertIn("SEND-blocked on 204820 (its own process, no thread RECEIVE-blocked there)", wg.describe(j))
+    """Found and shown in an «unknown» reason, not named by the judge (2026-11-21: no target check yet)."""
 
-    def test_a_receiving_thread_in_the_same_process_is_not_a_deadlock(self):
+    def test_recorded_self_send_is_found_but_not_named(self):
+        th = wg.parse(D22)
+        self.assertEqual(wg.self_sends(th, later=[th, th]), [204820])
+        self.assertEqual(wg.judge(th, later=[th, th]), {"kind": "none"})
+
+    def test_a_receiving_thread_in_the_same_process_is_not_found(self):
         th = wg.parse(table((50, 1, "var/qd/x/a", "10r", "SEND", 50), (50, 2, "var/qd/x/a", "10r", "RECEIVE", 1)))
         self.assertEqual(wg.self_sends(th), [])
-        self.assertEqual(wg.judge(th)["kind"], "none")
 
     def test_must_hold_in_every_snapshot(self):  # the receiver thread was only busy at the first snapshot
         first = wg.parse(table((50, 1, "var/qd/x/a", "10r", "SEND", 50), (50, 2, "var/qd/x/a", "10r", "READY", "")))
         later = wg.parse(table((50, 1, "var/qd/x/a", "10r", "NANOSLEEP", ""), (50, 2, "var/qd/x/a", "10r", "RECEIVE", 1)))
-        self.assertEqual(wg.judge(first, later=[later])["kind"], "none")
-        self.assertEqual(wg.judge(first, later=[first])["kind"], "deadlock")
+        self.assertEqual(wg.self_sends(first, later=[later]), [])
+        self.assertEqual(wg.self_sends(first, later=[first]), [50])
 
-    def test_a_ticking_loop_is_not_hung(self):
+    def test_a_ticking_loop_is_left_out(self):
         th = wg.parse(D22)
-        self.assertEqual(wg.judge(th, later=[th], moving=frozenset({204820}))["kind"], "none")
+        self.assertEqual(wg.self_sends(th, later=[th], moving=frozenset({204820})), [])
 
     def test_reply_on_own_pid_is_not_a_self_send(self):  # another thread took the message and is working on it
         th = wg.parse(table((50, 1, "var/qd/x/a", "10r", "REPLY", 50), (50, 2, "var/qd/x/a", "10r", "READY", "")))
-        self.assertEqual(wg.judge(th)["kind"], "none")
+        self.assertEqual(wg.self_sends(th), [])
 
     def test_edges_still_leave_self_out(self):
         self.assertEqual(wg.edges(wg.parse(D22)), [])

@@ -147,8 +147,10 @@ that `repro_v3.py` makes has every line. The check is per scenario, not per role
   lists the waits outside message passing as pidin printed them. Nothing is interpreted: whether the last value of
   such a line is the thread that holds the lock is **not** decided, mutex waits are not edges of the graph, and the
   three scenarios would still be answered `unknown`.
-- A thread SEND-blocked on its own process, with no thread of that process RECEIVE-blocked, in every snapshot and
-  with a loop that is not ticking, is now reported as a deadlock of one member (the shape of v4 D22). This is a
-  detection change checked on one recorded line and unit tests only, not on a target.
+- A thread SEND-blocked on its own process, with no thread of that process RECEIVE-blocked in any snapshot (the
+  shape of v4 D22), is now shown in the «unknown» reason the same way. It is **not** named: v4 D22 would still be
+  answered `unknown`, and no detection number on this page changes. (A first version of 2026-11-21 named it a
+  deadlock of one member; that was taken back the same day because it had never been checked on a target. Naming it
+  waits for a new dev scenario checked on a target.)
 
-Neither change has been run on a target. Detection numbers for them do not exist yet.
+Neither change alters what the tool names, so no detection number moves. Neither has been run on a target.

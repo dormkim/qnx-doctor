@@ -17,10 +17,10 @@ Findings:
                   system/) are left out: a resource manager holding a blocked read is normal.
   none            neither; long waits on a sleeping server or idle RECEIVE are normal
 
-A thread SEND-blocked on its own process while no thread of that process is RECEIVE-blocked (in every snapshot, loop
-not ticking) is reported as a deadlock of one member (`self_sends`, 2026-11-21, from dev set v4 D22). Waits outside
-message passing (MUTEX, CONDVAR, SEM, JOIN ...) are parsed with `any_blocked` and shown as printed in an «unknown»
-reason (progress.classify); they are NOT edges of the graph and get no name (2026-11-21).
+Shown, not named (2026-11-21): waits outside message passing (MUTEX, CONDVAR, SEM, JOIN ...) are parsed with
+`any_blocked`, and a thread SEND-blocked on its own process is found by `self_sends` (dev set v4 D22). Both are
+printed as pidin showed them in an «unknown» reason (progress.classify). They are NOT edges of the graph and the
+judge gives them no name: naming a self-send as a deadlock waits for a new dev scenario checked on a target.
 """
 import re
 from dataclasses import dataclass
@@ -83,7 +83,8 @@ def self_sends(threads, later=(), moving=frozenset()) -> list[int]:
     is on the channel to take the message. Only SEND (the message was not received; REPLY on the own pid means
     another thread took it and is working). It must hold in every snapshot and the process's loop must not be
     ticking (`moving`), because a receiving thread that is only busy for a moment looks the same in one snapshot.
-    `edges` still leaves self-waits out: they are not edges between processes (2026-11-21, dev set v4 D22)."""
+    `edges` leaves self-waits out and `judge` does not use this finder: the result is only shown in an «unknown»
+    reason (progress.classify). Not checked on a target yet (2026-11-21, dev set v4 D22)."""
     found = _self_send(threads) - set(moving)
     for th in later:
         found &= _self_send(th)
@@ -194,10 +195,7 @@ def judge(threads, focus=None, later=(), moving=frozenset()) -> dict:
     state = {}
     for t, peer in edges(threads):
         state.setdefault(t.pid, f"{t.state}-blocked on {peer}")
-    alone = self_sends(threads, later, moving)
-    for p in alone:
-        state.setdefault(p, f"SEND-blocked on {p} (its own process, no thread RECEIVE-blocked there)")
-    cyc = [c for c in cycles(threads) + [[p] for p in alone] if keep(c)]
+    cyc = [c for c in cycles(threads) if keep(c)]
     if cyc:
         return {"kind": "deadlock",
                 "cycles": [[{"pid": p, "name": names.get(p, "?"), "state": state.get(p)} for p in c] for c in cyc],

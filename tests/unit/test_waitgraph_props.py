@@ -66,9 +66,8 @@ class Props(unittest.TestCase):
             cyc = brute_cyclic(rows)
             members = {p for c in wg.cycles(th) for p in c}
             self.assertEqual(members, cyc)
-            alone = brute_self_send(rows)  # 2026-11-21: a deadlock of one member, not an edge (waitgraph.self_sends)
-            self.assertEqual(set(wg.self_sends(th)), alone)
-            self.assertEqual(wg.judge(th)["kind"] == "deadlock", bool(cyc or alone))
+            self.assertEqual(set(wg.self_sends(th)), brute_self_send(rows))  # found and shown, never named (2026-11-21)
+            self.assertEqual(wg.judge(th)["kind"] == "deadlock", bool(cyc))
 
     def test_pid1_and_self_never_edges(self):
         r = random.Random(3)

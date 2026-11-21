@@ -12,7 +12,7 @@ information. Pure functions over parsed data; hang.observe feeds them.
 Role ↔ process: a role log is /tmp/d0<role>.log and a program is /var/qd/<scenario>/<prog>; they match when <role> is
 <prog> (the scenario format). A role that matches no process is still counted for «healthy», not for a waiter.
 """
-from .waitgraph import RUNNABLE
+from .waitgraph import RUNNABLE, self_sends
 
 GREW, FLAT, IDLE, GONE = "grew", "flat", "idle", "missing"  # idle = 0 both times (a log that never ticks)
 MESSAGE_STATES = ("SEND", "REPLY", "RECEIVE")
@@ -75,7 +75,15 @@ def _waits(suspects, snaps, progs) -> str:
             if t.pid in suspects and (t.pid, t.tid) not in seen and t.state not in MESSAGE_STATES and t.state not in RUNNABLE:
                 seen.add((t.pid, t.tid))
                 out.append(f"{progs[t.pid]} thread {t.tid} {t.state}" + (f" {t.detail}" if t.detail else ""))
-    return (" Waits outside message passing, as pidin printed them (not interpreted): " + "; ".join(out) + ".") if out else ""
+    text = (" Waits outside message passing, as pidin printed them (not interpreted): " + "; ".join(out) + ".") if out else ""
+    # A send to the thread's own process (dev set v4 D22). Shown like the waits above; not named a deadlock until a
+    # new dev scenario has been checked on a target (2026-11-21).
+    own = [f"{progs[t.pid]} thread {t.tid} SEND {t.blocked}" for p in self_sends(snaps[0], snaps[1:]) if p in suspects
+           for t in snaps[0] if t.pid == p and t.state == "SEND" and t.blocked == p]
+    if own:
+        text += (" A thread is SEND-blocked on its own process and no thread of that process is RECEIVE-blocked, in "
+                 "every snapshot (shown, not named): " + "; ".join(own) + ".")
+    return text
 
 
 def classify(kind: str, threads, later, name: str, ticks: dict, mv: dict | None) -> dict:
