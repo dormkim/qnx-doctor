@@ -93,5 +93,42 @@ class Exclude(unittest.TestCase):
         self.assertIn("| code | 1/1 |", out)
 
 
+class HealthyAndDenominator(unittest.TestCase):
+    """Scorer fixes of 2026-11-21 (dev sets v3-v5): the healthy column read 0/5 and 0/2 for every arm, and the «fixed»
+    denominator held the healthy labels (19 and 10 instead of 14 and 8)."""
+    LABELS = {"h1": {"kind": "healthy"}, "h2": {"kind": "none"}, "u": {"kind": "unknown"},
+              "d": {"kind": "deadlock"}, "m": {"kind": "missing_reply"}}
+
+    def rows(self):
+        return ss.fresh_rows("ai", _jsonl([
+            _ours("h1", "none", "no hang found"), _ours("h2", "unknown", "unknown (spinning): x"), _ours("u", "unknown", "unknown (no_info): x"),
+            _ours("d", "deadlock", fixes=[(True, {"d0a": 9, "d0b": 9})]), _ours("m", "missing_reply", fixes=[(False, {"d0a": 0, "d0b": 0})])]))
+
+    def test_none_is_a_hit_on_a_healthy_label_whichever_word_the_label_uses(self):
+        s = ss.score(self.LABELS, self.rows())
+        self.assertEqual((s["hit"]["healthy"], s["n"]["healthy"]), (1, 2))  # h1 hit; h2 said unknown: a miss and a false alarm
+        self.assertEqual(s["fa"], 1)
+        self.assertTrue(ss.hit({"kind": "none"}, "none") and ss.hit({"kind": "healthy"}, "none"))
+        self.assertFalse(ss.hit({"kind": "healthy"}, "deadlock") or ss.hit({"kind": "healthy"}, "unknown") or ss.hit({"kind": "healthy"}, None))
+
+    def test_a_hang_label_is_not_hit_by_none(self):
+        self.assertFalse(ss.hit({"kind": "deadlock"}, "none"))
+        self.assertFalse(ss.hit({"kind": "unknown"}, "none"))
+
+    def test_fixed_denominator_leaves_out_healthy_and_unknown(self):
+        out = ss.table(self.LABELS, {"ai": self.rows()})
+        row = [c.strip() for c in out.splitlines()[2].split("|")]
+        self.assertEqual(row[2], "4/5")       # kind found
+        self.assertEqual(row[7], "1/2")       # healthy
+        self.assertEqual(row[10], "1/2")      # first try fixed: 2 labels have something to fix
+        self.assertEqual(row[11], "1/2")      # fixed incl. retries
+
+    def test_a_fix_on_a_healthy_label_is_a_false_fix_not_a_fix(self):
+        rows = ss.fresh_rows("naive", _jsonl([{"id": "h1", "detected": "deadlock", "solved": True, "first_ticks": {"d0a": 0},
+                                              "attempts": [{"actions": [1], "solved": True, "rerun_tick_counts": {"d0a": 9}}]}]))
+        s = ss.score({"h1": {"kind": "healthy"}}, rows)
+        self.assertEqual((s["fixed"], s["ff"], s["fa"]), (0, 1, 1))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,11 @@ the same check.sh run (snap.c). Why: under a CPU load above the disk driver the 
 after its fork, before pidin printed anything, while check.sh's own observer had worked a moment earlier (harness
 check oc01, `bench/harness_check.py tests/harness_checks/oc01 --twice`; v3 excluded q02, q06, q09, q21 that way). The
 first observer is the path every arm's observation uses, so the check now measures what the arms see.
+
+2026-11-21 (before sealed v6): with --same-boot the same boot is also checked by bench/repro_states.py — every process
+run.sh starts is in the process list, and every thread state the label's `states` names is seen on a program thread.
+A scenario that fails it DISAGREES (v4 D08/D13/D20/D23 and v5 E04 passed the TICK check without ever building the
+wait their label describes).
 """
 import json
 import os
@@ -26,6 +31,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from qnx_doctor import hang  # noqa: E402
 from qnx_doctor import waitgraph as wg  # noqa: E402
 from qnx_doctor.runner import base_env, sdp_env  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import repro_states  # noqa: E402
 
 LATER_S = 3
 EARLY_TIMER_S = 20  # every v3 run.sh sleeps 4 s; check.sh's snapshot is done well before this
@@ -58,7 +66,9 @@ def observe_twice(scen, early_timer=False, same_boot=False):
         if "QDDONE" not in out:
             return {"error": "target run did not finish"}
         if same_boot:
-            return {"snap": _counts(out), "later": wg.tick_counts(out, "TICKS2"), "method": "same boot (TICKS, TICKS2)"}
+            snaps = [wg.parse(hang._section(out, k), any_blocked=True) for k in ("PIDIN", "PIDIN2", "PIDIN3") if f"=== {k} ===" in out]
+            return {"snap": _counts(out), "later": wg.tick_counts(out, "TICKS2"), "method": "same boot (TICKS, TICKS2)",
+                    "_snaps": snaps}
         first, later = out.split("QDDONE", 1)
         return {"snap": _counts(first), "later": _counts(later) if "QDLATER" in later else None}
     finally:
@@ -106,6 +116,9 @@ def main(pool, labels_path, out_path):
             done[sid + "#first_pass"] = done[sid]
         obs = observe_twice(os.path.join(pool, sid), early_timer=retry, same_boot=same)
         agree, why = check(labels[sid].get("expect", {}), obs)
+        if obs.get("_snaps"):  # same boot: does it show the label's processes and thread states? (repro_states.py)
+            shown = repro_states.check(labels[sid], sid, open(os.path.join(pool, sid, "run.sh")).read(), obs.pop("_snaps"))
+            agree, why = agree and not shown, why + shown
         done[sid] = {"agree": agree, "why": why, "snap": obs.get("snap"), "later": obs.get("later"), "error": obs.get("error"),
                      "method": obs.get("method") or ("early timer 20 s" if retry else "sleep 3 after check.sh")}
         json.dump(done, open(out_path, "w"), indent=1)

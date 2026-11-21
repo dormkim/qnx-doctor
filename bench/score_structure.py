@@ -25,6 +25,16 @@ Sealed v3 rules (bench/sealed_v3_1117/README.md, added before its single run, 20
   --exclude-file JSON {id: reason} of scenarios whose unmodified run did not match its «expect»: listed with the
                  reason, not scored (their labels are not edited).
 
+Scorer fixes of 2026-11-21 (found on the dev sets v3-v5, fixed before sealed v6; the recorded v3-v5 score tables are
+not replaced, see bench/DEVSET_RECALC_1121.md):
+  healthy        a label «healthy» (v4, v5) or «none» (v3) is one kind, «healthy». It is hit when the arm says «none»
+                 («no hang found»). Before, a «healthy» label needed the literal word «healthy», which no arm has, so
+                 the column read 0/5 and 0/2 for every arm; and a «none» label crashed the scorer (KeyError).
+  denominator    «fixed» counts over labels that have something to fix: not healthy, not unknown. Before, «healthy»
+                 labels were inside it (v4 19 = 14 + 5 healthy, v5 10 = 8 + 2 healthy).
+  loop_logs      unchanged (stopped = printed no TICK). Reading «stopped» from progress here was tried and dropped:
+                 see loops_ok.
+
   python3 bench/score_structure.py LABELS.json --fresh code=runs/x_code.jsonl ai=runs/x_ai.jsonl naive=runs/x_naive.jsonl
   python3 bench/score_structure.py LABELS.json --rejudge runs/x_rejudge.jsonl
 States only, no timing (QNX licence 4.6(i)).
@@ -36,6 +46,12 @@ KINDS = ("deadlock", "priority_chain", "missing_reply", "multi", "healthy", "unk
 HANGS = ("deadlock", "priority_chain", "missing_reply", "multi")
 NOT_RUNNING_NOTE = "loop not running"  # hangdoctor.diagnose_hang: stopped, but no cycle or chain in the graph
 MIN_TICKS = 2  # the same «a loop, not one print» bar as hangdoctor.MIN_TICKS
+NO_FAULT = ("healthy", "unknown")  # labels with nothing to fix: outside the «fixed» denominator
+
+
+def kind_of(lab) -> str:
+    """Label kind in the scorer's vocabulary: v3 wrote a healthy scenario as «none», v4 and v5 as «healthy»."""
+    return "healthy" if lab["kind"] in ("none", "healthy") else lab["kind"]
 
 
 def _shortcut(e):
@@ -64,10 +80,30 @@ def _first_ticks(r):
     return g[0].get("ticks") if g else r.get("first_ticks")
 
 
+def _first_progress(r):
+    g = [t for t in r.get("timeline", []) if t.get("kind") == "graph"]
+    return g[0].get("progress") if g else r.get("first_progress")
+
+
 def fresh_rows(arm, path):
+    return rows_from(json.loads(line) for line in open(path))
+
+
+def share_progress(arms):
+    """A naive row recorded before 2026-11-21 has the first TICK counts but not their progress. Its counts are the
+    code arm's own first observation (naive_hang --code), so the progress of that observation is filled in (used by
+    bench/rejudge_records.py to apply the liveness rule to recorded reruns; the scorer itself does not read it)."""
+    code = arms.get("code") or {}
+    for rows in arms.values():
+        for sid, r in rows.items():
+            if r.get("first_progress") is None and sid in code and r.get("first_ticks") == code[sid].get("first_ticks"):
+                r["first_progress"] = code[sid].get("first_progress")
+    return arms
+
+
+def rows_from(records):
     out = {}
-    for line in open(path):
-        r = json.loads(line)
+    for r in records:
         if "timeline" not in r:  # naive arms (one-shot «naive» or «naive_x2»): tries listed in r["attempts"]
             att = r.get("attempts")
             if att is None:  # rows written before 2026-11-16 evening: one try, its fields at top level
@@ -76,7 +112,7 @@ def fresh_rows(arm, path):
             att = [t for t in r.get("timeline", []) if t.get("kind") == "ai_fix"]
         solving = [e for e in att if _first_ok(e)]
         out[r["id"]] = {"detected": _detected(r), "raw": r.get("detected"), "note": r.get("note") or r.get("error") or r.get("cause"),
-                        "first_ticks": _first_ticks(r), "fix_ticks": _rerun_ticks(solving[-1]) if solving else None,
+                        "first_ticks": _first_ticks(r), "first_progress": _first_progress(r), "fix_ticks": _rerun_ticks(solving[-1]) if solving else None,
                         "first_ticks_try": _rerun_ticks(att[0]) if att else None,
                         "fixed": r.get("solved") is True,
                         "first": bool(att) and _first_ok(att[0]) and r.get("solved") is True,
@@ -100,9 +136,12 @@ def rejudge_rows(path):
 
 def hit(lab, detected):
     """Kind found: the label kind, any of accept_kinds, or for «unknown» an explicit «not one of the hang kinds»."""
-    if lab["kind"] == "unknown":
+    k = kind_of(lab)
+    if k == "unknown":
         return detected not in HANGS + ("none", None)
-    return detected == lab["kind"] or detected in lab.get("accept_kinds", [])
+    if k == "healthy":  # the arms' word for a healthy system is «none» («no hang found»)
+        return detected in ("none", "healthy")
+    return detected == k or detected in lab.get("accept_kinds", [])
 
 
 def _norm(role):
@@ -119,7 +158,9 @@ def _tick(ticks, role):
 
 
 def loops_ok(lab, first, after):
-    """Every loop_logs role that printed no TICK first ticks again (>= MIN_TICKS) after the fix. No loop_logs = True."""
+    """Every loop_logs role that printed no TICK first ticks again (>= MIN_TICKS) after the fix. No loop_logs = True.
+    Not widened to «flat» roles on 2026-11-21: tried on the dev sets, it cut three recorded fixes (v5 E01-E03) whose
+    loop_logs list a CPU-load role that prints one TICK and then spins by design, before and after the fix."""
     stopped = [x for x in lab.get("loop_logs", []) if not _tick(first, x)]
     return all((_tick(after, x) or 0) >= MIN_TICKS for x in stopped)
 
@@ -150,13 +191,13 @@ def score(labels, rows):
     s = {"hit": {k: 0 for k in KINDS}, "n": {k: 0 for k in KINDS}, "fa": 0, "fixed": 0, "first": 0, "short": 0, "live": 0, "ff": 0,
          "fu": 0, "harness": 0, "loop_cut": 0}
     for sid, lab in labels.items():
-        k = lab["kind"]
+        k = kind_of(lab)
         s["n"][k] += 1
         r = rows.get(sid)
         if r is None or r["harness"]:
             s["harness"] += 1
             continue
-        fault = k not in ("healthy", "unknown")
+        fault = k not in NO_FAULT
         fx = _fixed(lab, r)
         s["hit"][k] += hit(lab, r["detected"])
         s["fa"] += k == "healthy" and r["detected"] not in ("none", None)
@@ -171,7 +212,7 @@ def score(labels, rows):
 
 
 def table(labels, arms):
-    faults = sum(v["kind"] not in ("none", "unknown") for v in labels.values())
+    faults = sum(kind_of(v) not in NO_FAULT for v in labels.values())
     out = ["| arm | kind found | deadlock | priority chain | missing reply | multi | healthy | unknown | false alarm | first try fixed | fixed incl. retries (same structure) | shortcut rejected | liveness-only would accept | false fix | fixed on unknown |",
            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for arm, rows in arms.items():
@@ -190,7 +231,7 @@ def table(labels, arms):
 def details(labels, arms):
     """Literal outputs on «unknown» labels, fixes on info_insufficient labels (for a human), loop_logs problems."""
     out = []
-    unk = [i for i, v in labels.items() if v["kind"] == "unknown"]
+    unk = [i for i, v in labels.items() if kind_of(v) == "unknown"]
     if unk:
         out += ["### Literal outputs on «unknown» labels", "| id | " + " | ".join(arms) + " |", "|---|" + "---|" * len(arms)]
         for i in unk:
@@ -215,7 +256,7 @@ def by_axis(labels, arms):
     for ax in axes:
         ids = [k for k, v in labels.items() if ax in v.get("axes", [])]
         cells = [f"{sum(hit(labels[i], arms[a].get(i, {}).get('detected')) for i in ids)}/{len(ids)}" for a in arms]
-        fl = [i for i in ids if labels[i]["kind"] not in ("healthy", "unknown")]
+        fl = [i for i in ids if kind_of(labels[i]) not in NO_FAULT]
         fx = [f"{sum(bool(arms[a].get(i)) and _fixed(labels[i], arms[a][i]) for i in fl)}/{len(fl)}" for a in arms if a != "code"]
         out.append(f"| {ax} | {len(ids)} | " + " | ".join(cells) + " | " + " | ".join(fx) + " |")
     return "\n".join(out)
@@ -235,7 +276,7 @@ def main(argv):
     if argv[1] == "--rejudge":
         arms = rejudge_rows(argv[2])
     else:
-        arms = {kv.split("=", 1)[0]: fresh_rows(kv.split("=", 1)[0], kv.split("=", 1)[1]) for kv in argv[2:]}
+        arms = share_progress({kv.split("=", 1)[0]: fresh_rows(kv.split("=", 1)[0], kv.split("=", 1)[1]) for kv in argv[2:]})
     print(table(labels, arms))
     ax = by_axis(labels, arms)
     if ax:
