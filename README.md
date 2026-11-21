@@ -13,6 +13,14 @@ given sources. It did not fix more hangs than a baseline given the same retry (3
 alarm on a healthy program, and it missed one deadlock that the baselines found. Details and caveats:
 [What we measured](#what-we-measured-and-what-got-worse) and [JUDGES.md](JUDGES.md).
 
+## At a glance
+
+![qnx-doctor flow: observe in code, the AI proposes a fix as data, code re-runs and gives the verdict](docs/diagrams/flow.svg)
+
+Code observes the problem: it builds the wait-for graph from `pidin`, or checks a failing host command against a rule table. The AI (Claude) only looks around with read-only commands and the SDP docs, then proposes a fix as data. Code applies that fix to a copy and re-runs, and the verdict comes from the re-run alone.
+
+Diagram source: `docs/diagrams/flow.d2` (rendered with `d2 --layout elk`). Recorded example timelines: `docs/demo_hang_timeline.html`, `docs/demo_timeline_I04.html`.
+
 ## Why this matters on QNX
 
 On QNX, drivers, file systems and your own services are servers that talk through synchronous messages. One wrong

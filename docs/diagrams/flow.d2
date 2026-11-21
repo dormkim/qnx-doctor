@@ -1,0 +1,64 @@
+# qnx-doctor flow (2026-11-21). Source of flow.svg / flow.png. Render: see the README section "At a glance".
+# One accent colour = the AI step. Everything else is code. Dashed grey = outside this repo.
+vars: { d2-config: { theme-id: 1 } }
+direction: right
+classes: {
+  group: { style: { fill: "#FAFAFA"; stroke: "#BBBBBB"; border-radius: 8 } }
+  own: { style: { fill: "#FFFFFF"; stroke: "#555555"; border-radius: 8 } }
+  ai: { style: { fill: "#EEF4FF"; stroke: "#3B6FD9"; border-radius: 8 } }
+  ext: { style: { fill: "#F4F4F4"; stroke: "#999999"; stroke-dash: 4; border-radius: 8 } }
+  store: { shape: cylinder; style: { fill: "#F4F4F4"; stroke: "#777777" } }
+  flow: { style: { animated: true; stroke: "#555555" } }
+  retry: { style: { animated: true; stroke: "#3B6FD9"; stroke-dash: 4 } }
+}
+
+in: "In" {
+  class: group
+  scenario: "Hang scenario\n*.c sources + run.sh" { class: own }
+  live: "Running target\npidin over ssh (--live)" { class: ext }
+  cmd: "Failing host command\nbuild or boot" { class: own }
+}
+
+observe: "Observe (code)" {
+  class: group
+  boot: "Build with qcc,\nboot image in QEMU" { class: own }
+  graph: "Wait-for graph from pidin\ncycle, priority chain,\nmissing reply" { class: own }
+  rules: "Rule table\nknown build/boot faults" { class: own }
+}
+
+ai: "Propose (AI: Claude)" {
+  class: group
+  look: "Look around\nread-only probes,\nSDP docs search" { class: ai }
+  fix: "Fix as data\nallow-listed actions only" { class: ai }
+}
+
+verify: "Prove (code)" {
+  class: group
+  rerun: "Apply to a copy,\nrebuild, re-run" { class: own }
+  verdict: "Verdict from the re-run\nhang gone, loop ticks again,\nsame message structure" { class: own }
+}
+
+out: "Out" {
+  class: group
+  named: "Hang named, no fix\n(--live, --no-ai)" { class: own }
+  timeline: "Timeline\nruns/*.jsonl" { class: store }
+  report: "Report\nterminal or HTML" { class: own }
+}
+
+docs: "SDP docs index" { class: store }
+
+in.scenario -> observe.boot: { class: flow }
+observe.boot -> observe.graph: { class: flow }
+in.live -> observe.graph: { class: flow }
+in.cmd -> observe.rules: { class: flow }
+observe.graph -> ai.look: { class: flow }
+observe.graph -> out.named: { class: flow }
+observe.rules -> verify.rerun: "rule fix" { class: flow }
+observe.rules -> ai.look: "no rule worked" { class: flow }
+docs -> ai.look
+ai.look -> ai.fix: { class: flow }
+ai.fix -> verify.rerun: { class: flow }
+verify.rerun -> verify.verdict: { class: flow }
+verify.verdict -> ai.look: "not fixed: one more try" { class: retry }
+verify.verdict -> out.timeline: { class: flow }
+out.timeline -> out.report: { class: flow }
