@@ -4,7 +4,7 @@ Sealed 2026-11-18 (KST), before any run of qnx-doctor or the baselines on this s
 
 ## Why v5 exists
 v4 scored priority_chain 0/5 because the shared harness could not form the inversion: `qd_fixed_chan()` published
-its id file with a `rename()` that `/dev/shmem` does not honor, so the client never connected and never sent
+its id file with a `rename()`; in our runs the renamed file never appeared under `/dev/shmem`, so the client never connected and never sent
 (v4 SEAL.md Correction 3). The detector (`waitgraph.inversions`) was correct the whole time. v5 re-measures the
 provable priority-inversion detector on a **fresh set, with the harness fixed**, scored single-core.
 

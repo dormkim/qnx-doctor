@@ -10,7 +10,7 @@ D08, D13, D17, D23 (priority_chain) + D20 (multi). Per V4_PLAN ("≥2 priority_c
 ## Diagnosis (2026-11-18): the scenarios could not hang as written
 
 Confirmed by `pidin`:
-- `name_attach()` ignores its `flags` arg (QNX lib ref: "Currently not used") → the "fixed-priority" servers inherited the client's priority (observed `30r`), beat the hog, served every request. (D08, D13, D20, D23)
+- In our runs `name_attach(..., _NTO_CHF_FIXED_PRIORITY)` did not give a fixed-priority channel (the QNX lib ref describes `flags` as "Currently not used") → the "fixed-priority" servers showed the client's priority (observed `30r`), beat the hog, served every request. (Reworded 2026-11-21: this is what our runs showed, not a statement about how QNX behaves.) (D08, D13, D20, D23)
 - D17's `PTHREAD_PRIO_PROTECT` ceiling-15 refuses a prio-30 locker (`EINVAL`) → the high thread never blocked (observed `30f NANOSLEEP`). Priority ceiling cannot produce this inversion; the label was impossible.
 - On 2 cores one mid hog cannot starve a low server (spare core).
 

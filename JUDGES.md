@@ -67,8 +67,10 @@ fixed from the source.
 None of these fixes is measured on v3, and v3 will not be rerun. Since 2026-11-17 they are on `main`: the recorder
 fix, the observer fix (a second TICK count from the same observer in the same boot, no second observer), the progress check (does the TICK count
 grow?) and an explicit `unknown` output (no AI, no fix). They were checked only on new harness tests
-(`tests/harness_checks/`) and unit tests. They will be measured on sealed set v4, written by a new author, sealed
-before the run and run once: `bench/V4_PLAN.md`.
+(`tests/harness_checks/`) and unit tests. They were measured on sealed sets v4 and v5 (run once each on 2026-11-18:
+`bench/sealed_v4_1117/결과_1118.md`, `bench/sealed_v5_1118/결과_1118.md`). Corrected 2026-11-21: v3, v4 and v5 have
+since been read case by case and are now used as development sets (`bench/DEVSET_RECALC_1121.md`); the next number
+that counts is measured once on sealed set v6 (`bench/V6_PLAN.md`).
 
 ## Earlier numbers, and why they count for less
 

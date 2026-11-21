@@ -43,16 +43,17 @@ static int qd_send(int coid, int v) {      /* synchronous: blocks until the peer
   qd_msg_t m; m.app.type = QD_MSG; m.app.v = v; int r = 0;
   return MsgSend(coid, &m.app, sizeof m.app, &r, sizeof r) == -1 ? -1 : r;
 }
-/* A genuinely fixed-priority named endpoint. name_attach() ignores its flags arg (QNX lib ref: "Currently
- * not used"), so a channel it makes is NOT _NTO_CHF_FIXED_PRIORITY and its receiver inherits the caller's
- * priority — a "low" server then runs at the client's priority and is never starved. ChannelCreate() does honor
- * the flag. We publish pid+chid at /tmp/<me>.id (direct write; shmem has no working rename, see below) so a peer connects by ConnectAttach instead of
- * name_open. Harness helper added 2026-11-18 (sealed v4 reproducibility fix); labels unchanged. */
+/* A fixed-priority named endpoint. In our runs a channel made by name_attach(..., _NTO_CHF_FIXED_PRIORITY) did
+ * not behave as fixed-priority (the QNX lib ref describes that flags parameter as "Currently not used"): pidin
+ * showed its receiver at the caller's priority, so a "low" server was never starved. With ChannelCreate() and
+ * the same flag our runs showed the server staying at its own priority. We publish pid+chid at /tmp/<me>.id
+ * (direct write, see below) so a peer connects by ConnectAttach instead of name_open. (Reworded 2026-11-21: what
+ * our runs showed, not a statement about how QNX behaves.) Harness helper added 2026-11-18 (sealed v4 reproducibility fix); labels unchanged. */
 static int qd_fixed_chan(const char *me) {
   int chid = ChannelCreate(_NTO_CHF_FIXED_PRIORITY | _NTO_CHF_DISCONNECT | _NTO_CHF_UNBLOCK | _NTO_CHF_COID_DISCONNECT);
   if (chid == -1) { perror("ChannelCreate"); exit(1); }
-  /* Write the id file directly, NOT via a temp + rename(): /tmp is a /dev/shmem link (check.sh) and shmem does
-   * not honor rename() across names, so the final /tmp/<me>.id never appeared and a peer could never connect —
+  /* Write the id file directly, NOT via a temp + rename(): /tmp is a /dev/shmem link (check.sh) and in
+   * our runs the renamed /tmp/<me>.id never appeared there (cause not looked into), so a peer could never connect —
    * the hang was a failed connect, not the priority inversion (found 2026-11-18, explains v4 priority_chain 0/5).
    * A reader (qd_open_fixed) that catches a half-written file just gets fscanf != 2 and retries, so one write is safe. */
   char p[64]; snprintf(p, sizeof p, "/tmp/%s.id", me);

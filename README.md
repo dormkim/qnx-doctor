@@ -146,12 +146,12 @@ What got worse, or did not get better:
 - **One unknown case called healthy** (q11, a CPU spin): the loop had printed TICKs before it stopped, and the code
   treats "some TICKs" as running.
 
-We do not rerun v3 with any of these fixes. They will be measured on a new sealed set (v4), written by a new author,
+We do not rerun v3 with any of these fixes. They were to be measured on a new sealed set (v4), written by a new author,
 sealed before the run and run once. Analysis (Korean): [docs/분석_sealed3_1117.md](docs/분석_sealed3_1117.md).
 
-### What's next: sealed set v4 (before 11/22)
+### After v3: sealed sets v4 and v5 (run 2026-11-18), now development sets
 
-The fixes for the v3 failures are now on `main`, checked only on new harness tests (`tests/harness_checks/`) and unit
+The fixes for the v3 failures are on `main`, checked only on new harness tests (`tests/harness_checks/`) and unit
 tests, never on v3:
 - the recorder re-arms the program's `TimerTimeout` right before the real call (q10, q16);
 - the observer counts TICKs twice in the same boot, and the reproducibility check uses those two counts instead of a
@@ -161,8 +161,13 @@ tests, never on v3:
 - the tool says `unknown` itself (spinning on the CPU, blocked outside message passing, or not enough information)
   and still calls no AI and claims no fix in that case.
 
-None of this is a v3 result. v4 is written by a new author who has not seen the code, sealed before the run, run
-once, and includes priority chains and `TimerTimeout` cases: [bench/V4_PLAN.md](bench/V4_PLAN.md).
+None of this is a v3 result. v4 was written by a new author who had not seen the code, sealed and run once on
+2026-11-18 ([plan](bench/V4_PLAN.md), [result](bench/sealed_v4_1117/결과_1118.md)); v5, written by the main session
+after a harness fix, was run once the same day ([result](bench/sealed_v5_1118/결과_1118.md)). Both have been opened
+and read case by case since, so (corrected 2026-11-21) **v3, v4 and v5 are now used as development sets**: changes
+are tried on their records ([bench/DEVSET_RECALC_1121.md](bench/DEVSET_RECALC_1121.md)) and none of those numbers
+is a claim. The next number that counts is measured once on sealed set v6: [bench/V6_PLAN.md](bench/V6_PLAN.md).
+The claim paragraphs above still show v3 only and will be rewritten after v6.
 
 ### Earlier sets (shaped by people who knew the code)
 

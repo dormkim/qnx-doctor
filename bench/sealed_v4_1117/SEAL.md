@@ -36,7 +36,7 @@ The pool tree hash changed only because common went from two files to a symlink 
 
 The reproducibility check (`bench/repro_v3.py --same-boot`) found that the five priority scenarios did **not** reproduce their labels: the "low fixed-priority server" never got starved and the high waiter kept ticking. Root cause, confirmed by `pidin` (states only, QDL 4.6(i)):
 
-1. **`name_attach()` ignores its `flags` argument.** QNX lib ref (`name_attach.html`): the `flags` parameter is *"Currently not used"*, and the channel is always created with `_NTO_CHF_COID_DISCONNECT | _NTO_CHF_UNBLOCK | _NTO_CHF_DISCONNECT` only. So `name_attach(NULL, me, _NTO_CHF_FIXED_PRIORITY)` created an ordinary channel; its receiver **inherited the caller's priority**. The prio-12 server ran at the prio-30 client's priority (observed `30r`), beat the prio-20 hog, and served every request — no starvation. This hit D08, D13, D20, D23 (all used `name_attach(..._NTO_CHF_FIXED_PRIORITY)`).
+1. **In our runs, passing `_NTO_CHF_FIXED_PRIORITY` to `name_attach()` did not give a fixed-priority channel.** The QNX library reference (`name_attach.html`) describes the `flags` parameter as *"Currently not used"*. In our runs the receiver of a channel made with `name_attach(NULL, me, _NTO_CHF_FIXED_PRIORITY)` showed the caller's priority in `pidin`. (Reworded 2026-11-21: this is what our runs showed, not a statement about how QNX behaves.) The prio-12 server ran at the prio-30 client's priority (observed `30r`), beat the prio-20 hog, and served every request — no starvation. This hit D08, D13, D20, D23 (all used `name_attach(..._NTO_CHF_FIXED_PRIORITY)`).
 2. **A priority-ceiling mutex cannot produce this hang (D17).** With `PTHREAD_PRIO_PROTECT` ceiling 15, a prio-30 locker is refused (`EINVAL`), so the high thread never blocks (observed `30f NANOSLEEP`, ticking freely); raising the ceiling to ≥30 would boost the holder above the hog, so no starvation either. Priority ceiling is an inversion-*prevention* mechanism — "ceiling too low" is not a reachable hang. The label encoded an impossible QNX behaviour.
 3. **One mid hog cannot starve on 2 cores.** The target booted `-smp 2`; even with a genuinely fixed-priority server at prio 12, the server runs on the spare core and serves the client. The author's design (one hog) is single-core.
 
@@ -73,7 +73,8 @@ scenario. That was read as «the provable detector refuses to guess». Re-bootin
 diagnosis (v4 stays frozen — not re-scored) showed the true cause, and it is **not** a detector weakness:
 
 - **`qd_fixed_chan()` published its id file with a temp-file + `rename()`.** `/tmp` is a `/dev/shmem`
-  symlink (check.sh) and **shmem does not honor `rename()`** — the final `/tmp/<me>.id` never appeared.
+  symlink (check.sh). **In our runs the renamed file `/tmp/<me>.id` never appeared there**; we did not look into
+  why, and the harness now writes the file directly instead of renaming. (Reworded 2026-11-21: this is what our runs showed, not a statement about how QNX behaves.)
   The client looped in `qd_open_fixed()`'s connect-retry (`NANOSLEEP`) and **never connected, never sent**
   (confirmed live: client in `NANOSLEEP`, server idle in `RECEIVE`, message trace has 0 `S` records).
 - With no `MsgSend`, there is **no waiter->server edge**, so no snapshot-based inversion can be proved. The
