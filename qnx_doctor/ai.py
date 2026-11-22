@@ -7,6 +7,7 @@ import sys
 
 from anthropic import Anthropic
 
+from . import budget
 from .probes import probe
 
 MODEL = os.environ.get("QD_MODEL", "claude-opus-5-5")
@@ -56,8 +57,8 @@ def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8, sys
     client = _client()
     messages = [{"role": "user", "content": context}]
     for _ in range(max_turns):
-        resp = client.messages.create(model=MODEL, max_tokens=4000, system=system, messages=messages,
-                                      thinking={"type": "adaptive"})
+        resp = budget.create(client, model=MODEL, max_tokens=4000, system=system, messages=messages,
+                             thinking={"type": "adaptive"})
         log.append(usage_record(resp))  # before the reply is read: an unreadable reply is billed too
         text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         messages.append({"role": "assistant", "content": resp.content})

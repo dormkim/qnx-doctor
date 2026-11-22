@@ -17,7 +17,7 @@ case "$args" in
   *--no-ai*) arm=code ;;
   *) arm=ai ;;
 esac
-echo "$arm SMP=${QD_SMP:-} MODEL=${QD_MODEL:-} KEY=${ANTHROPIC_API_KEY:+set} URL=${ANTHROPIC_BASE_URL:-} TOKEN=${ANTHROPIC_AUTH_TOKEN:-} ARGS=$args" >> "$HOME/calls"
+echo "$arm SMP=${QD_SMP:-} MODEL=${QD_MODEL:-} KEY=${ANTHROPIC_API_KEY:+set} URL=${ANTHROPIC_BASE_URL:-} TOKEN=${ANTHROPIC_AUTH_TOKEN:-} CAP=${QD_BUDGET_USD:-} IN=${QD_PRICE_IN:-} OUT=${QD_PRICE_OUT:-} LEDGER=${QD_BUDGET_LEDGER:-} ARGS=$args" >> "$HOME/calls"
 [ "$(cat "$HOME/fail" 2>/dev/null)" = "$arm" ] && exit 7
 if [ -n "$out" ]; then
   echo '{"id": "s1", "timeline": [{"kind": "graph"}]}' > "$out"
@@ -53,7 +53,7 @@ class Runner(unittest.TestCase):
         self.write(".config/qnx-doctor/env", text)
 
     def run_it(self, out="out", **extra):
-        env = {"HOME": self.t, "PATH": "/usr/bin:/bin", **extra}
+        env = {"HOME": self.t, "PATH": "/usr/bin:/bin", "QD_BUDGET_USD": "40", "QD_PRICE_IN": "4", "QD_PRICE_OUT": "20", **extra}
         p = subprocess.run(["bash", os.path.join(self.repo, "bench", "run_sealed3.sh"), os.path.join(self.t, "set", "pool"),
                             os.path.join(self.t, "set", "answers", "labels.json"), os.path.join(self.t, out)],
                            env=env, capture_output=True, text=True, timeout=30, cwd=self.t)
@@ -112,6 +112,24 @@ class Runner(unittest.TestCase):
         self.assertNotEqual(self.run_it(), 0)
         self.assertEqual(self.read("out/state"), "fail:fix\n")
         self.assertEqual(self.read("calls"), "")
+
+    def test_no_cap_or_price_stops_before_anything_runs(self):
+        for name in ("QD_BUDGET_USD", "QD_PRICE_IN", "QD_PRICE_OUT"):
+            for i, bad in enumerate(("", "0", "0.00", "-3", "nan", "$40", "1e9")):
+                out = f"out_{name}_{i}"
+                self.assertNotEqual(self.run_it(out=out, **{name: bad}), 0, (name, bad))
+                self.assertFalse(os.path.exists(os.path.join(self.t, out)), "the run-once directory must stay unused")
+        self.assertEqual(self.read("calls"), "")
+
+    def test_every_arm_shares_the_cap_and_one_ledger(self):
+        self.assertEqual(self.run_it(), 0)
+        for a in ("ai", "naive", "naive_x2"):
+            self.assertIn(f"CAP=40 IN=4 OUT=20 LEDGER={self.t}/out/budget.jsonl ", self.arm(a))
+
+    def test_env_file_cannot_change_the_cap(self):
+        self.envfile("ANTHROPIC_API_KEY=dummy-not-a-key\nQD_BUDGET_USD=999\nQD_PRICE_OUT=0.01\nQD_BUDGET_LEDGER=/dev/null\n")
+        self.assertEqual(self.run_it(), 0)
+        self.assertIn(f"CAP=40 IN=4 OUT=20 LEDGER={self.t}/out/budget.jsonl ", self.arm("naive"))
 
     def test_runs_the_checkout_it_belongs_to(self):
         other = os.path.join(self.t, "freeze")

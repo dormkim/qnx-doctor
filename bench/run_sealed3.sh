@@ -11,11 +11,19 @@
 # dropped, and an empty ANTHROPIC_API_KEY stops the run before any boot. It runs the checkout it lives in (run it
 # from the freeze commit); QD_PYTHON names the interpreter if that checkout has no .venv.
 # Writes OUT_DIR/state (code / fix / score / done / fail:<why>), OUT_DIR/commit and OUT_DIR/score.md. «done» only if
-# every arm ended well with a row for every scenario. States only (QNX licence 4.6(i)).
+# every arm ended well with a row for every scenario.
+# The caller must give QD_BUDGET_USD and the live prices QD_PRICE_IN, QD_PRICE_OUT (USD per million tokens); the three
+# AI arms share that cap through OUT_DIR/budget.jsonl (qnx_doctor/budget.py). A reached cap ends fail:fix.
+# States only (QNX licence 4.6(i)).
 set -u
 [ $# -eq 3 ] || { echo "usage: $0 POOL_DIR LABELS.json OUT_DIR" >&2; exit 2; }
 POOL=$(readlink -f "$1"); LABELS=$(readlink -f "$2"); S=$(readlink -f "$3")
 REPO=$(dirname "$(dirname "$(readlink -f "$0")")")
+for v in QD_BUDGET_USD QD_PRICE_IN QD_PRICE_OUT; do   # before OUT_DIR is used: it can be used only once
+  n=${!v:-}
+  if ! [[ $n =~ ^[0-9]+([.][0-9]+)?$ && $n =~ [1-9] ]]; then echo "set $v to a positive number" >&2; exit 2; fi
+done
+CAP=$QD_BUDGET_USD PRICE_IN=$QD_PRICE_IN PRICE_OUT=$QD_PRICE_OUT
 if [ -e "$S" ] && [ -n "$(ls -A "$S")" ]; then
   echo "out dir already used: a sealed set is run once" >&2; exit 1
 fi
@@ -30,6 +38,7 @@ ENV_FILE=$HOME/.config/qnx-doctor/env
 set -a; . "$ENV_FILE" || fail "env file"; set +a
 [ -n "${ANTHROPIC_API_KEY:-}" ] || fail "ANTHROPIC_API_KEY is empty"
 export QD_SMP=1 QD_MODEL=claude-opus-5-5
+export QD_BUDGET_USD=$CAP QD_PRICE_IN=$PRICE_IN QD_PRICE_OUT=$PRICE_OUT QD_BUDGET_LEDGER=$S/budget.jsonl
 
 cd "$REPO" || fail "no checkout"
 PY=${QD_PYTHON:-$REPO/.venv/bin/python}

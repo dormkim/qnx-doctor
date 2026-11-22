@@ -80,9 +80,10 @@ def read_reply(text: str, allowed: tuple = KINDS) -> dict:
 
 def ask(context: str, allow_unknown: bool = False) -> dict:
     from anthropic import Anthropic
+    from qnx_doctor import budget
     from qnx_doctor.ai import MODEL, usage_record
-    resp = Anthropic().messages.create(model=MODEL, max_tokens=4000, system=system_prompt(allow_unknown),
-                                       thinking={"type": "adaptive"}, messages=[{"role": "user", "content": context}])
+    resp = budget.create(Anthropic(), model=MODEL, max_tokens=4000, system=system_prompt(allow_unknown),
+                         thinking={"type": "adaptive"}, messages=[{"role": "user", "content": context}])
     used = usage_record(resp)  # before the reply is read: an unreadable reply is billed too
     out = read_reply("".join(b.text for b in resp.content if getattr(b, "type", "") == "text"), kinds(allow_unknown))
     out["usage"] = used  # written last: a «usage» key in the model's own JSON never stands in for the API's count

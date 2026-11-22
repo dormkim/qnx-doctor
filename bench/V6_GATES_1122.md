@@ -386,3 +386,32 @@ Criteria A to F and the way the scorer counts them are unchanged. The readings a
 - The author's worktree, the pool and the answers go outside `/tmp` (11.3, point 1). This replaces the path in
   section 3 of the plan.
 - `runs/sealed_ai*_1115.jsonl` carry home paths. Clean them before the repository is public.
+
+## 13. The cost cap (2026-11-22, on `v6/cost-cap-1122`; the first open point of 12.2)
+
+`qnx_doctor/budget.py` is the one place that sends a model request. Before each request, retries included, it
+reserves the worst case in a ledger that the three AI arms share under a lock. A request that does not fit is not
+sent, and every arm stops at its next request. Prompts, judge, verifier and scorer are unchanged.
+
+`bench/run_sealed3.sh` now refuses to start without `QD_BUDGET_USD`, `QD_PRICE_IN` and `QD_PRICE_OUT`.
+
+Checked with fakes, dummy keys and a server on 127.0.0.1 (no API request, no boot):
+
+| check | result |
+|---|---|
+| unit tests | 301 OK with the SDK (none skipped); 14 skipped without it |
+| the runner, three arms at once, cap 1 USD | 29 requests, highest booked total 0.9966, all arms stopped, `fail:fix` |
+| the same concurrency test with the lock taken out | fails, as it should |
+| public price page, 2026-11-22 | Opus 5.5: 4 USD input, 20 USD output per million tokens, as in the plan |
+
+What the cap does not do:
+
+- It assumes at most one input token per byte of the request, plus 4,096. A response above that bound is booked and
+  stops the run, so the overshoot is then at most the requests already sent.
+- It counts in the prices it is given and knows nothing of other use of the same key.
+- A reached cap ends the one run unfinished. Reservations need room, so the cap has to sit above the expected spend.
+- `qnx-doctor` and `naive_hang.py` started by hand are capped only if the four `QD_*` settings are set. Set them for
+  the 2-call check too.
+- The SDK's two silent retries became two booked retries with waits of 5 and 20 seconds, whenever a cap is set.
+
+Still open before the paid run: merge, the freeze commit, the account of the key, and the user's OK on the amount.
