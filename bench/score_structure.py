@@ -35,6 +35,11 @@ not replaced, see bench/DEVSET_RECALC_1121.md):
   loop_logs      unchanged (stopped = printed no TICK). Reading «stopped» from progress here was tried and dropped:
                  see loops_ok.
 
+Scorer fix of 2026-11-22 (freeze blocker 6, before sealed v6):
+  vocabulary     a word outside (deadlock, priority_chain, missing_reply, none, unknown) is a wrong answer: no hit on
+                 any label. Before, every such word hit an «unknown» label. A false alarm is what criterion D of
+                 bench/V6_PLAN.md says: a hang kind or «unknown» on a healthy label. The literal word is still listed.
+
   python3 bench/score_structure.py LABELS.json --fresh code=runs/x_code.jsonl ai=runs/x_ai.jsonl naive=runs/x_naive.jsonl
   python3 bench/score_structure.py LABELS.json --rejudge runs/x_rejudge.jsonl
 States only, no timing (QNX licence 4.6(i)).
@@ -46,6 +51,7 @@ KINDS = ("deadlock", "priority_chain", "missing_reply", "multi", "healthy", "unk
 HANGS = ("deadlock", "priority_chain", "missing_reply", "multi")
 NOT_RUNNING_NOTE = "loop not running"  # hangdoctor.diagnose_hang: stopped, but no cycle or chain in the graph
 MIN_TICKS = 2  # the same «a loop, not one print» bar as hangdoctor.MIN_TICKS
+SAID = ("deadlock", "priority_chain", "missing_reply", "none", "unknown")  # the words an arm may answer
 NO_FAULT = ("healthy", "unknown")  # labels with nothing to fix: outside the «fixed» denominator
 
 
@@ -68,7 +74,7 @@ def _detected(r):
     d = r.get("detected")
     if d == "unknown" or (d == "none" and str(r.get("note", "")).startswith(NOT_RUNNING_NOTE)):
         return "unknown"
-    return d
+    return d if d in SAID else None  # outside the vocabulary: a wrong answer, like an unreadable reply
 
 
 def _rerun_ticks(e):
@@ -138,10 +144,10 @@ def hit(lab, detected):
     """Kind found: the label kind, any of accept_kinds, or for «unknown» an explicit «not one of the hang kinds»."""
     k = kind_of(lab)
     if k == "unknown":
-        return detected not in HANGS + ("none", None)
+        return detected == "unknown"
     if k == "healthy":  # the arms' word for a healthy system is «none» («no hang found»)
-        return detected in ("none", "healthy")
-    return detected == k or detected in lab.get("accept_kinds", [])
+        return detected == "none"
+    return detected in SAID and (detected == k or detected in lab.get("accept_kinds", []))
 
 
 def _norm(role):
@@ -200,7 +206,7 @@ def score(labels, rows):
         fault = k not in NO_FAULT
         fx = _fixed(lab, r)
         s["hit"][k] += hit(lab, r["detected"])
-        s["fa"] += k == "healthy" and r["detected"] not in ("none", None)
+        s["fa"] += k == "healthy" and (r["detected"] in HANGS or r["detected"] == "unknown")
         s["fixed"] += fx and fault
         s["loop_cut"] += r["fixed"] and not fx and fault
         s["first"] += bool(_first(lab, r)) and fault
