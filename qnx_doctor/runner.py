@@ -86,7 +86,7 @@ def licence(env: dict):
 def execute(argv, cwd, env, timeout):
     """Trusted commands (the user's own, the harness): minimal environment, own session, killed whole on a timeout."""
     p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         start_new_session=True)
+                         start_new_session=True, preexec_fn=sandbox.die_with_parent)
     try:
         out, err = p.communicate(timeout=timeout)
     except BaseException:

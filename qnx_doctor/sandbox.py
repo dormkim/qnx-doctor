@@ -212,7 +212,7 @@ def run(argv, cwd, env, read=(), write=(), timeout=120, licence=None, fsize=4 * 
         timed_out = False
         with open(os.path.join(box, "output"), "w+b") as out:
             p = subprocess.Popen(cmd, cwd=cwd, env=CLEAN, stdin=subprocess.DEVNULL, stdout=out, stderr=out,
-                                 start_new_session=True)
+                                 start_new_session=True, preexec_fn=die_with_parent)
             try:
                 rc = p.wait(timeout)
             except subprocess.TimeoutExpired:
