@@ -137,19 +137,21 @@ def observe(work: str, name: str, focus=None) -> dict:
     if not ok:
         return {"stage": "target", "ok": False, "log": tail(out, 20)}
     pidin, ticks = wg.split_check(out)
-    threads = wg.parse(pidin)
-    later = [wg.parse(_section(out, k)) for k in ("PIDIN2", "PIDIN3") if f"=== {k} ===" in out]  # snap.c 2026-11-17
+    # Every thread, also one whose Blocked column is not a pid (MUTEX, SEM, CONDVAR). Until 2026-11-22 the strict parse
+    # dropped those: a mutex-blocked worker was missing from the structure record, and a server with such a worker
+    # looked «all RECEIVE» and was named missing_reply (harness checks mx01, mx02; bench/V6_GATES_1122.md).
+    threads = wg.parse(pidin, any_blocked=True)
+    later = [wg.parse(_section(out, k), any_blocked=True) for k in ("PIDIN2", "PIDIN3") if f"=== {k} ===" in out]  # snap.c 2026-11-17
     mv = pg.moves(ticks, wg.tick_counts(out, "TICKS2"))  # progress in the same boot (snap.c TICKS2, 2026-11-17)
     j = wg.judge(threads, focus, later, pg.moving_pids(threads, name, mv))
-    every = [wg.parse(x, any_blocked=True) for x in (pidin, *(_section(out, k) for k in ("PIDIN2", "PIDIN3") if f"=== {k} ===" in out))]
-    live = pg.classify(j["kind"], every[0], every[1:], name, ticks, mv)
+    live = pg.classify(j["kind"], threads, later, name, ticks, mv)
     involved = _involved(j) or set(pg.programs(threads, name))  # judged none: keep every program's lines (H3)
     lines = [l for l in pidin.splitlines() if any(l.strip().startswith(f"{p} ") for p in involved)]
     alive = len({t.pid for t in threads if f"var/qd/{name}/" in t.name})  # program processes still there
     structure = None
     if "=== MSGS ===" in out:  # harness with qd_trace (2026-11-16); older recordings have none
         args = st.parse_args(_section(out, "ARGS"), name)
-        structure = st.build(args, st.parse_msgs(_section(out, "MSGS")), threads)
+        structure = st.build(args, st.parse_msgs(_section(out, "MSGS")), threads, later)
     # Runnable threads at the snapshot (not the idle thread): shows what held the CPUs when a chain is judged (2026-11-17).
     runnable = sorted({(t.name.split("/")[-1], t.prio, t.state) for t in threads if t.state in wg.RUNNABLE and t.prio})
     # What the states alone would have said (before progress): kept so a dropped «slow wait» stays visible.

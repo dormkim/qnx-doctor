@@ -26,8 +26,9 @@ import re
 from dataclasses import dataclass
 
 LINE = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(?:(\d+)([a-z])\s+)?([A-Z?]+)\s*(\d+)?\s*$")
-# Any Blocked column (SEM, CONDVAR, MUTEX show an address there). Only progress.classify reads these threads, to say
-# where a stopped loop waits (harness check bo01, 2026-11-17); the judge keeps LINE, so its findings are unchanged.
+# Any Blocked column (SEM, CONDVAR, MUTEX show an address there). First added to say where a stopped loop waits
+# (harness check bo01, 2026-11-17). Since 2026-11-22 hang.observe reads every thread this way (mx01, mx02): «all
+# threads RECEIVE-blocked» means all of them. The read-only paths (cli --pidin, live.py) still use LINE.
 # 2026-11-21: the Blocked column may hold several tokens. In our recordings a MUTEX wait printed three
 # («(0x30afe0d030) 204820-02 #0», dev set v4 D02/D10/D17); the one-token form dropped those lines whole, so the thread
 # was missing from the «unknown» reason. The column is kept as text (Thread.detail) and is not interpreted.

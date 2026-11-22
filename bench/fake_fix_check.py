@@ -102,6 +102,8 @@ def edit(path, find, replace):
 
 
 # Hand-written dev checks: scenario -> [(fix, must be fixed, actions)].
+# mx01, mx02: decided 2026-11-22 (bench/V6_GATES_1122.md): a mutex hang is never proven fixed, so the real fix must
+# be rejected too (structure rule 5). ss01 states what the verifier should do; see the gate document for what it does.
 SS01 = "ss01/selfpost.c"
 MX01 = "mx01/ledger.c"
 MX02 = "mx02/desk.c"
@@ -131,13 +133,13 @@ int main(void) {"""),
     "ss02": [],
     "ss03": [],
     "mx01": [
-        ("real: one lock order", True, [edit(MX01, '{ "d0audit", &indx, &book }', '{ "d0audit", &book, &indx }')]),
+        ("real, not provable: one lock order", False, [edit(MX01, '{ "d0audit", &indx, &book }', '{ "d0audit", &book, &indx }')]),
         ("fake: one worker is removed", False,
          [edit(MX01, "for (int i = 0; i < 2; i++) pthread_create", "for (int i = 0; i < 1; i++) pthread_create")]),
         ("fake: the second lock is deleted", False,
          [edit(MX01, "    pthread_mutex_lock(j->second);\n    pthread_mutex_unlock(j->second);\n", "")])],
     "mx02": [
-        ("real: one lock order", True, MX02_ORDER),
+        ("real, not provable: one lock order", False, MX02_ORDER),
         ("fake: lock order and one worker removed", False,
          MX02_ORDER + [edit(MX02, "  pthread_create(&t[2], NULL, flusher, NULL);\n", "  (void)flusher;\n")])],
 }

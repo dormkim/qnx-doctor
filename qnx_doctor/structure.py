@@ -23,9 +23,12 @@ Rules, checked by `compare(before, after)`:
      server from the event it registered ("G E") and counts each such pulse on its own connection ("R E"). A pair
      with E sends needs arrivals only if the client registered a pulse event for that server; a signal event cannot
      be counted at the client and is reported as `unread`, like a pulse to a process that never receives;
-  3. no thread removed from any program process;
+  3. no thread removed from any program process (counted over every thread since 2026-11-22);
   4. a process that took no part in messaging before (a CPU load, say) keeps its threads' priorities and stays busy
-     where it was busy (lowering or idling the load is not a fix of the program).
+     where it was busy (lowering or idling the load is not a fix of the program);
+  5. no fix is proven for a program that had a thread in a MUTEX wait in every snapshot of the hung observation
+     (2026-11-22). Lock use is not recorded, so a corrected lock order and a deleted lock look the same here
+     (harness check mx01). This keeps mutex hangs «not fixed» for every arm, on purpose and with that reason.
 Static rules (run.sh and the harness common/ are not editable, no linker/syscall escape) are in `static_reject`.
 """
 import re
@@ -72,8 +75,9 @@ def idents(args: dict[int, str]) -> dict[int, str]:
     return out
 
 
-def build(args: dict[int, str], msgs: list[tuple], threads) -> dict:
-    """One boot → {"procs": [...], "pairs": {"a -> b": {...}}, "threads": {ident: [[prio, busy], ...]}}."""
+def build(args: dict[int, str], msgs: list[tuple], threads, later=()) -> dict:
+    """One boot → {"procs": [...], "pairs": {"a -> b": {...}}, "threads": {ident: [[prio, busy], ...]},
+    "lock_waits": [ident with a thread in MUTEX in this and every `later` snapshot]}."""
     ids = idents(args)
     pairs = {}
     receivers = sorted({ids[m[0]] for m in msgs if m[1] == "W" and m[0] in ids})
@@ -100,7 +104,11 @@ def build(args: dict[int, str], msgs: list[tuple], threads) -> dict:
     for t in threads:
         if t.pid in ids:
             th.setdefault(ids[t.pid], []).append([t.prio, t.state in RUNNABLE])
-    return {"procs": sorted(ids.values()), "pairs": pairs, "receivers": receivers, "threads": {k: sorted(v, key=str) for k, v in th.items()}}
+    stuck = {(t.pid, t.tid) for t in threads if t.state == "MUTEX" and t.pid in ids}
+    for snap in later:
+        stuck &= {(t.pid, t.tid) for t in snap if t.state == "MUTEX"}
+    return {"procs": sorted(ids.values()), "pairs": pairs, "receivers": receivers,
+            "lock_waits": sorted({ids[pid] for pid, _ in stuck}), "threads": {k: sorted(v, key=str) for k, v in th.items()}}
 
 
 def _talkers(pairs) -> set[str]:
@@ -118,6 +126,8 @@ def compare(before: dict, after: dict) -> list[str]:
         why.append("process gone or started differently: " + "; ".join(gone))
     if new:
         why.append("process not in the original program: " + "; ".join(new))
+    for p in before.get("lock_waits", []):
+        why.append(f"{UNPROVABLE} {p} had a thread waiting on a mutex in every snapshot, and lock use is not recorded")
     for k, v in sorted(before["pairs"].items()):
         if not v["att"]:
             continue
@@ -141,6 +151,7 @@ def compare(before: dict, after: dict) -> list[str]:
 
 
 STATIC = "rejected (structure):"
+UNPROVABLE = "fix cannot be proven:"
 
 
 RECV = re.compile(r"\b(?:MsgReceive\w*|qd_receive)\s*\(")
