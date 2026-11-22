@@ -18,7 +18,9 @@ Rules, checked by `compare(before, after)`:
      synchronous send is fine; no send is not. Since 2026-11-22 the records are read twice in the rerun (`recount`):
      every such pair must also have completed sends AND arrivals between the two readings, so an exchange that
      stops after a few rounds is not a fix, and neither is a pulse that nobody is seen to read. A process that
-     sends to itself is a pair like any other. The exceptions described next apply to older recordings only
+     sends to itself is a pair like any other. One pair need not grow: one outside the judged hang that was already
+     idle in the hung observation, with nothing in flight (`must_grow`; dev v2 t151018, two low loops that a CPU load
+     keeps off the CPU before and after the right fix). The exceptions described next apply to older recordings only
      (no `recount`). A receiver that never calls a receive (a client that only attached
      a name, like the v1 generator's starter) cannot count arrivals; such pulses are kept as `unread` pairs
      (2026-11-16, set after the v1 re-judge showed it, before the v2 held-out run). Removing receive calls from the
@@ -127,6 +129,18 @@ def recount(s: dict, args: dict[int, str], msgs1) -> dict:
     return s
 
 
+def must_grow(before: dict, key: str, v: dict) -> bool:
+    """Whether this pair of the hung observation has to keep exchanging in the rerun's window. Yes, unless it was idle
+    then (both readings equal, every send completed and arrived) AND neither end is a process of the judged hang.
+    Without a judged hang, or without that record, yes."""
+    hung = before.get("hung")
+    if not hung or not before.get("recount"):
+        return True
+    if v.get("sending") or v.get("arriving") or v["att"] > v["done"] or v["recv"] < v["done"]:
+        return True
+    return any(p in hung for p in key.split(" -> "))
+
+
 def _talkers(pairs) -> set[str]:
     out = set()
     for k, v in pairs.items():
@@ -165,7 +179,7 @@ def compare(before: dict, after: dict) -> list[str]:
         if a["done"] < MIN_DONE or (reads and a["recv"] < MIN_DONE):
             why.append(f"pair no longer exchanges messages: {k} (after the fix: {a['done']} completed sends, "
                        f"{a['recv']} received; need {MIN_DONE} each)")
-        elif counted and after["recount"] and not (a.get("sending") and a.get("arriving")):
+        elif counted and after["recount"] and not (a.get("sending") and a.get("arriving")) and must_grow(before, k, v):
             why.append(f"pair stopped exchanging messages: {k} (no new "
                        f"{'arrivals' if a.get('sending') else 'completed sends'} between the rerun's two counts)")
     talk = _talkers(before["pairs"])

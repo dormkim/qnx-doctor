@@ -171,6 +171,8 @@ def observe(work: str, name: str, focus=None) -> dict:
         structure = st.build(args, st.parse_msgs(_section(out, "MSGS")), threads, later)
         first_read = st.parse_msgs(_section(out, "MSGS1")) if "=== MSGS1 ===" in out else None
         st.recount(structure, args, first_read)
+        ids = st.idents(args)
+        structure["hung"] = sorted({ids[p] for p in _in_the_hang(j) if p in ids})
     # Runnable threads at the snapshot (not the idle thread): shows what held the CPUs when a chain is judged (2026-11-17).
     runnable = sorted({(t.name.split("/")[-1], t.prio, t.state) for t in threads if t.state in wg.RUNNABLE and t.prio})
     # What the states alone would have said (before progress): kept so a dropped «slow wait» stays visible.
@@ -193,6 +195,13 @@ def _involved(j):
     if j["kind"] == "missing_reply":
         return {x for w in j["waits"] for x in (w["waiter"]["pid"], w["server"]["pid"])}
     return set()
+
+
+def _in_the_hang(j):
+    """The processes of the judged hang itself: as _involved, without the runnable threads in the middle of a chain."""
+    if j["kind"] == "priority_chain":
+        return {x for c in j["chains"] for x in (c["waiter"]["pid"], c["server"]["pid"])}
+    return _involved(j)
 
 
 def sources(work: str, name: str) -> str:
