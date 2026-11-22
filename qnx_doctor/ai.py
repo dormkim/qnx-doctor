@@ -66,16 +66,16 @@ def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8, sys
         except Exception as e:
             messages.append({"role": "user", "content": f"Reply with one JSON object only ({e})."})
             continue
-        if "probe" in step:
+        if isinstance(step.get("probe"), dict):
             argv = step["probe"].get("argv", [])
             out = probe(argv, cwd, env, confine)
             log.append({"kind": "probe", "argv": argv, "out": out[-400:]})
             messages.append({"role": "user", "content": f"probe output:\n{out}"})
-        elif "search_docs" in step:
+        elif isinstance(step.get("search_docs"), str):
             hits = index.search(step["search_docs"], k=4) if index else []
             log.append({"kind": "docs", "query": step["search_docs"], "hits": [h["doc"] for h in hits]})
             messages.append({"role": "user", "content": "docs:\n" + json.dumps(hits, ensure_ascii=False)[:9000]})
-        elif "diagnosis" in step:
+        elif isinstance(step.get("diagnosis"), dict):
             return "diagnosis", step["diagnosis"], messages
         elif "give_up" in step:
             return "give_up", step["give_up"], messages

@@ -12,14 +12,15 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 
 from . import actions as act
 from . import progress as pg
+from . import sandbox
+from . import source_check
 from . import structure as st
 from . import waitgraph as wg
-from .runner import base_env, sdp_env, tail
+from .runner import base_env, execute, licence, sdp_env, tail
 
 QCC = ["qcc", "-Vgcc_ntox86_64"]
 # Every send/receive call of a scenario program goes through common/qd_trace.c (message-structure recorder).
@@ -58,10 +59,15 @@ Search the docs before deciding. Never invent text that is not in the file.
 
 def prepare(scen_dir: str) -> str:
     """Copy the scenario (and its sibling common/) into a fresh work directory; edits only ever touch the copy."""
-    work = tempfile.mkdtemp(prefix="qd-hang-")
     name = os.path.basename(os.path.normpath(scen_dir))
-    shutil.copytree(scen_dir, os.path.join(work, name))
     common = os.path.join(os.path.dirname(os.path.normpath(scen_dir)), "common")
+    for top in (scen_dir, common):  # copytree copies what a link points to (common/ itself may be a link)
+        for d, dirs, files in os.walk(os.path.realpath(top)):
+            for f in dirs + files:
+                if os.path.islink(os.path.join(d, f)):
+                    raise ValueError(f"symbolic link inside a scenario is not copied: {f}")
+    work = tempfile.mkdtemp(prefix="qd-hang-")
+    shutil.copytree(scen_dir, os.path.join(work, name))
     if os.path.isdir(common):
         shutil.copytree(common, os.path.join(work, "common"))
     for d, _, files in os.walk(work):  # comments (incl. answer-key markers of hand-written scenarios) never reach the AI
@@ -74,8 +80,7 @@ def prepare(scen_dir: str) -> str:
 
 
 def _sh(argv, cwd, env, timeout=900):
-    p = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, timeout=timeout)
-    return p.returncode, (p.stdout + p.stderr).decode(errors="replace")
+    return execute(argv, cwd, env, timeout)
 
 
 def build(work: str, name: str, env: dict):
@@ -94,7 +99,13 @@ def build(work: str, name: str, env: dict):
         if c.endswith(".c"):
             jobs.append((os.path.join(out, name, c[:-2]), os.path.join(work, name, c), extra))
     for dst, src, more in jobs:
-        rc, log = _sh(QCC + ["-o", dst, src] + more, work, env)
+        # The compiler reads model-written text: it sees the work copy and the SDP, nothing else (sandbox.py).
+        try:
+            r = sandbox.run(QCC + ["-o", dst, src] + more, work, env, read=[work, env["QNX_SDP"]], write=[out],
+                            timeout=300, licence=licence(env), fsize=256 * 2 ** 20, cpu=120, mem=4 * 2 ** 30)
+            rc, log = r.returncode, r.output
+        except FileNotFoundError as e:
+            rc, log = 127, f"{e}: not found"
         if rc != 0:
             return False, f"qcc {os.path.relpath(src, work)} failed:\n{tail(log, 20)}"
     shutil.copy(os.path.join(work, name, "run.sh"), os.path.join(out, name, "run.sh"))
@@ -113,7 +124,13 @@ def image(work: str, env: dict):
             p = os.path.join(d, f)
             lines.append(f"[perms=0755] /var/qd/{os.path.relpath(p, out)}={p}")
     open(os.path.join(vm, "local", "snippets", "data_files.custom"), "w").write("\n".join(lines) + "\n")
-    rc, log = _sh(MKIMG, vm, env)
+    lic = licence(env)  # the image tools take built files as data, under names that code chose
+    try:
+        r = sandbox.run(MKIMG, vm, env, read=[out, env["QNX_SDP"]], write=[vm], timeout=900, cpu=600,
+                        licence_lock=lic[0] if lic else None)
+        rc, log = r.returncode, r.output
+    except FileNotFoundError as e:
+        rc, log = 127, f"{e}: not found"
     ok = rc == 0 and os.path.exists(os.path.join(vm, "output", "ifs.bin"))
     return ok, vm, tail(log, 15)
 
@@ -204,8 +221,9 @@ def checked_claims(work, payload):
     """Keep the AI's words only where code can confirm them: a closed cause label, and a culprit line that is
     really in that file of the working copy. Recorded for scoring; it does not change «fixed»."""
     label = payload.get("cause_label")
-    c = payload.get("culprit") or {}
-    path = os.path.realpath(os.path.join(work, str(c.get("file", ""))))
+    c = payload.get("culprit")
+    c = c if isinstance(c, dict) else {}
+    path = os.path.realpath(os.path.join(work, str(c.get("file", "")).replace("\x00", "")))
     line = str(c.get("line", "")).strip()
     ok = (bool(line) and path.startswith(os.path.realpath(work) + os.sep) and os.path.isfile(path)
           and line in open(path, errors="replace").read())
@@ -226,19 +244,37 @@ def pids_checked(payload, obs):
 def apply_fix(scen_dir, acts):
     """Fresh copy + edit_file actions only, on the program's C sources (not run.sh, not the harness). (work, error)."""
     work = prepare(scen_dir)
+    if not isinstance(acts, list) or any(not isinstance(a, dict) for a in acts):
+        return work, "rejected: actions must be a list of objects"
     if any(a.get("type") != "edit_file" for a in acts):
         return work, "rejected: only edit_file is allowed for a hang fix"
+    for a in acts:
+        if (not all(isinstance(a.get(k), str) for k in ("path", "find", "replace")) or not a["find"]
+                or "\x00" in a["path"]):
+            return work, "rejected: edit_file needs a path, the text to find and its replacement"
     why = st.static_reject(acts)
     if why:
         return work, why
-    orig = {a.get("path"): open(os.path.join(work, a["path"]), errors="replace").read()
-            for a in acts if os.path.isfile(os.path.join(work, str(a.get("path", ""))))}
+    own = os.path.join(os.path.realpath(work), os.path.basename(os.path.normpath(scen_dir)))
+    orig = {}
+    for a in acts:
+        real = os.path.realpath(os.path.join(work, a["path"]))
+        if not real.startswith(own + os.sep) or not os.path.isfile(real):
+            return work, "rejected: edit_file may only change an existing file of the program"
+        orig.setdefault(real, (a["path"], open(real, errors="replace").read()))
     try:
         act.apply({"argv": ["true"], "cwd": "."}, acts, work)
     except act.Rejected as e:
         return work, f"rejected: {e}"
-    for path, text in orig.items():
-        if st.receive_removed(text, open(os.path.join(work, path), errors="replace").read()):
+    except (UnicodeError, OSError) as e:
+        return work, f"rejected: the edit could not be written ({type(e).__name__})"
+    for real, (path, text) in orig.items():
+        after = open(real, errors="replace").read()
+        # The text check is the first layer; what it cannot see, the compiler's sandbox denies.
+        new = source_check.added(text, after, os.path.dirname(real), os.path.join(work, "common"), st.ESCAPE)
+        if new:
+            return work, f"rejected: {path}: the edit adds {new}"
+        if st.receive_removed(text, after):
             return work, f"{st.STATIC} {path}: the fix removes a receive call (a receiver must keep reading its channel)"
     return work, None
 

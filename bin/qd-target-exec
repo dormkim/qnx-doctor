@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 """qd-target-exec <imgdir> <path-on-target>: boot the image in QEMU, log in, run the path, print output, exit with its status."""
 import fcntl, os, re, select, subprocess, sys, time
-img, path = sys.argv[1], sys.argv[2]
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from qnx_doctor import sandbox  # QEMU runs a guest built from model-written code: sandbox.py
+sandbox.die_with_parent()
+if not sandbox.supported():
+    print(sandbox.NO_SANDBOX); sys.exit(126)
+img, path = os.path.realpath(sys.argv[1]), sys.argv[2]
+MAX_SERIAL = 8 * 2 ** 20  # a guest that floods the console
 # One QEMU guest at a time on this host (2026-11-17): with 3 guests at once a scenario's CPU load starved the
 # priority server's start-up, its client gave up and no chain formed (dev t7e9e6a, sealed D05). Arms that run in
 # parallel (AI and naive) now queue here; the lock is released when this process exits.
 lock = open(os.environ.get("QD_QEMU_LOCK", "/tmp/qd-qemu.lock"), "w")
 fcntl.flock(lock, fcntl.LOCK_EX)
 root = os.environ["QD_QEMU_ROOT"]
-env = dict(os.environ, QEMU_MODULE_DIR=f"{root}/usr/lib/x86_64-linux-gnu/qemu", LD_LIBRARY_PATH=f"{root}/usr/lib/x86_64-linux-gnu")
+env = dict(sandbox.CLEAN, HOME=img, TMPDIR=img, QEMU_MODULE_DIR=f"{root}/usr/lib/x86_64-linux-gnu/qemu", LD_LIBRARY_PATH=f"{root}/usr/lib/x86_64-linux-gnu")
 args = [f"{root}/usr/bin/qemu-system-x86_64", "-L", f"{root}/usr/share/qemu", "-m", "1G", "-smp", os.environ.get("QD_SMP", "2"), "-cpu", "max", "-nographic",
         "-serial", "mon:stdio", "-kernel", f"{img}/output/ifs.bin", "-drive", f"file={img}/output/disk-qemu.vmdk,if=ide", "-nic", "none"]
 if os.access("/dev/kvm", os.W_OK): args += ["-enable-kvm"]
-p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+boxed = sandbox.command(args, env, read=[os.path.realpath(root)], write=[img, "/dev/kvm"])
+p = subprocess.Popen(boxed, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=sandbox.CLEAN)
 buf = b""
 def until(pats, t):
     global buf
@@ -23,6 +31,8 @@ def until(pats, t):
             c = os.read(p.stdout.fileno(), 4096)
             if not c: return None
             buf += c
+            if len(buf) > MAX_SERIAL:
+                p.kill(); print("qd-target-exec: too much serial output, stopped"); sys.exit(1)
             for x in pats:
                 if re.search(x, buf): return x
     return None

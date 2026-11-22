@@ -6,6 +6,7 @@ import shutil
 
 from . import hang
 from . import progress as pg
+from . import source_check
 from . import structure as st
 
 AI_OFF_NOTE = "code judgment only: the hang is named, no fix is attempted"
@@ -44,7 +45,9 @@ def not_restarted(first, res) -> str | None:
     Not «every stopped log must resume»: some roles write a log but never print TICK (sealed D03 server/logger) —
     that stricter rule (set 2026-11-16 before the held-out run) rejected real fixes; replaced after that run."""
     if not res.get("ok"):
-        return f"rerun did not finish: {res.get('stage')} failed: {res.get('log', '')}".rstrip(": ")
+        # Never the tool's own words: compiler and guest output can quote files (blocker 4, 2026-11-22).
+        where = source_check.locations(res.get("log", "")) if res.get("stage") == "build" else []
+        return f"rerun did not finish: {res.get('stage')} failed" + (f" (errors at {', '.join(where)})" if where else "")
     if res["judge"]["kind"] != "none":
         return f"still hung: {res.get('graph') or res['judge']['kind']}"
     before, after = first["ticks"], res["ticks"]

@@ -8,7 +8,7 @@ import time
 
 from . import actions as act
 from . import rules
-from .runner import build_env, expand, run, tail
+from .runner import base_env, build_env, expand, may_read_licence, run, tail
 
 CLEAN_KEYS = ("PATH", "QNX_HOST", "QNX_TARGET", "LD_LIBRARY_PATH", "QEMU_MODULE_DIR")
 
@@ -17,7 +17,8 @@ def setup(scenario):
     work = tempfile.mkdtemp(prefix=f"qd-{scenario['id']}-")
     env = build_env({})
     if scenario.get("copy_from"):  # `qnx-doctor run`: fixes are tried on a copy, the user's tree is never edited
-        shutil.copytree(scenario["copy_from"], work, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git"))
+        shutil.copytree(scenario["copy_from"], work, dirs_exist_ok=True, symlinks=True,
+                        ignore=shutil.ignore_patterns(".git"))  # a link is copied as a link, never what it points to
     if scenario.get("setup"):
         subprocess.run(["bash", "-c", scenario["setup"]], cwd=work, env=env, capture_output=True, timeout=600)
     return work
@@ -50,11 +51,14 @@ def attempt(scenario, acts):
     work = setup(scenario)
     try:
         spec = act.apply(scenario["spec"], acts, work)
+        # A proposed fix can make the command run anything: sandbox.py.
+        res = run(spec, work, boxed=True, licensed=may_read_licence(scenario["spec"], spec))
     except act.Rejected as e:
-        shutil.rmtree(work, ignore_errors=True)
         return None, f"rejected: {e}"
-    res = run(spec, work)
-    shutil.rmtree(work, ignore_errors=True)
+    except (KeyError, TypeError, ValueError, AttributeError, OSError) as e:
+        return None, f"rejected: malformed action ({type(e).__name__})"
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     return res, ("SOLVED (rerun ok)" if res.ok else f"still failing: {res.reason}; {tail(res.output, 6)}")
 
 
@@ -87,7 +91,7 @@ def diagnose(scenario, use_ai=True, index=None, max_fixes=2, use_rules=True):
     from . import ai
     for _ in range(max_fixes):
         kind, payload, _msgs = ai.think(context_text(spec, first, work, tried), os.path.join(work, spec.get("cwd", ".")),
-                                        build_env(spec), index, timeline)
+                                        base_env(), index, timeline)
         if kind == "give_up":
             timeline.append({"kind": "give_up", "why": payload})
             shutil.rmtree(work, ignore_errors=True)

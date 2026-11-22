@@ -20,6 +20,7 @@ import shlex
 import subprocess
 
 from . import waitgraph as wg
+from .runner import base_env
 
 # One shell line: snapshots go to /dev/shmem first (RAM, served by procnto) and are printed afterwards, so the
 # capture writes nothing to a console or network link while it looks (same reason as common/snap.c).
@@ -37,7 +38,10 @@ def section(out: str, name: str) -> str:
 
 def capture(transport: str, timeout: int = 1200) -> str:
     """Run the capture line on the target through the user's transport; the command's own output is returned."""
-    p = subprocess.run(shlex.split(transport) + [CAPTURE], capture_output=True, timeout=timeout)
+    env = base_env()
+    if "SSH_AUTH_SOCK" in os.environ:  # the user's transport may be ssh
+        env["SSH_AUTH_SOCK"] = os.environ["SSH_AUTH_SOCK"]
+    p = subprocess.run(shlex.split(transport) + [CAPTURE], capture_output=True, timeout=timeout, env=env)
     out = (p.stdout + p.stderr).decode(errors="replace").replace("\r", "")
     if "=== PIDIN1 ===" not in out or "=== END ===" not in out.rsplit("=== ARGS ===", 1)[-1]:
         raise RuntimeError("capture did not finish on the target (no pidin output came back):\n" + out[-1500:])

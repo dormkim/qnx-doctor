@@ -137,7 +137,7 @@ class FailureText(unittest.TestCase):
 
     def test_rerun_did_not_build(self):
         v = verdict(RING3, {"ok": False, "stage": "build", "log": "qcc a.c failed"})
-        self.assertEqual(result_text(v), "rerun did not finish: build failed: qcc a.c failed")
+        self.assertEqual(result_text(v), "rerun did not finish: build failed")  # no compiler text since 2026-11-22
 
     def test_baseline_feedback_has_the_condition_but_never_the_graph(self):
         import sys
