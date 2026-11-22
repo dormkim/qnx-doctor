@@ -15,7 +15,11 @@ Rules, checked by `compare(before, after)`:
   2. every pair (sender → receiver) that tried to send before the fix has, after it, at least MIN_DONE completed
      sends (MsgSend returned = the receiver replied; pulse delivered) AND, if the receiver reads its channel at all
      in the rerun, it counted at least MIN_DONE arrivals from that sender (message or pulse). A pulse instead of a
-     synchronous send is fine; no send is not. A receiver that never calls a receive (a client that only attached
+     synchronous send is fine; no send is not. Since 2026-11-22 the records are read twice in the rerun (`recount`):
+     every such pair must also have completed sends AND arrivals between the two readings, so an exchange that
+     stops after a few rounds is not a fix, and neither is a pulse that nobody is seen to read. A process that
+     sends to itself is a pair like any other. The exceptions described next apply to older recordings only
+     (no `recount`). A receiver that never calls a receive (a client that only attached
      a name, like the v1 generator's starter) cannot count arrivals; such pulses are kept as `unread` pairs
      (2026-11-16, set after the v1 re-judge showed it, before the v2 held-out run). Removing receive calls from the
      source to get there is rejected statically (`receive_removed`).
@@ -42,7 +46,7 @@ RULES = ("The fix is checked on the target, not only for liveness: edit only the
          "must keep its priorities and its load.")
 RUNNABLE = ("RUNNING", "READY")
 # a fix must not reach around the recorder (qd_trace.c is linked with --wrap) or the kernel-call layer
-ESCAPE = re.compile(r"__wrap_|__real_|\basm\b|__asm|__kercall|\bdlsym\b|\bdlopen\b|\bsyscall\b|_syspage_ptr")
+ESCAPE = re.compile(r"qdm\.|/dev/shmem/qd|__wrap_|__real_|\basm\b|__asm|__kercall|\bdlsym\b|\bdlopen\b|\bsyscall\b|_syspage_ptr")
 
 
 def parse_args(text: str, name: str) -> dict[int, str]:
@@ -88,8 +92,8 @@ def build(args: dict[int, str], msgs: list[tuple], threads, later=()) -> dict:
     for pid, d, kind, peer, att, done in msgs:
         if d == "W":
             continue
-        if pid not in ids or peer not in ids or pid == peer:
-            continue  # system servers (procnto, devb, ...) and self: not a pair of the program
+        if pid not in ids or peer not in ids:
+            continue  # system servers (procnto, devb, ...): not a pair of the program. A process and itself is one.
         if d == "G":  # the client (pid) registered a pulse event that only this server (peer) may deliver
             pair(peer, pid)["reg"] = True
             continue
@@ -111,8 +115,26 @@ def build(args: dict[int, str], msgs: list[tuple], threads, later=()) -> dict:
             "lock_waits": sorted({ids[pid] for pid, _ in stuck}), "threads": {k: sorted(v, key=str) for k, v in th.items()}}
 
 
+def recount(s: dict, args: dict[int, str], msgs1) -> dict:
+    """Adds the first reading of the same boot's message records (snap.c MSGS1) to a structure built from the second:
+    per pair, did completed sends and arrivals grow between the two. None = there was no first reading."""
+    s["recount"] = msgs1 is not None
+    if msgs1 is not None:
+        early = build(args, msgs1, [])["pairs"]
+        for k, v in s["pairs"].items():
+            e = early.get(k, {"done": 0, "recv": 0})
+            v["sending"], v["arriving"] = v["done"] > e["done"], v["recv"] > e["recv"]
+    return s
+
+
 def _talkers(pairs) -> set[str]:
-    return {x for k, v in pairs.items() if v["att"] or v["recv"] for x in k.split(" -> ")}
+    out = set()
+    for k, v in pairs.items():
+        src, dst = k.split(" -> ")
+        # A process that only receives on its own connection (timer pulses) is not talking to anyone (rule 4).
+        if v["att"] or (v["recv"] and src != dst):
+            out |= {src, dst}
+    return out
 
 
 def compare(before: dict, after: dict) -> list[str]:
@@ -128,6 +150,9 @@ def compare(before: dict, after: dict) -> list[str]:
         why.append("process not in the original program: " + "; ".join(new))
     for p in before.get("lock_waits", []):
         why.append(f"{UNPROVABLE} {p} had a thread waiting on a mutex in every snapshot, and lock use is not recorded")
+    counted = "recount" in after  # absent in recordings older than 2026-11-22: judged as they were
+    if counted and not after["recount"]:
+        why.append(f"{UNPROVABLE} the message records of the rerun were not read a second time")
     for k, v in sorted(before["pairs"].items()):
         if not v["att"]:
             continue
@@ -135,9 +160,14 @@ def compare(before: dict, after: dict) -> list[str]:
         reads = k.split(" -> ")[1] in after.get("receivers", []) or "receivers" not in after
         if _event_unread(a):  # signal event (or no registration seen): the client cannot count it
             reads = False
+        if counted:  # nothing is taken as arrived unless it was seen arriving
+            reads = True
         if a["done"] < MIN_DONE or (reads and a["recv"] < MIN_DONE):
             why.append(f"pair no longer exchanges messages: {k} (after the fix: {a['done']} completed sends, "
                        f"{a['recv']} received; need {MIN_DONE} each)")
+        elif counted and after["recount"] and not (a.get("sending") and a.get("arriving")):
+            why.append(f"pair stopped exchanging messages: {k} (no new "
+                       f"{'arrivals' if a.get('sending') else 'completed sends'} between the rerun's two counts)")
     talk = _talkers(before["pairs"])
     for p, tb in sorted(before["threads"].items()):
         ta = after["threads"].get(p)

@@ -7,8 +7,8 @@
  * messages before the fix really exchanges them after it — the sender's call returned (MsgSend: the peer replied;
  * pulse: delivered) AND the receiver got it. This file only counts; hang.py decides.
  *
- * Record per (direction, kind, peer pid): attempts and completions. Kept in RAM and rewritten to
- * /dev/shmem/qdm.<pid> (RAM, served by procnto: no disk driver involved) on small counts and powers of two.
+ * Record per (direction, kind, peer pid): attempts and completions, in /dev/shmem/qdm.<pid> (RAM, served by procnto:
+ * no disk driver involved), kept current in shared memory since 2026-11-22 (snap reads it twice).
  * Line format: "<S|R> <M|P> <peer pid> <attempts> <done>"; plus "W C <own pid> <calls> 0" once the process calls a
  * receive at all (so the verifier knows whether a receiver reads its channel). snap prints these files.
  * Counts are states for the verifier, not timing (QNX licence 4.2(i)).
@@ -33,6 +33,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/iomsg.h>
+#include <sys/mman.h>
 #include <sys/neutrino.h>
 #include <pthread.h>
 #include <time.h>
@@ -89,16 +90,37 @@ int __wrap_timer_timeout(clockid_t id, int flags, const struct sigevent *ev, con
   return v;
 }
 
-static int qdt_mark(unsigned v) { return v <= 4 || (v & (v - 1)) == 0; }
+/* The record lives in shared memory and every count is written as it happens (2026-11-22). Before, the file was
+ * rewritten at counts up to 4 and at powers of two, so snap could not tell «still sending» from «stopped» by reading
+ * it twice. One fixed-width line per record: no system call after the mapping is made. */
+#define QDT_LINE 48
+static char *qdt_map;
+static pid_t qdt_map_pid;
 
-static void qdt_flush(void) {   /* caller holds qdt_mx */
-  char path[48], buf[QDT_MAX * 40];
-  int n = 0;
-  for (int i = 0; i < qdt_n; i++)
-    n += snprintf(buf + n, sizeof buf - n, "%c %c %d %u %u\n", qdt[i].dir, qdt[i].kind, qdt[i].peer, qdt[i].att, qdt[i].done);
-  snprintf(path, sizeof path, "/dev/shmem/qdm.%d", getpid());
-  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  if (fd >= 0) { (void)!write(fd, buf, n); close(fd); }
+static void qdt_put(int i) {
+  char line[QDT_LINE];
+  if (!qdt_map) return;
+  int n = snprintf(line, sizeof line, "%c %c %d %u %u", qdt[i].dir, qdt[i].kind, qdt[i].peer, qdt[i].att, qdt[i].done);
+  if (n < 0 || n >= QDT_LINE) return;
+  memset(line + n, ' ', QDT_LINE - 1 - n);
+  line[QDT_LINE - 1] = '\n';
+  memcpy(qdt_map + i * QDT_LINE, line, QDT_LINE);
+}
+
+static void qdt_remap(pid_t pid) {   /* first count of this process (or of a forked child); caller holds qdt_mx */
+  char path[48], blank[QDT_MAX * QDT_LINE];
+  qdt_map = NULL;
+  qdt_map_pid = pid;
+  snprintf(path, sizeof path, "/dev/shmem/qdm.%d", (int)pid);
+  int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+  if (fd < 0) return;
+  memset(blank, '\n', sizeof blank);
+  if (write(fd, blank, sizeof blank) == (ssize_t)sizeof blank) {
+    void *m = mmap(NULL, sizeof blank, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (m != MAP_FAILED) qdt_map = m;
+  }
+  close(fd);
+  for (int i = 0; i < qdt_n; i++) qdt_put(i);
 }
 
 static void qdt_add(char dir, char kind, int peer, int att, int done) {
@@ -110,7 +132,9 @@ static void qdt_add(char dir, char kind, int peer, int att, int done) {
   if (i == qdt_n && qdt_n < QDT_MAX) { qdt[i] = (struct qdt_rec){dir, kind, peer, 0, 0}; qdt_n++; }
   if (i < qdt_n) {
     qdt[i].att += att; qdt[i].done += done;
-    if ((att && qdt_mark(qdt[i].att)) || (done && qdt_mark(qdt[i].done))) qdt_flush();
+    pid_t me = getpid();
+    if (me != qdt_map_pid) qdt_remap(me);
+    qdt_put(i);
   }
   pthread_mutex_unlock(&qdt_mx);
   errno = s;

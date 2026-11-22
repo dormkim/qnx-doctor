@@ -121,6 +121,7 @@ def _try(scen, sid, acts, ticks, alive, structure, progress=None):
         if res.get("ok"):  # states for the scorer's loop_logs rule (sealed v3), same fields as our arm's timeline
             row["rerun_tick_counts"] = res.get("ticks")
             row["rerun_alive"], row["rerun_progress"] = res.get("alive"), res.get("progress")  # since 2026-11-21
+            row["rerun_structure"] = res.get("structure")  # since 2026-11-22, as in our arm's timeline
         return row, _feedback(res, v, None)
     finally:
         shutil.rmtree(fixed, ignore_errors=True)

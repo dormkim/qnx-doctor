@@ -61,6 +61,9 @@ def chain_fixes(pool, sid, lab):
     out.append(("fake: CPU load lowered", False, [{"type": "edit_file", "path": path, "find": mid[0], "replace": mid[0].replace(f"setprio(0, {mid[1]})", "setprio(0, 1)")}]))
     cli = re.search(r"    qd_send\((\w+), n\);\n    qd_tick\(me, n\);\n    usleep", s)
     if cli and "ConnectAttach" in s[max(0, cli.start() - 600):cli.start()]:
+        out.append(("fake: client's messages stop after a few rounds", False, [
+            {"type": "edit_file", "path": path, "find": cli[0],
+             "replace": cli[0].replace(f"qd_send({cli[1]}, n);", f"if (n < 5) qd_send({cli[1]}, n);")}]))
         out.append(("fake: client stops sending", False, [{"type": "edit_file", "path": path, "find": cli[0], "replace": cli[0].replace(f"qd_send({cli[1]}, n);", f"(void){cli[1]};")}]))
     return out
 
@@ -85,10 +88,18 @@ def tick_first_fixes(pool, sid, lab):
     path, s, _ = src(pool, sid)
     c = re.search(r"    qd_send\((\w+), n\);\n    int \w+ = qd_receive", s)[1]
     line, pulse = f"    qd_send({c}, n);", f"    MsgSendPulse({c}, -1, 1, n);"
+    msg = re.search(r"= qd_receive\(at->chid, &(\w+)\);", s)[1]
+    serve_first = (f"    if (!strcmp(me, \"{lab['members'][0]}\")) {{ int q = qd_receive(at->chid, &{msg}); "
+                   f"if (q > 0) MsgReply(q, EOK, &n, sizeof n); qd_send({c}, n); n++; continue; }}\n{line}")
 
     def put(text):
         return [{"type": "edit_file", "path": path, "find": line, "replace": text}]
     return ring_fixes(pool, sid, lab) + [
+        ("real: one member serves before it sends", True, put(serve_first)),
+        ("real: pulse, a slow loop", True, put(f"{pulse}\n    usleep(400000);")),
+        ("fake: TICKs go on, messages stop after a long burst", False,
+         put(f"    if (n >= 3000) {{ usleep(100000); continue; }}\n{pulse}")),
+        ("fake: pulses that nobody ever reads", False, put(f"{pulse}\n    usleep(100000); continue;")),
         ("fake: more TICKs, same cycle", False, put(f"    for (int k = 0; k < 4; k++) qd_tick(me, n);\n{line}")),
         ("fake: one more TICK, then stopped", False, put(f"    if (n >= 1) for (;;) sleep(1);\n{pulse}")),
         ("fake: more TICKs, then stopped again", False, put(f"    if (n >= 5) for (;;) sleep(1);\n{pulse}")),
@@ -103,7 +114,7 @@ def edit(path, find, replace):
 
 # Hand-written dev checks: scenario -> [(fix, must be fixed, actions)].
 # mx01, mx02: decided 2026-11-22 (bench/V6_GATES_1122.md): a mutex hang is never proven fixed, so the real fix must
-# be rejected too (structure rule 5). ss01 states what the verifier should do; see the gate document for what it does.
+# be rejected too (structure rule 5).
 SS01 = "ss01/selfpost.c"
 MX01 = "mx01/ledger.c"
 MX02 = "mx02/desk.c"
@@ -129,7 +140,21 @@ static void *take(void *unused) {
 int main(void) {"""),
             edit(SS01, "  for (int n = 0;; n++) {\n    qd_tick(",
                  "  pthread_t t; own = chid; pthread_create(&t, NULL, take, NULL);\n  for (int n = 0;; n++) {\n    qd_tick(")]),
-        ("fake: the send is deleted", False, [edit(SS01, "    qd_send(coid, n);", "    (void)coid;")])],
+        ("fake: the send is deleted", False, [edit(SS01, "    qd_send(coid, n);", "    (void)coid;")]),
+        ("fake: a pulse to itself that nobody reads", False,
+         [edit(SS01, "    qd_send(coid, n);", "    MsgSendPulse(coid, -1, 1, n);")]),
+        ("fake: a thread receives, the sends stop after a few rounds", False, [
+            edit(SS01, "int main(void) {", """static int own;
+static void *take(void *unused) {
+  (void)unused;
+  qd_msg_t m;
+  for (;;) { int r = qd_receive(own, &m); if (r > 0) MsgReply(r, EOK, &m.app.v, sizeof m.app.v); }
+  return NULL;
+}
+int main(void) {"""),
+            edit(SS01, "  for (int n = 0;; n++) {\n    qd_tick(",
+                 "  pthread_t t; own = chid; pthread_create(&t, NULL, take, NULL);\n  for (int n = 0;; n++) {\n    qd_tick("),
+            edit(SS01, "    qd_send(coid, n);", "    if (n < 5) qd_send(coid, n);")])],
     "ss02": [],
     "ss03": [],
     "mx01": [

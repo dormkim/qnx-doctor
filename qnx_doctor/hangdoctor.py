@@ -167,6 +167,7 @@ def diagnose_hang(scen_dir, use_ai=True, index=None, focus=None, max_fixes=2, si
             entry["rerun_ticks"] = {k: ("yes" if v else "no") for k, v in res["ticks"].items()}
             entry["rerun_tick_counts"], entry["rerun_alive"] = res["ticks"], res.get("alive")  # states for re-judging
             entry["rerun_progress"] = res.get("progress")  # the rerun's second count (kept since 2026-11-21)
+            entry["rerun_structure"] = res.get("structure")  # with both message counts, so a fix can be audited later
         timeline.append(entry)
         tried.append({"actions": acts, "result": msg})
         shutil.rmtree(fixed, ignore_errors=True)

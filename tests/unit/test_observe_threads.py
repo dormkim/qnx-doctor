@@ -31,7 +31,8 @@ def boot_text(snaps, first, second, msgs=(), args=ARGS):
         return f"=== {title} ===\n" + "".join(f"{x}\n" for x in lines)
     return (part("PIDIN", snaps[0]) + part("TICKS", [f"/tmp/d0teller.log {first}"])
             + part("ARGS", [f"  {p} {a}" for p, a in args.items()]) + part("PIDIN2", snaps[1]) + part("PIDIN3", snaps[2])
-            + part("TICKS2", [f"/tmp/d0teller.log {second}"]) + part("MSGS", msgs) + "=== END ===\nQDDONE\n")
+            + part("TICKS2", [f"/tmp/d0teller.log {second}"])
+            + part("MSGS1", [m.replace(" 9 9", " 4 4") for m in msgs]) + part("MSGS", msgs) + "=== END ===\nQDDONE\n")
 
 
 class Observe(unittest.TestCase):

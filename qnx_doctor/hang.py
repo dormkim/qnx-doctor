@@ -169,6 +169,8 @@ def observe(work: str, name: str, focus=None) -> dict:
     if "=== MSGS ===" in out:  # harness with qd_trace (2026-11-16); older recordings have none
         args = st.parse_args(_section(out, "ARGS"), name)
         structure = st.build(args, st.parse_msgs(_section(out, "MSGS")), threads, later)
+        first_read = st.parse_msgs(_section(out, "MSGS1")) if "=== MSGS1 ===" in out else None
+        st.recount(structure, args, first_read)
     # Runnable threads at the snapshot (not the idle thread): shows what held the CPUs when a chain is judged (2026-11-17).
     runnable = sorted({(t.name.split("/")[-1], t.prio, t.state) for t in threads if t.state in wg.RUNNABLE and t.prio})
     # What the states alone would have said (before progress): kept so a dropped «slow wait» stays visible.
