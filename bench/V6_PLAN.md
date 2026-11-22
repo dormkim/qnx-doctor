@@ -187,3 +187,8 @@ counts above that is roughly 30 (code) + up to 36 (ours: 18 x 2 fix tries) + up 
 - Mutex waits are shown, not named. Whether the last value of a MUTEX line in pidin is the holding thread is not
   decided here.
 - The author knows the vocabulary (it is in the key format) but not the code; the main session writes no scenario.
+
+## 7. Added 2026-11-22, before the freeze
+
+Sections 1 to 6 are unchanged. Read `bench/V6_GATES_1122.md` section 12 with them: two reporting numbers beside F, the
+author's worktree outside `/tmp`, and a cost cap before the freeze (the $60 of section 5 is not a limit).

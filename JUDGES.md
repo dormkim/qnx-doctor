@@ -11,7 +11,10 @@ did not prove.
 What "prove" means, and where it was weaker than it read (found on 2026-11-22, `bench/V6_GATES_1122.md`):
 
 - The rerun shows the stopped loop ticking and the same process pairs still exchanging messages. It is not a proof
-  that the program is correct, and a fix written to forge the observer inside the guest could pass.
+  that the program is correct, and it is not tamper-proof: on a dev target a fix that forged its own message record
+  passed. For v6, every edit counted as fixed is read in full before the result is reported.
+- Raising a starved server's priority without fixing its channel passes. v6 accepts it as a fix and also reports
+  those fixes as a separate count.
 - Until 2026-11-22 messages were counted once. Fake fixes that exchanged a few messages and then only ticked passed
   on dev targets. The "fixed" numbers of v3, v4 and v5 were recorded under that rule. The records cannot show whether
   any of those fixes stopped exchanging later in its run.

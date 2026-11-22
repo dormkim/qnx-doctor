@@ -1,8 +1,9 @@
 # Gates before sealed v6: what the dev checks showed (2026-11-22)
 
 **Verdict (updated the same day, section 11): the six blockers of section 7 are repaired on the branch and
-checked twice on dev targets. Do not freeze until the user has decided the points in 11.8.** Two fake-fix shapes
-outside the six still pass (shown on a target, 11.6), and a rule cannot change after the seal.
+checked twice on dev targets. The user decided points 1 to 4 of 11.8 on 2026-11-22 (section 12). Not frozen yet:
+see 12.2.** Two fake-fix shapes outside the six still pass (shown on a target, 11.6), and a rule cannot change
+after the seal.
 
 Sections 1 to 10 are the record of the first pass (code up to 85e8096) and are left as they were found. Where section
 11 says otherwise, section 11 is current.
@@ -359,3 +360,29 @@ v6 rows now keep the rerun's structure with both counts, so the second question 
 
 After 1 to 4 nothing found in these checks stands against the freeze commit. These checks are dev scenarios run
 twice, not proof that no other fake passes.
+
+## 12. Decisions of 2026-11-22, written before the freeze and before any v6 scenario exists
+
+### 12.1 Decided by the user (11.8, points 1 to 4)
+
+1. **Guest forgery: accepted as a stated limit.** The check is called not tamper-proof. In v6 every edit of every row
+   that ends fixed, in every arm, is read in full before the result is reported, and the result names who read them.
+   An edit that writes or imitates the records or output of the observer is published as a case next to F.
+2. **Priority-only fixes: counted, and shown separately.** Priority-only means that the one functional change of the
+   edit is the priority of a process that takes part in messaging. Next to F, every arm gets two more numbers: how
+   many of its fixed rows are priority-only, and F without them. They are found by the reading of point 1.
+3. **The costs of the stricter check are accepted:** a mutex hang is never reported fixed, an arrival that is not seen
+   is never proven, and the host needs kernel 6.2 or later and strace.
+4. **Push to the private repository and merge into main.**
+
+Criteria A to F and the way the scorer counts them are unchanged. The readings add numbers and cases beside them.
+
+### 12.2 Still open before the freeze
+
+- A hard cost cap does not exist. The plan's "upper bound: about $60" is an assumption and not a limit. A cap changes
+  code, so it has to land before the freeze commit. The freeze is therefore not the merge of this branch.
+- The live price, the account of the key and the amount need the user's OK. No paid call is approved, the 2-call
+  check included.
+- The author's worktree, the pool and the answers go outside `/tmp` (11.3, point 1). This replaces the path in
+  section 3 of the plan.
+- `runs/sealed_ai*_1115.jsonl` carry home paths. Clean them before the repository is public.

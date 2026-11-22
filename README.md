@@ -65,10 +65,10 @@ proposed edit could read other files):
 
 - The rerun proves what was observed in that boot: loops ticking, and the same pairs still exchanging messages. It
   does not prove that the program is correct.
-- Programs in the guest run as root next to the observer, so a fix written to forge the observer's records or output
-  could pass.
+- The check is not tamper-proof. Programs in the guest run as root next to the observer, and on a dev target a fix
+  written to forge its own message record did pass. For v6, every edit counted as fixed is read in full.
 - A priority change in a process that takes part in messaging is not compared, so raising a starved server's priority
-  instead of fixing its channel can pass.
+  instead of fixing its channel can pass. v6 accepts that as a fix and also reports those fixes as a separate count.
 - A hang with a thread waiting on a mutex is never reported fixed: lock use is not recorded.
 - qcc needs its licence directory and `/tmp`. There the compiler's children are watched (strace), not blocked: a build
   that opens something else there fails and its output is dropped.
