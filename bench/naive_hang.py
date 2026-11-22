@@ -80,10 +80,13 @@ def read_reply(text: str, allowed: tuple = KINDS) -> dict:
 
 def ask(context: str, allow_unknown: bool = False) -> dict:
     from anthropic import Anthropic
-    from qnx_doctor.ai import MODEL
+    from qnx_doctor.ai import MODEL, usage_record
     resp = Anthropic().messages.create(model=MODEL, max_tokens=4000, system=system_prompt(allow_unknown),
                                        thinking={"type": "adaptive"}, messages=[{"role": "user", "content": context}])
-    return read_reply("".join(b.text for b in resp.content if getattr(b, "type", "") == "text"), kinds(allow_unknown))
+    used = usage_record(resp)  # before the reply is read: an unreadable reply is billed too
+    out = read_reply("".join(b.text for b in resp.content if getattr(b, "type", "") == "text"), kinds(allow_unknown))
+    out["usage"] = used  # written last: a «usage» key in the model's own JSON never stands in for the API's count
+    return out
 
 
 def _feedback(res, v, err):
@@ -135,10 +138,12 @@ def one(pool: str, sid: str, ticks: dict, alive, structure=None, attempts: int =
             "TICK counts per role log in the observation window: " + json.dumps(ticks),
             "Sources:\n" + hang.sources(work, sid)]
     shutil.rmtree(work, ignore_errors=True)
-    tries, notes, g = [], [], {}
+    tries, notes, g, usage = [], [], {}, []
     ask = ask or globals()["ask"]  # a test passes its own; no model is called there
     for _ in range(attempts):
         g = ask("\n\n".join(base + notes), allow_unknown)
+        if g.get("usage"):
+            usage.append(g.pop("usage"))
         acts = g.get("actions") or []
         if g.get("kind") not in FIXABLE:
             break  # «none», «unknown» or unreadable: nothing to rerun, and no fix is claimed
@@ -153,7 +158,7 @@ def one(pool: str, sid: str, ticks: dict, alive, structure=None, attempts: int =
     row = {"id": sid, "mode": "naive" if attempts == 1 else f"naive_x{attempts}", "detected": g.get("kind"),
            "vocabulary": list(kinds(allow_unknown)),
            "roles": g.get("roles"), "cause": g.get("cause"), "error": g.get("error"), "solved": None, "attempts": tries,
-           "first_ticks": ticks, "first_progress": progress,
+           "first_ticks": ticks, "first_progress": progress, "usage": usage,
            "actions": tries[-1]["actions"] if tries else (g.get("actions") or [])}
     if tries:  # top-level fields = the last try (as before), first_solved = the first try alone
         row.update({k: v for k, v in tries[-1].items() if k != "actions"})

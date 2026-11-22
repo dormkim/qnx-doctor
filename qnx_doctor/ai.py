@@ -3,12 +3,14 @@ and propose a fix as data. Code applies the fix and re-runs; only the re-run dec
 import json
 import os
 import re
+import sys
 
 from anthropic import Anthropic
 
 from .probes import probe
 
 MODEL = os.environ.get("QD_MODEL", "claude-opus-5-5")
+USAGE_FIELDS = ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
 
 SYSTEM = """You are qnx-doctor, a build/boot troubleshooter for QNX SDP 8.0 on a Linux host.
 You get a command that failed, its output, and what was already tried. Work step by step.
@@ -30,6 +32,17 @@ def _client():
     return Anthropic()
 
 
+def usage_record(resp) -> dict:
+    """One model call as the API counted it (response.usage). A count the API did not send is None, never 0.
+    Also printed to stderr at once, so the calls of a case that crashes before its row is written stay in the log."""
+    u = getattr(resp, "usage", None)
+    rec = {"kind": "usage", "model": getattr(resp, "model", None), "stop_reason": getattr(resp, "stop_reason", None),
+           **{f: getattr(u, f, None) for f in USAGE_FIELDS},
+           "thinking_tokens": getattr(getattr(u, "output_tokens_details", None), "thinking_tokens", None)}
+    print("qd-usage " + json.dumps(rec), file=sys.stderr, flush=True)
+    return rec
+
+
 def _json(text):
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
@@ -45,6 +58,7 @@ def think(context: str, cwd: str, env: dict, index, log, max_turns: int = 8, sys
     for _ in range(max_turns):
         resp = client.messages.create(model=MODEL, max_tokens=4000, system=system, messages=messages,
                                       thinking={"type": "adaptive"})
+        log.append(usage_record(resp))  # before the reply is read: an unreadable reply is billed too
         text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         messages.append({"role": "assistant", "content": resp.content})
         try:
