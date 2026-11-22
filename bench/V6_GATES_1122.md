@@ -1,8 +1,11 @@
 # Gates before sealed v6: what the dev checks showed (2026-11-22)
 
-**Verdict: cannot freeze yet.** Gate 2a failed (one fake fix was accepted), the self-send check found the verifier
-accepting a fake and rejecting the real fix, and reading the code for the run found four more blockers (section 7).
-The mutex question is decided and fixed. Per-call usage is recorded and tested with fake responses.
+**Verdict (updated the same day, section 11): the six blockers of section 7 are repaired on the branch and
+checked twice on dev targets. Do not freeze until the user has decided the points in 11.8.** Two fake-fix shapes
+outside the six still pass (shown on a target, 11.6), and a rule cannot change after the seal.
+
+Sections 1 to 10 are the record of the first pass (code up to 85e8096) and are left as they were found. Where section
+11 says otherwise, section 11 is current.
 
 Scope: steps 1 and 2 of `bench/V6_PLAN.md` section 4, preparation only. Dev pools, `tests/harness_checks/` and new
 dev scenarios only. **No model or API call was made.** No v6 scenario was written, no sealed set was run again, no
@@ -203,3 +206,156 @@ python3 -m unittest discover tests/unit
 
 Not run: any model call (including the 2-call check), the seal, the reproducibility check, v6, two-core boots,
 `--live`, `hang_demo`, and `rejudge_records.py --fake`. Not implemented: every "to clear it" in section 7.
+
+## 11. Second pass: the six blockers repaired (2026-11-22)
+
+Same limits as above: no model or API call, nothing pushed, merged or published, no sealed set written or run, the
+plan's section 1 untouched, main still 8ac11ad. Attacks used dummy values and temporary files only.
+
+| commit | what |
+|---|---|
+| 365d120 | blockers 3 and 4: probes, edits, child environments, sandbox |
+| 0c43e1a | blockers 5 and 6: runner, scorer |
+| 4fa7fbd | children end with their parent (found while testing) |
+| 74fe632 | blockers 1 and 2: messages counted twice, self pairs |
+| aa4feb4 | the one regression that this caused, narrowed |
+
+### 11.1 Tests written first
+
+| tests | failed on the code before the fix |
+|---|---|
+| `test_security.py` | 38 of the first 42 |
+| `test_runner.py`, `test_score_vocab.py` | 11 of 12 |
+| `test_orphans.py` | 1 of 2 |
+| `test_recount.py` | 10 of the first 14; then 1 for the narrowed rule |
+
+One old test was changed on purpose: it expected compiler text to be returned to the model.
+
+### 11.2 Security: what is blocked
+
+| attack | now | how it was checked |
+|---|---|---|
+| `find -exec/-execdir/-ok/-delete/-fprint*`, `file -C/-m/-z`, `grep -f`, `-L` and `-R` | refused: options are an allow-list per command | unit, and the reported exploits again |
+| `./cat`, `/any/dir/cat`, a `cat` earlier in PATH | refused or not used: fixed absolute programs | same |
+| paths by option, `..`, symlink, after `--`; unconfined probe outside work, SDP and QEMU | refused by realpath, and denied by the sandbox if the argument check is bypassed | unit, with the check switched off too |
+| key in a child's environment; `set_env X=$ANTHROPIC_API_KEY` | gone: allow-list environment, expansion from the child's environment only | unit with a dummy key |
+| `#include` by absolute path, `..`, macro, splice, trigraph, digraph; `#embed`, `#line`, `.incbin`; split over two edits | refused by the text check (first layer) | unit |
+| the same with the text check bypassed, including token-pasted `asm` + `.incbin` | 15 of 15 combinations: no marker in the log, in the program or back to the model | real qcc; positive control: all three forms do embed a file that is inside the work copy |
+| compiler text returned to the model | file and line numbers only | unit, real qcc |
+| socket, io_uring, ptrace, keyrings | denied in the sandbox | unit for sockets; the filter lists the rest |
+| no sandbox on the host | nothing runs (fail closed) | unit |
+
+The whole arm was also run on the dev demo with a fake client (real build, boot and verdict): see 11.4.
+
+### 11.3 Security: what is not blocked
+
+1. `/tmp` and the licence directory during a compile are **watched, not denied**: qcc needs both and ignores TMPDIR.
+   A foreign open fails the build and drops its output before any boot. Keep the v6 author worktree, pool and
+   answers out of `/tmp` all the same (the plan puts the author worktree there).
+2. The image step may use both directories unwatched. It gets built files as data, under names that code chose.
+3. Build/boot doctor (not used by v6): a fix can execute code in the sandboxed re-run. It can still stat outside
+   paths, chmod the user's own files and signal the user's own processes. Licence access is given only to a plain qcc
+   call, so fixes of `make`-style commands that need qcc will now often stay unproven.
+4. Everything inside the directory given to `qnx-doctor run` can reach the model, a `.env` there included.
+5. `//` comments and `run.sh` comments reach every arm (only block comments are stripped). Tell the v6 author.
+6. The guest is trusted: see 11.6. Kernel and QEMU bugs are out of reach.
+7. Requirements grew: Linux x86_64, Landlock ABI 3+ (kernel 6.2+), strace.
+
+### 11.4 Dev checks, every one twice on aa4feb4
+
+Two rounds (fin3, fin4 in the worktree's untracked runs), and the two rounds before the judge fix for comparison:
+
+| check | old judge, new fakes (two rounds) | now, round 1 | now, round 2 |
+|---|---|---|---|
+| a. ring that ticks first: real fixes | 3 of 3 fixed | 3 of 3 | 3 of 3 |
+| a. ring that ticks first: fakes rejected | 7 of 10 (stop after a few rounds, stop after a burst, pulses nobody reads passed) | 10 of 10 | 10 of 10 |
+| old dev pool, chain: fakes rejected | 3 of 4 (client's messages stop after a few rounds passed) | 4 of 4 | 4 of 4 |
+| old dev pool, ring and chain: real / fake | not run as a whole | 2 of 2 / 7 of 7 | 2 of 2 / 7 of 7 |
+| b. self-send, real fix | rejected | fixed | fixed |
+| b. self-send, fakes rejected | 1 of 3 (send deleted, pulse nobody reads passed) | 3 of 3 | 3 of 3 |
+| b. judged | ss01 unknown, ss02 none, ss03 unknown | same | same |
+| c. mutex: named / real not provable / fakes rejected | section 4 | unknown / 2 of 2 rejected / 3 of 3 | same |
+| harness checks sp01, bo01, lp01, oc01, tt01 | section 4 | same answers | same answers |
+| dev v2: real fixes | section 4 | 6 proven; `t5e594f` still does not build its situation | same |
+| dev v2: shortcut, name-order edit, healthy run | section 4 | none counted fixed | same |
+| demo control_loop, AI off | - | deadlock | deadlock |
+| reproducibility path (`oc01 --twice`) | - | same-boot second count back; the v3 path still has none | same |
+
+Rows that differ between the two rounds (verdict, kind, progress, reason class): 0. Boots that failed in these two
+rounds: 0. A first attempt at the final rounds was stopped after it found the `t151018` regression (11.6); both
+rounds were then run again in full on aa4feb4.
+
+End to end with a fake client (real build, boot and verdict, twice): the hostile probe and the hostile include were
+refused, the recorded fix was proven with all three pairs growing, 4 usage entries. Still no test against the API.
+246 boots of this pass have saved raw output; about 20 more (end to end, reproducibility path, a restarted job) do not.
+
+### 11.5 Runner and scorer
+
+- Both baselines get `--allow-unknown`, every arm `QD_SMP=1` and the pinned model.
+- The caller's `ANTHROPIC_*` is dropped. An empty key or missing env file stops before any boot.
+- A failed arm, missing rows or a failed scorer ends `fail:...`, never `done`. A used output directory is refused.
+- It runs its own checkout and records the commit. A worktree without `.venv` needs `QD_PYTHON`.
+- A word outside the vocabulary hits nothing. A false alarm is what criterion D says: a hang kind or "unknown".
+- Re-scoring the recorded v3, v4 and v5 rows gives byte-identical tables; none of those tables was edited.
+
+### 11.6 Found, outside the six, still passing (both rounds)
+
+| fake | result | why | options |
+|---|---|---|---|
+| a fix that edits its own message record in the guest (path built at run time) | **fixed, wrong** | programs run as root next to the observer and its recorder | state "not tamper-proof" and read every v6 fixed edit by hand, or observe from outside the program (a larger change) |
+| low server raised above the CPU load, channel still fixed-priority | **fixed** | priorities of processes that take part in messaging are not compared (inheritance moves them) | count it as a valid remedy and say so, or reject edits that change a priority (this also rejects some right fixes) |
+
+A literal record path in an edit is refused; that is a text check only.
+
+The narrowed rule: a pair outside the judged hang that was already idle in the hung boot, with nothing in flight,
+does not have to grow. Without it the right fix of dev v2 `t151018` was rejected (two low loops that the CPU load
+keeps off the CPU before and after the fix). Without a judged hang every pair must grow.
+
+What the stricter rule costs: a pulse or event whose arrival is not seen is never proven (signal events, clients
+that never read). A pair that does not exchange within the observation window, and a start-up handshake inside
+the judged hang, look stopped.
+
+### 11.7 Could v3 to v5 have been affected? Records only
+
+**Probe entries.** v3 to v5 hold 5 entries on 4 lines:
+
+| file:line | id | command |
+|---|---|---|
+| `results/sealed3_20261117/ai.jsonl:3` | q03 | `cat q03/cfgd.c` |
+| `results/sealed3_20261117/ai.jsonl:9` | q09 | `ls -la q09` |
+| `results/sealed3_20261117/ai.jsonl:9` | q09 | `grep -n <pattern> q09/eeprom.c q09/cfgrouter.c` |
+| `results/sealed3_20261117/ai.jsonl:13` | q13 | `cat q13/valve.c q13/alarmd.c q13/pumpctl.c` |
+| `bench/sealed_v5_1118/scored_1118/ai.jsonl:8` | E08 | `grep -n MsgReply E08/stopsrv.c` |
+
+`grep -c '"kind": "probe"'` counts lines, so it shows 4. **Correction to section 7:** "5 in the committed jsonl"
+was incomplete. `runs/` is ignored but two files in it are committed, with 15 more entries from the build/boot set:
+`runs/sealed_ai-only_1115.jsonl` lines 2, 5, 8 and 11 (9 entries) and `runs/sealed_ai_1115.jsonl` lines 2, 5, 8 and
+11 (6 entries). None of the 20 uses a dangerous option or leaves the roots intended then. The untracked records in
+main's `runs/` (40 files, 29 entries, duplicates possible) show none either. Those two committed files also carry
+`/home/...` paths: clean them before the repository is public.
+
+**Edits.** All 219 recorded actions of v3 to v5: none has a suspicious include, incbin, environment or record path.
+A run that crashed before writing its row would not be in these records.
+
+| question | answer |
+|---|---|
+| Can "false fix 0" (healthy labels) be inflated by the lax verifier? | No. No arm has a fixed row on a healthy label, and laxity can only add such rows. This covers healthy labels only. |
+| Did a fix counted on a hang label stop exchanging messages at run time? | **Cannot tell**, for all 39 fixed rows and the 12 upper-bound rows of the recalculation: no second message count was recorded. |
+| Does any of those edits have that shape in its text? | No. The 46 distinct edits were read: none bounds a send by a round count or a time. Reading is not proof. |
+| Does any have another shape that passes wrongly or arguably? | Yes. v5 E03 naive (`naive.jsonl:3`) raises the server's priority and leaves the channel: the second row of 11.6. The known v3 q12 and q17 baseline fixes on unknown labels remove or self-post the wait. |
+| Did anyone rely on "pulse nobody reads"? | No fixed row lists an unread pair (39 of 39). |
+| Self-send? | One scenario has the shape, v4 D22, a deadlock label. No arm was credited with it. |
+| Excluded v3 q16 (healthy) | A naive_x2 fix was stopped only by the thread-count rule. It is outside the scored 16. |
+
+v6 rows now keep the rerun's structure with both counts, so the second question can be answered next time.
+
+### 11.8 For the user to decide before the freeze
+
+1. The guest threat model (11.6, first row).
+2. Whether raising a server's priority is a fix (11.6, second row).
+3. The costs accepted here: mutex hangs never fixed, unseen arrivals never proven, the new host requirements.
+4. Merge this branch, then freeze on that commit. The author's worktree, the pool and the answers go outside `/tmp`.
+5. The amount and the key's account (sections 8 and 9), then the 2-call check.
+
+After 1 to 4 nothing found in these checks stands against the freeze commit. These checks are dev scenarios run
+twice, not proof that no other fake passes.

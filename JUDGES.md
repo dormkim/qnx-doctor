@@ -8,6 +8,18 @@ checked from files in this repository; the full test loop needs QNX SDP 8.0 and 
 qnx-doctor says when it cannot know why a QNX program stopped, and it does not claim a fix that a rerun on the target
 did not prove.
 
+What "prove" means, and where it was weaker than it read (found on 2026-11-22, `bench/V6_GATES_1122.md`):
+
+- The rerun shows the stopped loop ticking and the same process pairs still exchanging messages. It is not a proof
+  that the program is correct, and a fix written to forge the observer inside the guest could pass.
+- Until 2026-11-22 messages were counted once. Fake fixes that exchanged a few messages and then only ticked passed
+  on dev targets. The "fixed" numbers of v3, v4 and v5 were recorded under that rule. The records cannot show whether
+  any of those fixes stopped exchanging later in its run.
+- "False fix 0" counts fixes on healthy programs. No arm has a fixed row on a healthy label in those records, and a
+  verifier that was too lax cannot have hidden one. It does not say that every fix on a hung program was genuine.
+- Until 2026-11-22 the AI's look-around commands could run other programs and a proposed edit could read other files.
+  Nothing of that kind is in the recorded look-around commands or edits of v3, v4 and v5.
+
 It does **not** claim to fix more hangs than a careful baseline. On the one test set we did not write, it fixed as
 many as a baseline given the same retry (3 of 8), raised one false alarm, and missed one deadlock the baselines found.
 

@@ -17,7 +17,7 @@ alarm on a healthy program, and it missed one deadlock that the baselines found.
 
 ![qnx-doctor flow: observe in code, the AI proposes a fix as data, code re-runs and gives the verdict](docs/diagrams/flow.svg)
 
-Code observes the problem: it builds the wait-for graph from `pidin`, or checks a failing host command against a rule table. The AI (Claude) only looks around with read-only commands and the SDP docs, then proposes a fix as data. Code applies that fix to a copy and re-runs, and the verdict comes from the re-run alone.
+Code observes the problem: it builds the wait-for graph from `pidin`, or checks a failing host command against a rule table. The AI (Claude) only looks around with allow-listed, sandboxed read-only commands and the SDP docs, then proposes a fix as data. Code applies that fix to a copy and re-runs, and the verdict comes from the re-run alone.
 
 Diagram source: `docs/diagrams/flow.d2` (rendered with `d2 --layout elk`). Recorded example timelines: `docs/demo_hang_timeline.html`, `docs/demo_timeline_I04.html`.
 
@@ -44,10 +44,37 @@ links and what we did not find: [docs/why_this_matters.md](docs/why_this_matters
 
 Two doctors share one engine:
 
-- **Blocked-chain doctor** (`hang`): a QNX program stops making progress. qnx-doctor boots the image in QEMU, takes a `pidin` snapshot on the target, and builds the wait-for graph in code. SEND/REPLY edges point at the peer process. From that graph it finds cycles (deadlock), the processes waiting behind them, and priority chains: a high-priority client waits on a READY low-priority server while a middle-priority thread is runnable (RUNNING or READY). The AI then reads the graph, the source and the QNX docs that ship with the SDP. It returns `edit_file` actions. Code applies them to a copy, rebuilds with `qcc` and runs the image again. The hang counts as fixed only if the re-run shows no cycle or chain, a loop that had stopped prints TICK lines again, no loop that was running stops, and **the program keeps the same message structure**: the fix edits only the program's C sources (not `run.sh`, not the harness), the same processes run (matched by command line, not pid), every pair of processes that tried to send before still completes sends and the receiver still gets them (a pulse instead of a synchronous send is fine; no send is not), no thread is removed, and a process that takes no part in messaging (a CPU load) keeps its priorities and its load. Message pairs come from `common/qd_trace.c`, which the harness links into every scenario program with `-Wl,--wrap` for each `MsgSend*`, `MsgSendPulse*` and `MsgReceive*` call, so a fix cannot opt out. A "fix" that rewires `run.sh`, makes one peer stop sending, removes the load's threads or lowers its priority comes back alive but is rejected as a shortcut.
-- **Build/boot doctor** (`run`, `diagnose`, `bench`): a host command fails (SDP not sourced, wrong target, broken `mkqnximage` call, and so on). A rule table runs first. Then the AI looks around with read-only commands and searches the docs. It returns a fix as data, and the command is re-run.
+- **Blocked-chain doctor** (`hang`): a QNX program stops making progress. qnx-doctor boots the image in QEMU, takes a `pidin` snapshot on the target, and builds the wait-for graph in code. SEND/REPLY edges point at the peer process. From that graph it finds cycles (deadlock), the processes waiting behind them, and priority chains: a high-priority client waits on a READY low-priority server while a middle-priority thread is runnable (RUNNING or READY). The AI then reads the graph, the source and the QNX docs that ship with the SDP. It returns `edit_file` actions. Code applies them to a copy, rebuilds with `qcc` and runs the image again. The hang counts as fixed only if the re-run shows no cycle or chain, a loop that had stopped prints TICK lines again, no loop that was running stops, and **the program keeps the same message structure**: the fix edits only the program's C sources (not `run.sh`, not the harness), the same processes run (matched by command line, not pid), every pair of processes that tried to send before (a process sending to itself included) still completes sends and the receiver is seen getting them, both still growing between two readings in the rerun (a pulse instead of a synchronous send is fine; no send, a send that stops after a few rounds, or a pulse nobody reads is not), no thread is removed, and a process that takes no part in messaging (a CPU load) keeps its priorities and its load. Message pairs come from `common/qd_trace.c`, which the harness links into every scenario program with `-Wl,--wrap` for each `MsgSend*`, `MsgSendPulse*` and `MsgReceive*` call, so the source does not have to cooperate. The recorder runs in the guest next to the program it records, so it is not tamper-proof (see [Limits](#limits-of-the-check-and-of-the-boundary)). A "fix" that rewires `run.sh`, makes one peer stop sending, removes the load's threads or lowers its priority comes back alive but is rejected as a shortcut.
+- **Build/boot doctor** (`run`, `diagnose`, `bench`): a host command fails (SDP not sourced, wrong target, broken `mkqnximage` call, and so on). A rule table runs first. Then the AI looks around with read-only commands and searches the docs. It returns a fix as data, and the command is re-run on a copy, inside the sandbox described below.
 
-The AI never runs a command that changes the system. Fixes are limited to an allow-list of data actions (see `qnx_doctor/actions.py`). In hang mode only `edit_file` is allowed, and the AI may only read paths inside the working copy.
+What the AI can make the host do (corrected 2026-11-22; until then this README said "the AI never runs a command that
+changes the system", which was not true: a probe such as `find . -exec` ran any command, and an `#include` in a
+proposed edit could read other files):
+
+- It can ask for a look-around command from a fixed list. Code picks the program by absolute path, checks every option
+  against a list per command and every path by its real location (hang mode: the working copy; build/boot doctor: also
+  the SDP and QEMU), and runs it in a sandbox.
+- It can propose data actions (see `qnx_doctor/actions.py`). In hang mode only `edit_file`, on the program's existing
+  C sources. A text check rejects includes from outside, but the barrier is the sandbox around the compiler, the image
+  step and QEMU (`qnx_doctor/sandbox.py`: Landlock, seccomp, an environment without secrets). A failed build gives the
+  AI file and line numbers only, never the compiler's words.
+- In the build/boot doctor a proposed fix changes the command that is re-run, so it can execute code of its own. That
+  re-run is sandboxed too; see the limits below.
+
+### Limits of the check and of the boundary
+
+- The rerun proves what was observed in that boot: loops ticking, and the same pairs still exchanging messages. It
+  does not prove that the program is correct.
+- Programs in the guest run as root next to the observer, so a fix written to forge the observer's records or output
+  could pass.
+- A priority change in a process that takes part in messaging is not compared, so raising a starved server's priority
+  instead of fixing its channel can pass.
+- A hang with a thread waiting on a mutex is never reported fixed: lock use is not recorded.
+- qcc needs its licence directory and `/tmp`. There the compiler's children are watched (strace), not blocked: a build
+  that opens something else there fails and its output is dropped.
+- The sandbox does not block stat() of other paths, chmod of the user's own files or signals to the user's own
+  processes. That matters for the build/boot doctor's re-runs. Anything inside the directory given to `qnx-doctor run`
+  can be shown to the model: do not start it in a directory that holds secrets.
 
 ## Requirements
 
@@ -56,8 +83,8 @@ The AI never runs a command that changes the system. Fixes are limited to an all
 | QNX version | QNX SDP 8.0 (`qnx800`), installed on a Linux host |
 | Target | x86_64 QNX 8.0 guest in QEMU, built with `mkqnximage --type=qemu --arch=x86_64` (no hardware needed) |
 | Toolchain | `qcc -Vgcc_ntox86_64` from the SDP; `mkqnximage` from the SDP |
-| Host | Linux x86_64 (tested on Ubuntu 24.04); Python 3.10+; `qemu-system-x86_64` (KVM is used when `/dev/kvm` is writable) |
-| AI | `pip install anthropic`, plus `ANTHROPIC_API_KEY` in the environment. Model: `QD_MODEL`, default `claude-opus-5-5`. Not needed with `--no-ai` |
+| Host | Linux x86_64 with Landlock ABI 3 or later (kernel 6.2+) and `/usr/bin/strace`; without them builds, boots and probes refuse to run (`--pidin` and the unit tests still work). Tested on Ubuntu 24.04. Python 3.10+, also as `/usr/bin/python3`; `qemu-system-x86_64` (KVM is used when `/dev/kvm` is writable) |
+| AI | `pip install anthropic`, plus `ANTHROPIC_API_KEY` in the environment (no child process gets it). Model: `QD_MODEL`, default `claude-opus-5-5`. Not needed with `--no-ai` |
 
 Environment: `QNX_SDP` (default `~/personal/qnx/qnx800`) and `QD_QEMU_ROOT` (a QEMU install root; default `~/personal/qemu_local/root`).
 
@@ -85,7 +112,8 @@ python3 -m qnx_doctor.cli run -- make -C myproject
 **Attach to a running target** (`--live`, design and limits in [docs/live_attach_1116.md](docs/live_attach_1116.md)): no
 `run.sh`, TICK logs, `--wrap` recorder or observer program. It names the cycle, chain or missing reply and each
 process's command line, and points at message-passing calls in your sources. It does not fix or rerun; that needs
-the test loop below. Tried once so far, on our demo program built with plain `qcc` and started by the image at boot
+the test loop below. It reads only threads whose Blocked column is a pid or empty, so a server with a worker waiting
+on a mutex can be named a missing reply here (the test loop reads every thread). Tried once so far, on our demo program built with plain `qcc` and started by the image at boot
 (`bench/live_demo.sh`); the ssh path is not tested yet.
 
 A hang scenario (the test loop) is a directory with `*.c` sources and a `run.sh` that starts the processes. On the target, `check.sh` first starts the observer `snap` (so it is already loaded), then runs `run.sh`. When `run.sh` returns, it wakes `snap` with the shell builtin `kill`. At priority 63, `snap` counts the TICK lines in each `/tmp/d0<role>.log` and prints a `pidin` snapshot. The observer must be loaded before the scenario starts: `/var` and `/tmp` are on the disk image, and in our scenarios the CPU load runs above the disk driver's priority, so an observer loaded later could only look after the hang had cleared. A sibling `common/` directory holds `qd.h`, `snap.c`, `hi.c` and `check.sh`. See `scenarios/hang_demo/`.
@@ -95,6 +123,11 @@ Harness rules for steady verdicts (2026-11-17): `check.sh` runs under `hi` at pr
 ## What we measured, and what got worse
 
 ### Sealed set v3 (2026-11-17): the first set we did not write
+
+Note of 2026-11-22: the "fixed" counts below and in v4 and v5 come from a verifier that read the message records
+once. On dev targets that verifier also accepted fixes whose messages stopped after a few rounds
+([what was found and repaired](bench/V6_GATES_1122.md)). The records cannot show whether a recorded fix had that
+shape at run time, so read those counts as "passed the verifier of that day".
 
 How the set was made, before any number:
 - An agent that had not read qnx-doctor's source, prompts, verifier or past results wrote 21 QNX 8.0 scenarios and
@@ -156,7 +189,7 @@ tests, never on v3:
 - the recorder re-arms the program's `TimerTimeout` right before the real call (q10, q16);
 - the observer counts TICKs twice in the same boot, and the reproducibility check uses those two counts instead of a
   second observer that hung under a CPU load above the disk driver (the 4 excluded chain scenarios); `/tmp` is in RAM;
-- the judge checks progress: a waiter whose loop keeps ticking is not hung, and «healthy» needs the count to grow
+- the judge checks progress: a waiter whose loop keeps ticking is not hung, and "healthy" needs the count to grow
   (q19 false alarm, q11 called healthy);
 - the tool says `unknown` itself (spinning on the CPU, blocked outside message passing, or not enough information)
   and still calls no AI and claims no fix in that case.
@@ -210,7 +243,8 @@ Unit tests (no SDP needed): `python3 -m unittest discover tests/unit`.
 ```
 qnx_doctor/  waitgraph.py (pidin → graph → verdict, pure)  structure.py (same message structure, pure)  hang.py / hangdoctor.py (target loop)
              live.py (running target, no harness: pidin over a transport → graph)
-             ai.py (look-around loop)  actions.py (fix allow-list)  docs.py (SDP docs index)  report.py (timeline)
+             ai.py (look-around loop)  probes.py (look-around allow-list)  actions.py (fix allow-list)
+             sandbox.py (kernel boundary)  source_check.py (text check of edits)  docs.py (SDP docs index)  report.py (timeline)
              doctor.py / rules.py / runner.py (build/boot doctor)  cli.py
 bin/         qd-target-exec (boot image in QEMU, run one command, return its status)  qd-boot
 tests/       unit/  sealed_hang/  gen_hang/  sealed/ (build/boot set)
