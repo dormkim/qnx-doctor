@@ -27,8 +27,8 @@ In the recorded run `bkr__1`, which answers the same query from a second thread,
 
 What we measured, once, on 55 patches written by a fresh agent that saw only the 14 programs, the test harness and a
 brief, and labelled by two readers
-(53 agree): **the gate rejected 4 of 17 genuine fixes**, three because a request moved to another thread and one
-that throttled a CPU load. **It accepted 5 of 30 bad patches where a "does it run again" check accepted 19**, and
+(53 agree): **the gate rejected 4 of 17 genuine fixes**, three because the exchange they restore happens only once in
+the program's run while the rule asks for repeated exchanges, and one that throttled a CPU load. **It accepted 5 of 30 bad patches where a "does it run again" check accepted 19**, and
 **none of the 5 forgeries**. It cannot see what a reply means: an error returned as a reply, an early acknowledgement,
 an ignored pulse or a timeout that keeps a loop ticking can pass. Details:
 [bench/sealed_v7_1123/RESULT.md](bench/sealed_v7_1123/RESULT.md).
@@ -93,8 +93,11 @@ proposed edit could read other files):
   acknowledges before it commits, collectors whose pulses the receiver passes over, and timeouts that keep a ring
   ticking while most frames are lost. The `review` rule catches only a used reply that disappears or a request turned
   into a pulse that the receiver explicitly drops.
-- It is strict about who talks to whom: moving a request to another thread of the same process can read as a pair that
-  stopped exchanging messages (3 genuine v7 fixes rejected), and idling a CPU load is never a fix (1 rejected).
+- It asks every pair to keep exchanging messages. When the program makes an exchange only once (a commit
+  confirmation, a one-time refresh), no fix of that program can be accepted: 3 genuine v7 fixes were rejected for
+  this, and so was every other patch for those two programs. Idling a CPU load is never a fix (1 rejected).
+  Corrected 2026-11-23: this line used to blame moving a request to another thread; the sources and the recorded
+  reasons show the one-off exchange is the cause.
 - The rerun proves what was observed in that boot: loops ticking, and the same pairs still exchanging messages. It
   does not prove that the program is correct.
 - A pulse that the receiver takes and ignores counts as a message exchange. On v6 every arm made one fix that answers
