@@ -39,12 +39,14 @@ def programs(threads, name: str) -> dict[int, str]:
 
 
 def role_pids(threads, name: str, roles) -> dict[str, set[int]]:
-    """{role: pids of the program with the same name}. d0<role> → <role>."""
+    """{role: pids of the program with the same name}. d0<role> → <role>. A role may also carry the scenario id in
+    front of the program name (d0<id><prog>, as the v6 author wrote them; 2026-11-23, v7 plan section 2, after v6
+    su9: the role never matched its program, so a loop that kept ticking still counted as a hung waiter)."""
     progs = programs(threads, name)
     out = {}
     for r in roles:
         key = r[2:] if r.startswith("d0") else r
-        out[r] = {p for p, n in progs.items() if n == key}
+        out[r] = {p for p, n in progs.items() if n == key or key == f"{name}{n}"}
     return out
 
 
@@ -86,18 +88,47 @@ def _waits(suspects, snaps, progs) -> str:
     return text
 
 
+def _loads(threads, later, name, mv) -> set[str]:
+    """Roles that are CPU loads, not stopped loops: the log stopped growing, every process of the role is on the CPU
+    (RUNNING/READY) in every snapshot and none of its threads is ever in a message state, while another role's loop
+    grew. A single program that ticks and then spins (nothing else grows) is not a load: it stays «spinning»."""
+    if not mv or not any(s == GREW for s in mv.values()):
+        return set()
+    snaps = [threads, *later]
+    rp = role_pids(threads, name, mv)
+    out = set()
+    for r, s in mv.items():
+        pids = rp.get(r) or set()
+        if s != FLAT or not pids:
+            continue
+        busy = set(_spinning(pids, snaps)) == pids
+        quiet = not any(t.pid in pids and t.state in MESSAGE_STATES for th in snaps for t in th)
+        if busy and quiet:
+            out.add(r)
+    return out
+
+
 def classify(kind: str, threads, later, name: str, ticks: dict, mv: dict | None) -> dict:
     """-> {state, why, roles}. state: hang (the wait graph named one) | healthy | spinning | blocked_other | no_info.
     Without a second count (mv None) the old rule stays: healthy = no finding and TICK total > 0."""
+    loads = _loads(threads, later, name, mv)
+    if mv is not None:
+        stalled = [r for r, s in mv.items() if s in (FLAT, GONE) and r not in loads]
+        if any(s == GREW for s in mv.values()) and not stalled:
+            # Progress first (2026-11-23, v7 plan section 2, after v6 su9, euf, qsa): when every loop that ticked
+            # kept ticking, no wait in a snapshot makes the program hung, and a CPU load outside messaging that
+            # printed a TICK once is not a stopped loop.
+            why = "every loop that ticked kept ticking"
+            if kind != "none":
+                why += f" (the snapshots alone looked like {kind.replace('_', ' ')})"
+            if loads:
+                why += "; " + ", ".join(sorted(loads)) + " busy on the CPU outside message passing (a load)"
+            return {"state": "healthy", "why": why, "roles": mv}
     if kind != "none":
         return {"state": "hang", "why": "", "roles": mv}
     if mv is None:
         if sum(ticks.values()) > 0:
             return {"state": "healthy", "why": "no second TICK count; some loop ticked", "roles": None}
-    else:
-        stalled = [r for r, s in mv.items() if s in (FLAT, GONE)]
-        if any(s == GREW for s in mv.values()) and not stalled:
-            return {"state": "healthy", "why": "every loop that ticked kept ticking", "roles": mv}
     progs = programs(threads, name)
     rp = role_pids(threads, name, mv or ticks)
     grown = {p for r, s in (mv or {}).items() if s == GREW for p in rp.get(r, ())}

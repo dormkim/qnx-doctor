@@ -81,9 +81,21 @@ def main():
     h.add_argument("--live", metavar="TRANSPORT", help='command that runs one shell line on the target, e.g. "ssh root@10.0.2.15"')
     h.add_argument("--src", help="with --live: source tree to point at the message-passing calls of the processes involved")
     h.add_argument("--no-ai", action="store_true"); h.add_argument("--out")
+    v = sub.add_parser("verify", help="judge a hang fix written by anyone: accept, reject or review (no model)")
+    v.add_argument("scenario"); v.add_argument("patch", help="unified diff against the scenario, or JSON edit_file actions")
+    v.add_argument("--out", help="append the row as JSON")
     a = ap.parse_args()
     if a.cmd == "hang":
         return _hang(a)
+    if a.cmd == "verify":
+        from .verify import verify
+        row = verify(a.scenario, a.patch)
+        print(f"{row['verdict'].upper()}: " + ("; ".join(row["why"]) or "the stopped loop runs again with the same message structure"))
+        print(json.dumps({k: row.get(k) for k in ("id", "patch", "verdict", "liveness_only", "structure_rule")}), flush=True)
+        if a.out:
+            with open(a.out, "a") as f:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        return {"accept": 0, "review": 3}.get(row["verdict"], 1)
     sdp = base_env()["QNX_SDP"]
     if a.cmd == "index":
         from .docs import build
