@@ -1,0 +1,997 @@
+{
+ "bkr": {
+  "row": "r11a",
+  "row_text": "deadlock: three or more clients/servers closing a cycle through a relay",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0bkrhmi.log",
+   "/tmp/d0bkrgw.log",
+   "/tmp/d0bkrdb.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 3,
+   "threads": 1,
+   "shape": "cycle through relay",
+   "trap": "hmi has a receive window, but only between its own requests"
+  },
+  "expect": {
+   "bkrhmi": "stops",
+   "bkrgw": "stops",
+   "bkrdb": "stops"
+  },
+  "states": {
+   "bkrhmi": "REPLY (request held by gw)",
+   "bkrgw": "REPLY (request forwarded to dbd)",
+   "bkrdb": "SEND (owner query to hmi, which is REPLY-blocked)"
+  },
+  "culprit": "dbd.c: on a cache miss (key >= 5) it MsgSends to hmi while serving hmi's own request relayed by gw: hmi -> gw -> dbd -> hmi",
+  "fix": "answer the miss without calling back into the requester (reply with 'unknown' / look the owner up elsewhere), or let hmi serve owner queries in a separate thread",
+  "loads": []
+ },
+ "c3n": {
+  "row": "r04b",
+  "row_text": "priority_chain: low thread holds a mutex without priority inheritance while a middle thread runs",
+  "kind": "priority_chain",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0c3nisr.log",
+   "/tmp/d0c3ndma.log"
+  ],
+  "axes": {
+   "mechanism": "mutex+condvar+busy wait",
+   "processes": 1,
+   "threads": 4,
+   "trap": "middle thread is a spin-wait, not a declared load; stats has no log"
+  },
+  "expect": {
+   "c3nisr": "stops",
+   "c3ndma": "stops",
+   "c3nst": "any",
+   "c3n.main": "any"
+  },
+  "states": {
+   "c3nisr": "MUTEX (prio 28, waits for frame_mx)",
+   "c3ndma": "READY (prio 6, holds frame_mx)",
+   "c3nst": "READY (prio 12, busy-waits on dma_done)",
+   "c3n.main": "JOIN"
+  },
+  "culprit": "camsvc.c: frame_mx is PTHREAD_PRIO_NONE; dma (6) wakes stats (12) while holding frame_mx, stats spins on dma_done which only dma can set",
+  "fix": "make frame_mx PRIO_INHERIT and replace the busy-wait in stats() with a condvar wait signalled by dma after unlocking",
+  "loads": [
+   "c3nst"
+  ]
+ },
+ "cnu": {
+  "row": "r01a",
+  "row_text": "deadlock: ring of synchronous sends, every member TICKs before its first send",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0cnuacq.log",
+   "/tmp/d0cnuscl.log",
+   "/tmp/d0cnuenc.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 3,
+   "threads": 1,
+   "shape": "ring3",
+   "trap": "each stage TICKs 3 warm-up rounds before the first send; comment claims downstream acks immediately"
+  },
+  "expect": {
+   "cnuacq": "stops",
+   "cnuscl": "stops",
+   "cnuenc": "stops"
+  },
+  "states": {
+   "cnuacq": "SEND (MsgSend to the next stage; that stage is itself SEND-blocked and never receives)",
+   "cnuscl": "SEND (MsgSend to the next stage; that stage is itself SEND-blocked and never receives)",
+   "cnuenc": "SEND (MsgSend to the next stage; that stage is itself SEND-blocked and never receives)"
+  },
+  "culprit": "stage.c main loop: every stage calls qd_send(down) before qd_receive(chid); 3-stage ring acq->scl->enc->acq",
+  "fix": "break the ring: receive in a separate thread (or let one stage receive first), or forward with a pulse / MsgDeliverEvent instead of a blocking MsgSend",
+  "loads": []
+ },
+ "cv4": {
+  "row": "r10a",
+  "row_text": "deadlock: server pool exhaustion (every pool thread in a synchronous send back to a client waiting for the pool)",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0cv4wa.log",
+   "/tmp/d0cv4wb.log",
+   "/tmp/d0cv4r1.log",
+   "/tmp/d0cv4r2.log",
+   "/tmp/d0cv4ev.log"
+  ],
+  "axes": {
+   "mechanism": "message, thread pool",
+   "processes": 2,
+   "threads": "3+4",
+   "trap": "works for 8 rounds; both requests refresh together after a barrier"
+  },
+  "expect": {
+   "cv4wa": "stops",
+   "cv4wb": "stops",
+   "cv4r1": "stops",
+   "cv4r2": "stops",
+   "cv4ev": "stops",
+   "cv4cat.main": "any",
+   "cv4ui.main": "any"
+  },
+  "states": {
+   "cv4wa": "SEND (visibility query to the ui channel; the ui's only receiver is itself sending)",
+   "cv4wb": "SEND (same)",
+   "cv4r1": "REPLY (REFRESH held by a pool thread)",
+   "cv4r2": "REPLY (same)",
+   "cv4ev": "SEND (HEADER request to catalogd; no pool thread is receiving)",
+   "cv4cat.main": "JOIN",
+   "cv4ui.main": "JOIN"
+  },
+  "culprit": "catalogd.c worker(): on REFRESH each pool thread sends synchronously back to the ui, whose only receiving thread (ui.c events()) sends HEADER to the same exhausted pool",
+  "fix": "do not call back into the client from a pool thread (reply first and notify with MsgDeliverEvent/pulse), or have events() never block on catalogd (async header fetch), or size the pool above the number of concurrent refreshes plus one",
+  "loads": []
+ },
+ "e8s": {
+  "row": "r09a",
+  "row_text": "unknown: single process ticks a few times, then spins on the CPU",
+  "kind": "unknown",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0e8sprs.log"
+  ],
+  "axes": {
+   "mechanism": "cpu spin",
+   "processes": 1,
+   "threads": 1,
+   "trap": "no blocking state at all"
+  },
+  "expect": {
+   "e8sprs": "stops"
+  },
+  "states": {
+   "e8sprs": "READY (spins in the TLV loop; preempted only by the observer's pidin on the one core)"
+  },
+  "culprit": "parser.c main loop: a zero-length field hits 'continue' without advancing off (frame 6)",
+  "fix": "advance off by 2 on an empty field before continuing",
+  "loads": [
+   "e8sprs"
+  ]
+ },
+ "epe": {
+  "row": "r11b",
+  "row_text": "deadlock: three or more clients/servers closing a cycle through a relay",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0epeui.log",
+   "/tmp/d0epebrk.log",
+   "/tmp/d0epeauth.log",
+   "/tmp/d0epekeys.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 4,
+   "threads": 1,
+   "shape": "cycle broker->auth->keys->broker + client",
+   "trap": "broker comment calls single-threading deliberate"
+  },
+  "expect": {
+   "epeui": "stops",
+   "epebrk": "stops",
+   "epeauth": "stops",
+   "epekeys": "stops"
+  },
+  "states": {
+   "epeui": "REPLY",
+   "epebrk": "REPLY (forwarded to auth)",
+   "epeauth": "REPLY (signature requested from keys)",
+   "epekeys": "SEND (route registration to the broker, which is REPLY-blocked)"
+  },
+  "culprit": "keys.c: after the 6th signature it MsgSends a route registration to the single-threaded broker while the broker waits on auth -> keys",
+  "fix": "register routes asynchronously (pulse) or after replying, or give the broker a separate thread for registrations",
+  "loads": []
+ },
+ "euf": {
+  "row": "r08a",
+  "row_text": "healthy: client/server exchange next to a non-messaging CPU load (one above, one below the server)",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0eufgps.log",
+   "/tmp/d0eufnav.log"
+  ],
+  "axes": {
+   "mechanism": "message+cpu load",
+   "processes": 3,
+   "threads": 1,
+   "load_vs_server": "above",
+   "trap": "load priority above the server's base priority"
+  },
+  "expect": {
+   "eufgps": "ticks",
+   "eufnav": "ticks",
+   "eufmap": "any"
+  },
+  "states": {
+   "eufgps": "NANOSLEEP (150 ms per request, running at nav's inherited priority 25)",
+   "eufnav": "REPLY",
+   "eufmap": "READY (CPU load at 15; preempted only by the observer)"
+  },
+  "culprit": "none (gpsd base priority 8 < mapgen 15, but it receives at nav's priority 25 through priority inheritance)",
+  "fix": "none needed",
+  "loads": [
+   "eufmap"
+  ]
+ },
+ "exw": {
+  "row": "r13c",
+  "row_text": "healthy: looks stuck in one snapshot but keeps ticking",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0exwbat.log",
+   "/tmp/d0exwfl.log",
+   "/tmp/d0exwlog.log"
+  ],
+  "axes": {
+   "mechanism": "message+condvar timer",
+   "processes": 2,
+   "threads": "2+1",
+   "trap": "receiver never replies itself; reply comes from the flush thread"
+  },
+  "expect": {
+   "exwbat": "ticks",
+   "exwfl": "ticks",
+   "exwlog": "ticks"
+  },
+  "states": {
+   "exwbat": "RECEIVE (main thread)",
+   "exwfl": "CONDVAR (250 ms timed wait, then replies to the batch)",
+   "exwlog": "REPLY"
+  },
+  "culprit": "none (timer-driven batch replies from another thread)",
+  "fix": "none needed",
+  "loads": []
+ },
+ "f82": {
+  "row": "r14c",
+  "row_text": "priority_chain: high client waits on a qd_fixed_chan server kept off the CPU by a middle load",
+  "kind": "priority_chain",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0f82eep.log",
+   "/tmp/d0f82bus.log",
+   "/tmp/d0f82plt.log"
+  ],
+  "axes": {
+   "mechanism": "message, relay + fixed-priority channel",
+   "processes": 4,
+   "threads": 1,
+   "trap": "relay in the middle runs fine (prio 14 > load)"
+  },
+  "expect": {
+   "f82eep": "stops",
+   "f82bus": "stops",
+   "f82plt": "stops",
+   "f82scr": "any"
+  },
+  "states": {
+   "f82eep": "READY (prio 4, fixed-priority channel)",
+   "f82bus": "REPLY (forwarded to eeprom)",
+   "f82plt": "REPLY (prio 35)",
+   "f82scr": "READY (CPU load at 12)"
+  },
+  "culprit": "eeprom.c: qd_fixed_chan server at 4 behind the relay bus is starved by scrub at 12",
+  "fix": "use an inheriting channel for eeprom (the relay's inherited 35 would then carry through), or raise eeprom above scrub",
+  "loads": [
+   "f82scr"
+  ]
+ },
+ "g2h": {
+  "row": "r12a",
+  "row_text": "unknown, info_insufficient: loop stops for a cause not in the sources",
+  "kind": "unknown",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "info_insufficient": true,
+  "loop_logs": [
+   "/tmp/d0g2hcfg.log",
+   "/tmp/d0g2happ.log"
+  ],
+  "axes": {
+   "mechanism": "message+missing peer",
+   "processes": 2,
+   "threads": 1,
+   "missing": "peer"
+  },
+  "expect": {
+   "g2hcfg": "stops",
+   "g2happ": "stops"
+  },
+  "states": {
+   "g2hcfg": "NANOSLEEP (retrying name_open of the keystore every 250 ms)",
+   "g2happ": "REPLY (its 7th request is held by cfgd)"
+  },
+  "culprit": "cause outside the sources: no process named g2hkeys (keystore) is started; cfgd.c waits for it from request 6 on",
+  "fix": "start the keystore service (or make cfgd fail the request when the keystore is absent)",
+  "loads": []
+ },
+ "g6b": {
+  "row": "r15a",
+  "row_text": "missing_reply (plain): one code path receives and never replies",
+  "kind": "missing_reply",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0g6bpwr.log",
+   "/tmp/d0g6bhmi.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 2,
+   "threads": 1,
+   "trap": "comment 'nothing to report back'"
+  },
+  "expect": {
+   "g6bpwr": "stops",
+   "g6bhmi": "stops"
+  },
+  "states": {
+   "g6bpwr": "RECEIVE",
+   "g6bhmi": "REPLY (keep-alive at cycle 6 never answered)"
+  },
+  "culprit": "pwrmgr.c: case KEEPALIVE sets reply = 0, so the keep-alive request is never replied",
+  "fix": "reply to the keep-alive too (MsgReply with EOK), or send keep-alives as pulses",
+  "loads": []
+ },
+ "gph": {
+  "row": "r09b",
+  "row_text": "unknown: single process ticks a few times, then spins on the CPU",
+  "kind": "unknown",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0gphlru.log"
+  ],
+  "axes": {
+   "mechanism": "cpu spin",
+   "processes": 1,
+   "threads": 1,
+   "trap": "cycle only after move-to-front is enabled"
+  },
+  "expect": {
+   "gphlru": "stops"
+  },
+  "states": {
+   "gphlru": "READY (walks a cyclic list forever)"
+  },
+  "culprit": "lru.c touch(): moves a node to the front without unlinking it, creating a cycle; find(-1) then never ends (round 6)",
+  "fix": "unlink p from its predecessor before p->next = head",
+  "loads": [
+   "gphlru"
+  ]
+ },
+ "grp": {
+  "row": "r14b",
+  "row_text": "priority_chain: high client waits on a qd_fixed_chan server kept off the CPU by a middle load",
+  "kind": "priority_chain",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0grpimu.log",
+   "/tmp/d0grpfc.log",
+   "/tmp/d0grplog.log"
+  ],
+  "axes": {
+   "mechanism": "message, fixed-priority channel",
+   "processes": 3,
+   "threads": 1,
+   "trap": "the load keeps ticking"
+  },
+  "expect": {
+   "grpimu": "stops",
+   "grpfc": "stops",
+   "grplog": "ticks"
+  },
+  "states": {
+   "grpimu": "READY (prio 6, fixed-priority channel, holds fc's request)",
+   "grpfc": "REPLY (prio 32)",
+   "grplog": "READY (CPU load at 16, ticks every 200 ms)"
+  },
+  "culprit": "imud.c: qd_fixed_chan server at 6 is starved by logfmt at 16 while fc (32) waits for its reply",
+  "fix": "use an inheriting channel for imud, or raise imud above logfmt",
+  "loads": [
+   "grplog"
+  ]
+ },
+ "k74": {
+  "row": "r15b",
+  "row_text": "missing_reply (plain): one code path receives and never replies",
+  "kind": "missing_reply",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0k74aud.log",
+   "/tmp/d0k74ply.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 2,
+   "threads": 1,
+   "trap": "comment says other types belong to the resource-manager side"
+  },
+  "expect": {
+   "k74aud": "stops",
+   "k74ply": "stops"
+  },
+  "states": {
+   "k74aud": "RECEIVE",
+   "k74ply": "REPLY (QD_MSG+1 volume message dropped)"
+  },
+  "culprit": "audiod.c: 'if (m.type != QD_MSG) continue;' drops the volume message without replying",
+  "fix": "handle QD_VOLUME, or at least MsgError(rcvid, ENOSYS) for unknown types",
+  "loads": []
+ },
+ "kk5": {
+  "row": "r06",
+  "row_text": "deadlock: thread sends to a channel of its own process that no thread receives on",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0kk5nv.log"
+  ],
+  "axes": {
+   "mechanism": "message, own process",
+   "processes": 1,
+   "threads": 2,
+   "trap": "a receiving thread exists, on the wrong channel"
+  },
+  "expect": {
+   "kk5nv": "stops",
+   "kk5fl": "any"
+  },
+  "states": {
+   "kk5nv": "SEND (MsgSend on its own int_chid; no thread receives there)",
+   "kk5fl": "RECEIVE (on ext_chid, where nobody sends)"
+  },
+  "culprit": "nvstore.c flusher(): receives on ext_chid while main sends flush requests to int_chid",
+  "fix": "have flusher call qd_receive(int_chid, ...) (or send flushes to ext_chid)",
+  "loads": []
+ },
+ "kp6": {
+  "row": "r02a",
+  "row_text": "missing_reply: server replies for a few rounds, then stops replying on one code path",
+  "kind": "missing_reply",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0kp6kv.log",
+   "/tmp/d0kp6wr.log",
+   "/tmp/d0kp6rd.log"
+  ],
+  "axes": {
+   "mechanism": "message+timer pulse",
+   "processes": 3,
+   "threads": 1,
+   "trap": "server and reader keep ticking; comment says the next commit acks the writer"
+  },
+  "expect": {
+   "kp6kv": "ticks",
+   "kp6wr": "stops",
+   "kp6rd": "ticks"
+  },
+  "states": {
+   "kp6kv": "RECEIVE (keeps serving reads and commit pulses)",
+   "kp6wr": "REPLY (its 6th write was dropped by the compaction path)",
+   "kp6rd": "NANOSLEEP (usleep 100 ms between reads)"
+  },
+  "culprit": "kvstore.c commit pulse handler: on the 6th commit (dirty >= JOURNAL_MAX) it compacts and sets pending_write = 0 without MsgReply",
+  "fix": "reply to pending_write (or keep it pending for the next commit) on the compaction path instead of clearing it",
+  "loads": []
+ },
+ "kts": {
+  "row": "r07",
+  "row_text": "healthy: thread sends to own-process channel, another thread receives and replies",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0ktsapp.log",
+   "/tmp/d0ktsio.log"
+  ],
+  "axes": {
+   "mechanism": "message, own process",
+   "processes": 1,
+   "threads": 2,
+   "trap": "self-send looks like a self-deadlock"
+  },
+  "expect": {
+   "ktsapp": "ticks",
+   "ktsio": "ticks"
+  },
+  "states": {
+   "ktsapp": "REPLY (waits for io's reply, ~100 ms each)",
+   "ktsio": "NANOSLEEP (100 ms fsync stand-in before replying)"
+  },
+  "culprit": "none",
+  "fix": "none needed",
+  "loads": []
+ },
+ "mqj": {
+  "row": "r13a",
+  "row_text": "healthy: looks stuck in one snapshot but keeps ticking",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0mqjlid.log",
+   "/tmp/d0mqjpln.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 2,
+   "threads": 1,
+   "trap": "slow replies"
+  },
+  "expect": {
+   "mqjlid": "ticks",
+   "mqjpln": "ticks"
+  },
+  "states": {
+   "mqjlid": "NANOSLEEP (350 ms per scan)",
+   "mqjpln": "REPLY"
+  },
+  "culprit": "none (slow replies: 350 ms each, comment claims a few ms)",
+  "fix": "none needed",
+  "loads": []
+ },
+ "nrp": {
+  "row": "r10b",
+  "row_text": "deadlock: server pool exhaustion (every pool thread in a synchronous send back to a client waiting for the pool)",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0nrpwa.log",
+   "/tmp/d0nrpwb.log",
+   "/tmp/d0nrpc1.log",
+   "/tmp/d0nrpc2.log"
+  ],
+  "axes": {
+   "mechanism": "message, thread pool",
+   "processes": 3,
+   "threads": "3+1+1",
+   "trap": "client comment says it drains so jobd never waits"
+  },
+  "expect": {
+   "nrpwa": "stops",
+   "nrpwb": "stops",
+   "nrpc1": "stops",
+   "nrpc2": "stops",
+   "nrpjob.main": "any"
+  },
+  "states": {
+   "nrpwa": "SEND (phase-2 confirm to a client that is REPLY-blocked on jobd)",
+   "nrpwb": "SEND (same, other client)",
+   "nrpc1": "REPLY (commit held by a pool thread)",
+   "nrpc2": "REPLY (same)",
+   "nrpjob.main": "JOIN"
+  },
+  "culprit": "jobd.c worker(): on COMMIT it MsgSends to the submitting client's own channel before replying; the client only receives between its own requests",
+  "fix": "reply to the commit first and confirm asynchronously (pulse/MsgDeliverEvent), or have the client receive in a separate thread",
+  "loads": []
+ },
+ "p5u": {
+  "row": "r02b",
+  "row_text": "missing_reply: server replies for a few rounds, then stops replying on one code path",
+  "kind": "missing_reply",
+  "accept_kinds": [
+   "missing_reply"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0p5urate.log",
+   "/tmp/d0p5uctl.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 2,
+   "threads": 1,
+   "trap": "comments say a shed caller retries; ctl's retry path is never reached because MsgSend never returns"
+  },
+  "expect": {
+   "p5urate": "stops",
+   "p5uctl": "stops"
+  },
+  "states": {
+   "p5urate": "RECEIVE",
+   "p5uctl": "REPLY (7th request shed without a reply)"
+  },
+  "culprit": "rated.c: inflight++ on every request but decremented only on the error path; from request 7 on the 'shed' branch continues without MsgReply/MsgError",
+  "fix": "decrement inflight after each MsgReply, and answer shed requests with MsgError(rcvid, EBUSY) instead of dropping them",
+  "loads": []
+ },
+ "paa": {
+  "row": "r12b",
+  "row_text": "unknown, info_insufficient: loop stops for a cause not in the sources",
+  "kind": "unknown",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "info_insufficient": true,
+  "loop_logs": [
+   "/tmp/d0paactl.log"
+  ],
+  "axes": {
+   "mechanism": "condvar+missing file",
+   "processes": 1,
+   "threads": 3,
+   "missing": "file"
+  },
+  "expect": {
+   "paactl": "stops",
+   "paaldr": "any",
+   "paa.main": "any"
+  },
+  "states": {
+   "paactl": "CONDVAR (waits for the limits)",
+   "paaldr": "NANOSLEEP (retries /etc/calib/limits.cfg every 250 ms)",
+   "paa.main": "JOIN"
+  },
+  "culprit": "cause outside the sources: /etc/calib/limits.cfg does not exist on the target",
+  "fix": "provide the limits file (or keep running on the defaults when it is missing)",
+  "loads": []
+ },
+ "qgj": {
+  "row": "r14a",
+  "row_text": "priority_chain: high client waits on a qd_fixed_chan server kept off the CPU by a middle load",
+  "kind": "priority_chain",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0qgjadc.log",
+   "/tmp/d0qgjctl.log"
+  ],
+  "axes": {
+   "mechanism": "message, fixed-priority channel",
+   "processes": 3,
+   "threads": 1,
+   "trap": "comment calls the fixed channel deterministic"
+  },
+  "expect": {
+   "qgjadc": "stops",
+   "qgjctl": "stops",
+   "qgjcrc": "any"
+  },
+  "states": {
+   "qgjadc": "READY (prio 5 on a fixed-priority channel, has ctl's request, never scheduled)",
+   "qgjctl": "REPLY (prio 30)",
+   "qgjcrc": "READY (CPU load at 15)"
+  },
+  "culprit": "adcd.c: qd_fixed_chan at priority 5 keeps the server at 5 while serving ctl (30); bgcrc at 15 takes the only core from 1.2 s on",
+  "fix": "use a normal (inheriting) channel for adcd, or raise adcd above the load / lower bgcrc below adcd",
+  "loads": [
+   "qgjcrc"
+  ]
+ },
+ "qsa": {
+  "row": "r08b",
+  "row_text": "healthy: client/server exchange next to a non-messaging CPU load (one above, one below the server)",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0qsasen.log",
+   "/tmp/d0qsahmi.log"
+  ],
+  "axes": {
+   "mechanism": "message+cpu load",
+   "processes": 3,
+   "threads": 1,
+   "load_vs_server": "below",
+   "trap": "a spinning process in every snapshot"
+  },
+  "expect": {
+   "qsasen": "ticks",
+   "qsahmi": "ticks",
+   "qsacr": "any"
+  },
+  "states": {
+   "qsasen": "NANOSLEEP (120 ms acquisition window)",
+   "qsahmi": "REPLY",
+   "qsacr": "READY (CPU load at 6)"
+  },
+  "culprit": "none",
+  "fix": "none needed",
+  "loads": [
+   "qsacr"
+  ]
+ },
+ "quy": {
+  "row": "r12c",
+  "row_text": "unknown, info_insufficient: loop stops for a cause not in the sources",
+  "kind": "unknown",
+  "accept_kinds": [
+   "unknown"
+  ],
+  "info_insufficient": true,
+  "loop_logs": [
+   "/tmp/d0quyseq.log",
+   "/tmp/d0quystat.log"
+  ],
+  "axes": {
+   "mechanism": "semaphore+missing external event",
+   "processes": 2,
+   "threads": 1,
+   "missing": "external signal"
+  },
+  "expect": {
+   "quyseq": "stops",
+   "quystat": "ticks"
+  },
+  "states": {
+   "quyseq": "SEM (sem_wait on the shared 'go' semaphore)",
+   "quystat": "NANOSLEEP (keeps ticking every 200 ms)"
+  },
+  "culprit": "cause outside the sources: the supervisor that posts /seqr_ctl's semaphore is not part of the scenario",
+  "fix": "start the supervisor (or wait with a timeout and report)",
+  "loads": []
+ },
+ "su9": {
+  "row": "r13b",
+  "row_text": "healthy: looks stuck in one snapshot but keeps ticking",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0su9evq.log",
+   "/tmp/d0su9mon.log"
+  ],
+  "axes": {
+   "mechanism": "message+timer pulse",
+   "processes": 2,
+   "threads": 1,
+   "trap": "looks exactly like a missing reply in one snapshot"
+  },
+  "expect": {
+   "su9evq": "ticks",
+   "su9mon": "ticks"
+  },
+  "states": {
+   "su9evq": "RECEIVE (holds the poll until the next 300 ms pulse)",
+   "su9mon": "REPLY"
+  },
+  "culprit": "none (long poll replied on every timer pulse)",
+  "fix": "none needed",
+  "loads": []
+ },
+ "tzy": {
+  "row": "r03a",
+  "row_text": "deadlock: two mutexes taken in opposite order by two threads",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0tzying.log",
+   "/tmp/d0tzyrot.log"
+  ],
+  "axes": {
+   "mechanism": "mutex",
+   "processes": 1,
+   "threads": 3,
+   "trap": "rotation only every 5th round, so both threads tick first"
+  },
+  "expect": {
+   "tzying": "stops",
+   "tzyrot": "stops",
+   "tzy.main": "any"
+  },
+  "states": {
+   "tzying": "MUTEX (holds buf_mx, waits for file_mx)",
+   "tzyrot": "MUTEX (holds file_mx, waits for buf_mx)",
+   "tzy.main": "JOIN (pthread_join on ingest)"
+  },
+  "culprit": "logrot.c rotate(): rotation path (n % 5 == 0) locks file_mx then buf_mx, while ingest() and the normal path lock buf_mx then file_mx",
+  "fix": "take buf_mx before file_mx on the rotation path too (one lock order everywhere)",
+  "loads": []
+ },
+ "u7z": {
+  "row": "r03b",
+  "row_text": "deadlock: two mutexes taken in opposite order by two threads",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0u7zlog.log",
+   "/tmp/d0u7zrep.log",
+   "/tmp/d0u7zwd.log"
+  ],
+  "axes": {
+   "mechanism": "mutex",
+   "processes": 1,
+   "threads": 4,
+   "trap": "a watchdog thread keeps ticking, so the process looks alive"
+  },
+  "expect": {
+   "u7zlog": "stops",
+   "u7zrep": "stops",
+   "u7zwd": "ticks",
+   "u7z.main": "any"
+  },
+  "states": {
+   "u7zlog": "MUTEX (holds tbl_mx, waits for sess_mx)",
+   "u7zrep": "MUTEX (holds sess_mx, waits for tbl_mx)",
+   "u7zwd": "NANOSLEEP (heartbeat keeps ticking)",
+   "u7z.main": "JOIN"
+  },
+  "culprit": "sessmgr.c reaper(): on the expiry path it holds sess_mx and then locks tbl_mx; login() locks tbl_mx then sess_mx",
+  "fix": "on the expiry path release sess_mx and take tbl_mx first (tbl then sess), or unlink under tbl_mx only",
+  "loads": []
+ },
+ "vej": {
+  "row": "r04a",
+  "row_text": "priority_chain: low thread holds a mutex without priority inheritance while a middle thread runs",
+  "kind": "priority_chain",
+  "accept_kinds": [
+   "priority_chain"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0vejctl.log",
+   "/tmp/d0vejupl.log",
+   "/tmp/d0vejcmp.log"
+  ],
+  "axes": {
+   "mechanism": "mutex+semaphore",
+   "processes": 1,
+   "threads": 4,
+   "trap": "middle thread keeps ticking; comment defends PRIO_NONE"
+  },
+  "expect": {
+   "vejctl": "stops",
+   "vejupl": "stops",
+   "vejcmp": "ticks",
+   "vej.main": "any"
+  },
+  "states": {
+   "vejctl": "MUTEX (prio 30, waits for q_mx held by uplink)",
+   "vejupl": "READY (prio 5, holds q_mx, never scheduled while compress runs)",
+   "vejcmp": "READY (prio 15 CPU-bound compression; preempted only by the observer's pidin)",
+   "vej.main": "JOIN"
+  },
+  "culprit": "telemd.c: q_mx is created with PTHREAD_PRIO_NONE; uplink (5) posts batch_ready while holding q_mx, compress (15) then runs ~60 s and ctl (30) blocks on q_mx",
+  "fix": "use the default PTHREAD_PRIO_INHERIT (or a priority ceiling) for q_mx, and/or post batch_ready after unlocking q_mx",
+  "loads": [
+   "vejcmp"
+  ]
+ },
+ "ya8": {
+  "row": "r05",
+  "row_text": "healthy: mutex held for a long time by design, every loop keeps ticking",
+  "kind": "healthy",
+  "accept_kinds": [
+   "healthy"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0ya8snp.log",
+   "/tmp/d0ya8rd.log"
+  ],
+  "axes": {
+   "mechanism": "mutex",
+   "processes": 1,
+   "threads": 3,
+   "trap": "reader is MUTEX-blocked in almost every snapshot"
+  },
+  "expect": {
+   "ya8snp": "ticks",
+   "ya8rd": "ticks",
+   "ya8.main": "any"
+  },
+  "states": {
+   "ya8snp": "NANOSLEEP (sleeps 350 ms while holding cfg_mx, by design)",
+   "ya8rd": "MUTEX (waits for cfg_mx most of the time; NANOSLEEP in the short gaps)",
+   "ya8.main": "JOIN"
+  },
+  "culprit": "none (cfgsync.c snapshot() holds cfg_mx for 350 ms by design)",
+  "fix": "none needed",
+  "loads": []
+ },
+ "zte": {
+  "row": "r01b",
+  "row_text": "deadlock: ring of synchronous sends, every member TICKs before its first send",
+  "kind": "deadlock",
+  "accept_kinds": [
+   "deadlock"
+  ],
+  "info_insufficient": false,
+  "loop_logs": [
+   "/tmp/d0ztecola.log",
+   "/tmp/d0ztemrga.log",
+   "/tmp/d0ztecolb.log",
+   "/tmp/d0ztemrgb.log"
+  ],
+  "axes": {
+   "mechanism": "message",
+   "processes": 4,
+   "threads": 1,
+   "shape": "ring4, two binaries",
+   "trap": "comments justify send-first as bounded memory"
+  },
+  "expect": {
+   "ztecola": "stops",
+   "ztemrga": "stops",
+   "ztecolb": "stops",
+   "ztemrgb": "stops"
+  },
+  "states": {
+   "ztecola": "SEND (MsgSend downstream; every member sends before it receives)",
+   "ztemrga": "SEND (MsgSend downstream; every member sends before it receives)",
+   "ztecolb": "SEND (MsgSend downstream; every member sends before it receives)",
+   "ztemrgb": "SEND (MsgSend downstream; every member sends before it receives)"
+  },
+  "culprit": "collector.c and merger.c: qd_send(next) before qd_receive(chid); ring cola->mrga->colb->mrgb->cola",
+  "fix": "receive and forward in different threads, or make one hop asynchronous (pulse) so the ring cannot close",
+  "loads": []
+ }
+}
