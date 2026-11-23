@@ -1,17 +1,17 @@
-# qnx-doctor flow (2026-11-21; verify entrance added 2026-11-23). Source of flow.svg / flow.png. Render: see the README section "At a glance".
+# qnx-doctor flow (2026-11-21; verify entrance added and laid out top to bottom 2026-11-23). Source of flow.svg / flow.png. Render: see the README section "At a glance".
 # One accent colour = the AI step. Everything else is code. Dashed grey = outside this repo. Thick border = the verify path.
 vars: { d2-config: { theme-id: 1 } }
-direction: right
+direction: down
 classes: {
-  group: { style: { fill: "#FAFAFA"; stroke: "#BBBBBB"; border-radius: 8 } }
-  own: { style: { fill: "#FFFFFF"; stroke: "#555555"; border-radius: 8 } }
-  ai: { style: { fill: "#EEF4FF"; stroke: "#3B6FD9"; border-radius: 8 } }
-  ext: { style: { fill: "#F4F4F4"; stroke: "#999999"; stroke-dash: 4; border-radius: 8 } }
-  gate: { style: { fill: "#FFFFFF"; stroke: "#222222"; stroke-width: 3; border-radius: 8 } }
-  gateflow: { style: { animated: true; stroke: "#222222"; stroke-width: 3 } }
-  store: { shape: cylinder; style: { fill: "#F4F4F4"; stroke: "#777777" } }
-  flow: { style: { animated: true; stroke: "#555555" } }
-  retry: { style: { animated: true; stroke: "#3B6FD9"; stroke-dash: 4 } }
+  group: { label.near: outside-top-left; style: { fill: "#FAFAFA"; stroke: "#BBBBBB"; border-radius: 8; font-size: 26; bold: true } }
+  own: { style: { fill: "#FFFFFF"; stroke: "#555555"; border-radius: 8; font-size: 22 } }
+  ai: { style: { fill: "#EEF4FF"; stroke: "#3B6FD9"; border-radius: 8; font-size: 22 } }
+  ext: { style: { fill: "#F4F4F4"; stroke: "#999999"; stroke-dash: 4; border-radius: 8; font-size: 22 } }
+  gate: { style: { fill: "#FFFFFF"; stroke: "#222222"; stroke-width: 3; border-radius: 8; font-size: 22 } }
+  gateflow: { style: { animated: true; stroke: "#222222"; stroke-width: 3; font-size: 20 } }
+  store: { shape: cylinder; style: { fill: "#F4F4F4"; stroke: "#777777"; font-size: 22 } }
+  flow: { style: { animated: true; stroke: "#555555"; font-size: 20 } }
+  retry: { style: { animated: true; stroke: "#3B6FD9"; stroke-dash: 4; font-size: 20 } }
 }
 
 in: "In" {
@@ -24,18 +24,20 @@ in: "In" {
 
 observe: "Observe (code)" {
   class: group
+  label.near: outside-top-right
   boot: "Build with qcc,\nboot image in QEMU" { class: own }
   graph: "Wait-for graph from pidin\ncycle, priority chain,\nmissing reply" { class: own }
   rules: "Rule table\nknown build/boot faults" { class: own }
 }
 
-ai: "Propose (AI: Claude)" {
+ai: "AI (Claude)" {
   class: group
+  label.near: outside-bottom-right
   look: "Look around\nread-only probes,\nSDP docs search" { class: ai }
   fix: "Fix as data\nallow-listed actions only" { class: ai }
 }
 
-verify: "Gate (code, no model)" {
+verify: "Gate (no model)" {
   class: group
   rerun: "Apply to a copy,\nrebuild, re-run in QEMU" { class: gate }
   verdict: "Verdict from the re-run\nstopped loop ticks again,\nnothing that ran stops,\nsame pairs still exchange messages" { class: gate }

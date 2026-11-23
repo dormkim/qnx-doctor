@@ -45,7 +45,7 @@ healthy programs, and no arm reported a fix the rerun did not prove:
 
 A patch from anyone enters at the gate (`verify`, the thick boxes): code applies it to a copy, rebuilds, re-runs and answers accept, reject or review, with no model. The diagnosis path (`hang`, `run`) ends in the same gate. Code observes the problem: it builds the wait-for graph from `pidin`, or checks a failing host command against a rule table. The AI (Claude) only looks around with allow-listed, sandboxed read-only commands and the SDP docs, then proposes a fix as data. Code applies that fix to a copy and re-runs, and the verdict comes from the re-run alone.
 
-Diagram source: `docs/diagrams/flow.d2` (rendered with `d2 --layout elk`). Recorded example timelines: `docs/demo_hang_timeline.html`, `docs/demo_timeline_I04.html`.
+Diagram source: `docs/diagrams/flow.d2` (rendered with `d2 --layout elk --elk-nodeNodeBetweenLayers 45 --elk-edgeNodeBetweenLayers 25 --pad 30`). Recorded example timelines: `docs/demo_hang_timeline.html`, `docs/demo_timeline_I04.html`.
 
 ## Why this matters on QNX
 
