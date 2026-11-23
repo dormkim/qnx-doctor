@@ -78,3 +78,10 @@ No threshold or rule changes after the patch set is sealed. If one must, the cha
 4. Run once; read every accepted patch; result document with G1 to G4 in that order.
 
 Licence: states only (QNX licence 4.6(i)); no QNX timing.
+
+## Log of changes to section 2 before the v7 freeze
+
+- 2026-11-23: rule 2 refined on the v6 records (development): a fix that adds pulses is not flagged when it also
+  changes a receiver's pulse-dropping line, because that receiver now handles them (v6 epe, a genuine fix). A send
+  whose value is only checked for an error (`< 0`, `== -1`) does not count as a used reply (v6 zte, epe). On the 37
+  v6 fixes: 4 masking flagged, 33 others not. Development numbers, tuned on those records, not a claim.
