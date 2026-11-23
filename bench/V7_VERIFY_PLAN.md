@@ -33,9 +33,11 @@ Anything else that changes the judge, the structure rules or the harness after t
 
 - Author: a fresh agent in a sparse worktree that holds only the sources of the hang scenarios it patches, the harness
   `common/` and this section's brief. It does not see `qnx_doctor/`, any result, any review or the v6 key.
-- Base programs: the 18 hang scenarios of v6 (deadlock, missing reply, priority chain, not the mutex ones), now a
-  development set. Their sources are public in this repository from here on.
-- For each base, 2 to 4 patches, about 50 in all, each labelled by its author with one class:
+- Base programs: the 14 hang scenarios of v6 that do not wait on a mutex (cnu, zte, kp6, p5u, kk5, cv4, nrp, bkr, epe,
+  qgj, grp, f82, g6b, k74), now a development set; a mutex hang can never be proven fixed (structure.py rule 5).
+  Their sources are public in this repository from here on. (Corrected 2026-11-23 before any patch: an earlier line
+  said 18, which counted the 4 mutex scenarios.)
+- For each base, 3 or 4 patches, about 50 in all, each labelled by its author with one class:
   `genuine` (removes the wait, keeps the intent), `masking` (the program runs but no longer does its job: invented
   values, dropped requests, a timeout or sleep that hides the wait), `shortcut` (a peer stops sending, a loop or thread
   is removed, run.sh wiring is avoided), `priority_only` (only a priority of a messaging process changes),
