@@ -45,3 +45,12 @@ cdd83085abc932ac740744413859984ee3419eed1ad9ce0c3bb70e70d3476220 bench/score_ver
 2928c152bc8742d87589df8168b1ad589f48bdd1cc101e9feb07094ffa122223 tests/sealed_hang/common/qd_trace.c
 8f2e76afc3d40ab68f218cd43573088ef2cd3c6f01c850c6f6cfc7724fcfb273 tests/sealed_hang/common/snap.c
 ```
+
+## v7.1 (2026-11-23)
+
+Re-frozen at `d9ff944304ec49ba9e99e211313b312824adfab0` after the loader fix logged in V7_VERIFY_PLAN section 6. Only `qnx_doctor/verify.py` changed
+since `v7-freeze`:
+
+```
+666cd388012335d96d0043cef8ac9798df0f493b36427df167acfc51f501ef84 qnx_doctor/verify.py
+```
