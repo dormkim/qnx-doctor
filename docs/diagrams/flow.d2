@@ -1,5 +1,5 @@
-# qnx-doctor flow (2026-11-21). Source of flow.svg / flow.png. Render: see the README section "At a glance".
-# One accent colour = the AI step. Everything else is code. Dashed grey = outside this repo.
+# qnx-doctor flow (2026-11-21; verify entrance added 2026-11-23). Source of flow.svg / flow.png. Render: see the README section "At a glance".
+# One accent colour = the AI step. Everything else is code. Dashed grey = outside this repo. Thick border = the verify path.
 vars: { d2-config: { theme-id: 1 } }
 direction: right
 classes: {
@@ -7,6 +7,8 @@ classes: {
   own: { style: { fill: "#FFFFFF"; stroke: "#555555"; border-radius: 8 } }
   ai: { style: { fill: "#EEF4FF"; stroke: "#3B6FD9"; border-radius: 8 } }
   ext: { style: { fill: "#F4F4F4"; stroke: "#999999"; stroke-dash: 4; border-radius: 8 } }
+  gate: { style: { fill: "#FFFFFF"; stroke: "#222222"; stroke-width: 3; border-radius: 8 } }
+  gateflow: { style: { animated: true; stroke: "#222222"; stroke-width: 3 } }
   store: { shape: cylinder; style: { fill: "#F4F4F4"; stroke: "#777777" } }
   flow: { style: { animated: true; stroke: "#555555" } }
   retry: { style: { animated: true; stroke: "#3B6FD9"; stroke-dash: 4 } }
@@ -14,6 +16,7 @@ classes: {
 
 in: "In" {
   class: group
+  patch: "A patch from anyone\nagent, colleague or this tool\n(verify scenario fix.diff)" { class: gate }
   scenario: "Hang scenario\n*.c sources + run.sh" { class: own }
   live: "Running target\npidin over ssh (--live)" { class: ext }
   cmd: "Failing host command\nbuild or boot" { class: own }
@@ -32,14 +35,15 @@ ai: "Propose (AI: Claude)" {
   fix: "Fix as data\nallow-listed actions only" { class: ai }
 }
 
-verify: "Prove (code)" {
+verify: "Gate (code, no model)" {
   class: group
-  rerun: "Apply to a copy,\nrebuild, re-run" { class: own }
-  verdict: "Verdict from the re-run\nhang gone, loop ticks again,\nsame message structure" { class: own }
+  rerun: "Apply to a copy,\nrebuild, re-run in QEMU" { class: gate }
+  verdict: "Verdict from the re-run\nstopped loop ticks again,\nnothing that ran stops,\nsame pairs still exchange messages" { class: gate }
 }
 
 out: "Out" {
   class: group
+  answer: "ACCEPT / REJECT (rule) /\nREVIEW (lines to read)" { class: gate }
   named: "Hang named, no fix\n(--live, --no-ai)" { class: own }
   timeline: "Timeline\nruns/*.jsonl" { class: store }
   report: "Report\nterminal or HTML" { class: own }
@@ -47,6 +51,8 @@ out: "Out" {
 
 docs: "SDP docs index" { class: store }
 
+in.patch -> verify.rerun: "verify" { class: gateflow }
+verify.verdict -> out.answer: { class: gateflow }
 in.scenario -> observe.boot: { class: flow }
 observe.boot -> observe.graph: { class: flow }
 in.live -> observe.graph: { class: flow }
@@ -58,7 +64,7 @@ observe.rules -> ai.look: "no rule worked" { class: flow }
 docs -> ai.look
 ai.look -> ai.fix: { class: flow }
 ai.fix -> verify.rerun: { class: flow }
-verify.rerun -> verify.verdict: { class: flow }
+verify.rerun -> verify.verdict: { class: gateflow }
 verify.verdict -> ai.look: "not fixed: one more try" { class: retry }
 verify.verdict -> out.timeline: { class: flow }
 out.timeline -> out.report: { class: flow }
