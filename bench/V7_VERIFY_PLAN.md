@@ -87,3 +87,7 @@ Licence: states only (QNX licence 4.6(i)); no QNX timing.
   changes a receiver's pulse-dropping line, because that receiver now handles them (v6 epe, a genuine fix). A send
   whose value is only checked for an error (`< 0`, `== -1`) does not count as a used reply (v6 zte, epe). On the 37
   v6 fixes: 4 masking flagged, 33 others not. Development numbers, tuned on those records, not a claim.
+- 2026-11-23: the patch author was started before the v7 freeze, to save a day, in a plain folder (no git) holding
+  only the 14 base programs, the harness and the brief (`~/personal/qd_v7_patch_author`). The maintainer does not
+  open the patches or the labels before `v7-freeze`; the freeze commit records that no file under `patches/` was
+  read by the maintainer before it.
