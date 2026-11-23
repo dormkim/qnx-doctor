@@ -1,0 +1,10 @@
+--- a/broker.c
++++ b/broker.c
+@@ -4,6 +4,7 @@
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+   name_attach_t *a = qd_attach(me);
++  setprio(0, 20);                                 /* broker sits on every login path */
+   int auth = qd_open(argv[2]);
+   qd_msg_t m;
+   int routes = 0;

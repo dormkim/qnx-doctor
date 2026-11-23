@@ -1,0 +1,39 @@
+--- a/jobc.c
++++ b/jobc.c
+@@ -2,23 +2,26 @@
+  * notification channel (20 ms) so jobd never waits on us. */
+ #include <time.h>
+ #include "../common/qd.h"
++static int chid;
++static void *notifications(void *x) {   /* jobd confirms commits while we wait on it */
++  qd_msg_t m;
++  for (;;) {
++    int r = qd_receive(chid, &m);
++    if (r > 0) MsgReply(r, EOK, NULL, 0);
++  }
++  return x;
++}
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+-  int chid = ChannelCreate(0);
++  chid = ChannelCreate(0);
+   if (chid == -1) { perror("ChannelCreate"); return 1; }
++  pthread_t t;
++  if (pthread_create(&t, NULL, notifications, NULL) != 0) { perror("notifications"); return 1; }
+   int coid = qd_open(argv[2]);
+-  qd_msg_t m;
+   for (int n = 0;; n++) {
+     int v = (chid << 16) | (n & 0xfff) | (n == 6 ? 0x1000 : 0);
+     if (qd_send(coid, v) < 0) perror("submit");
+     qd_tick(me, n);
+-    for (;;) {                                    /* drain notifications */
+-      uint64_t to = 20000000;
+-      TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, &to, NULL);
+-      rcvid_t r = MsgReceive(chid, &m, sizeof m, NULL);
+-      if (r == -1) break;
+-      if (r > 0) MsgReply(r, EOK, NULL, 0);
+-    }
+-    usleep(80000);
++    usleep(100000);
+   }
+ }

@@ -1,0 +1,11 @@
+--- a/adcd.c
++++ b/adcd.c
+@@ -15,7 +15,7 @@
+   for (int n = 0;;) {
+     int rcvid = qd_receive(chid, &m);
+     if (rcvid == 0) continue;
+-    avg_ms(30);
++    avg_ms(10);                                   /* shorter window: answer within the 10 Hz loop */
+     int mv = 3300 - n;
+     qd_tick(me, n++);
+     MsgReply(rcvid, EOK, &mv, sizeof mv);

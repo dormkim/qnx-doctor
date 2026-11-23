@@ -1,0 +1,48 @@
+--- a/stage.c
++++ b/stage.c
+@@ -1,8 +1,25 @@
+ /* stage <me> <next>: one stage of the frame pipeline (acquire -> scale -> encode -> acquire).
+  * Each stage pushes its frame index downstream, then takes the frame coming from upstream.
+  * Endpoints are published as "pid chid" in /tmp/<name>.ep so stages do not wait on the name server at boot. */
++#include <semaphore.h>
+ #include "../common/qd.h"
+ 
++static int in_chid;
++static sem_t frame_in;
++static volatile int last_frame;
++
++static void *upstream(void *x) {                 /* accept frames from upstream while we push downstream */
++  qd_msg_t m;
++  for (;;) {
++    int rcvid = qd_receive(in_chid, &m);
++    if (rcvid <= 0) continue;
++    last_frame = m.app.v;
++    MsgReply(rcvid, EOK, &m.app.v, sizeof m.app.v);   /* ack as soon as the frame is queued */
++    sem_post(&frame_in);
++  }
++  return x;
++}
++
+ static void ep_publish(const char *me, int chid) {
+   char p[64]; snprintf(p, sizeof p, "/tmp/%s.ep", me);
+   FILE *f = fopen(p, "w"); if (!f) { perror("ep_publish"); exit(1); }
+@@ -24,13 +41,15 @@
+   int chid = ChannelCreate(0);
+   if (chid == -1) { perror("ChannelCreate"); exit(1); }
+   ep_publish(me, chid);
++  in_chid = chid;
++  sem_init(&frame_in, 0, 0);
++  pthread_t rx;
++  if (pthread_create(&rx, NULL, upstream, NULL) != 0) { perror("upstream"); exit(1); }
+   for (int w = 0; w < 3; w++) { usleep(100000); qd_tick(me, w); }   /* warm-up: prime the local buffers */
+   int down = ep_connect(next);
+-  qd_msg_t m;
+   for (int n = 3;; n++) {
+-    qd_send(down, n);                      /* downstream acks as soon as the frame is queued */
+-    int rcvid = qd_receive(chid, &m);
+-    if (rcvid > 0) MsgReply(rcvid, EOK, &n, sizeof n);
++    if (qd_send(down, n) < 0) perror("push");   /* downstream acks as soon as the frame is queued */
++    while (sem_wait(&frame_in) == -1) ;     /* then take the frame coming from upstream */
+     qd_tick(me, n);
+   }
+ }

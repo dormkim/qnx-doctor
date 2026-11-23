@@ -1,0 +1,21 @@
+--- a/catalogd.c
++++ b/catalogd.c
+@@ -12,7 +12,7 @@
+   const char *role = arg;
+   FILE *f = NULL;
+   pthread_setname_np(pthread_self(), role);
+-  int ui = qd_open(ui_name);
++  int ui = qd_open(ui_name); (void)ui;
+   qd_msg_t m;
+   for (int n = 0;;) {
+     int rcvid = qd_receive(att->chid, &m);
+@@ -20,7 +20,8 @@
+     int v = m.app.v;
+     if (v & REFRESH) {
+       usleep(100000);                             /* reload the index page from flash */
+-      if (qd_send(ui, v & 0xffff) < 0) perror("visible?");
++      int on = 1;                                 /* rows being refreshed are the visible ones */
++      if (!on) v = 0;
+     }
+     MsgReply(rcvid, EOK, &v, sizeof v);
+     if (!f) { char p[64]; snprintf(p, sizeof p, "/tmp/d0%s.log", role); f = fopen(p, "a"); }

@@ -1,0 +1,24 @@
+--- a/eeprom.c
++++ b/eeprom.c
+@@ -6,10 +6,20 @@
+   do clock_gettime(CLOCK_MONOTONIC, &b);
+   while ((b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000 < ms);
+ }
++/* Same endpoint as qd_fixed_chan(), but priority-inheriting: a page read runs at the priority of whoever
++ * asked for it, so a mid-priority load cannot hold a high-priority reader behind us. */
++static int eeprom_chan(const char *me) {
++  int chid = ChannelCreate(_NTO_CHF_DISCONNECT | _NTO_CHF_UNBLOCK | _NTO_CHF_COID_DISCONNECT);
++  if (chid == -1) { perror("ChannelCreate"); exit(1); }
++  char p[64]; snprintf(p, sizeof p, "/tmp/%s.id", me);
++  FILE *f = fopen(p, "w"); if (!f) { perror("fopen id"); exit(1); }
++  fprintf(f, "%d %d\n", getpid(), chid); fflush(f); fclose(f);
++  return chid;
++}
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+   setprio(0, 4);
+-  int chid = qd_fixed_chan(me);
++  int chid = eeprom_chan(me);
+   qd_msg_t m;
+   for (int n = 0;;) {
+     int rcvid = qd_receive(chid, &m);

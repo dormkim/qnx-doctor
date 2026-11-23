@@ -1,0 +1,19 @@
+--- a/pwrmgr.c
++++ b/pwrmgr.c
+@@ -17,12 +17,14 @@
+     switch (m.app.v) {
+     case KEEPALIVE:
+       clock_gettime(CLOCK_MONOTONIC, &last_keepalive);
+-      reply = 0;                                   /* nothing to report back */
++      reply = 0;                                   /* nothing to report back, but the sender waits */
+       break;
+     default:
+       rail = m.app.v;
+       break;
+     }
+-    if (reply) { MsgReply(rcvid, EOK, &rail, sizeof rail); qd_tick(me, n++); }
++    if (reply) MsgReply(rcvid, EOK, &rail, sizeof rail);
++    else MsgReply(rcvid, EOK, NULL, 0);
++    qd_tick(me, n++);
+   }
+ }

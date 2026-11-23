@@ -1,0 +1,24 @@
+--- a/ctl.c
++++ b/ctl.c
+@@ -1,11 +1,19 @@
+ /* ctl <me> <adcd>: motor current loop, 10 Hz. */
+ #include "../common/qd.h"
++static int coid;
++static volatile int last_mv = 3300;
++static void *sampler(void *x) {                  /* keep the current loop off the ADC's latency */
++  for (int k = 0;; k++) { int mv = qd_send(coid, k); if (mv < 0) perror("adc"); else last_mv = mv; usleep(100000); }
++  return x;
++}
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+   setprio(0, 30);
+-  int coid = qd_open_fixed(argv[2]);
++  coid = qd_open_fixed(argv[2]);
++  pthread_t t; pthread_create(&t, NULL, sampler, NULL);
+   for (int n = 0;; n++) {
+-    if (qd_send(coid, n) < 0) perror("adc");
++    int mv = last_mv;
++    (void)mv;
+     qd_tick(me, n);
+     usleep(100000);
+   }

@@ -1,0 +1,15 @@
+--- a/jobd.c
++++ b/jobd.c
+@@ -30,9 +30,10 @@
+ int main(int argc, char **argv) {
+   if (argc < 4) return 2;
+   att = qd_attach(argv[1]);
+-  pthread_t a, b;
++  pthread_t a, b, c;
+   pthread_create(&a, NULL, worker, argv[2]);
+   pthread_create(&b, NULL, worker, argv[3]);
+-  pthread_join(a, NULL); pthread_join(b, NULL);
++  pthread_create(&c, NULL, worker, argv[1]);     /* extra worker so commits cannot use up the pool */
++  pthread_join(a, NULL); pthread_join(b, NULL); pthread_join(c, NULL);
+   return 0;
+ }

@@ -1,0 +1,14 @@
+--- a/collector.c
++++ b/collector.c
+@@ -31,9 +31,9 @@
+   int out = link_to(argv[2]);
+   qd_msg_t in;
+   for (;; batch++) {
+-    if (qd_send(out, batch) < 0) perror("forward");
+-    int rcvid = qd_receive(chid, &in);              /* now accept the next batch from upstream */
++    int rcvid = qd_receive(chid, &in);              /* accept the batch from upstream */
+     if (rcvid > 0) MsgReply(rcvid, EOK, &batch, sizeof batch);
++    if (qd_send(out, batch) < 0) perror("forward");   /* then hand ours over */
+     qd_tick(me, batch);
+   }
+ }

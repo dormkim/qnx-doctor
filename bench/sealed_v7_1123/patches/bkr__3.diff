@@ -1,0 +1,17 @@
+--- a/hmi.c
++++ b/hmi.c
+@@ -15,12 +15,12 @@
+     if (qd_send(gw, n) < 0) perror("record");
+     qd_tick(me, n);
+     for (;;) {                                    /* owner queries */
+-      uint64_t to = 20000000;
++      uint64_t to = 200000000;                    /* give dbd enough time to ask */
+       TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, &to, NULL);
+       rcvid_t r = MsgReceive(chid, &m, sizeof m, NULL);
+       if (r == -1) break;
+       if (r > 0) { int owner = 1; MsgReply(r, EOK, &owner, sizeof owner); }
+     }
+-    usleep(80000);
++    usleep(20000);
+   }
+ }

@@ -1,0 +1,10 @@
+--- a/hmi.c
++++ b/hmi.c
+@@ -4,6 +4,7 @@
+ #include "../common/qd.h"
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
++  setprio(0, 30);                                 /* dashboard must stay responsive */
+   int chid = ChannelCreate(0);
+   if (chid == -1) { perror("ChannelCreate"); return 1; }
+   char p[64]; snprintf(p, sizeof p, "/tmp/%s.ep", me);

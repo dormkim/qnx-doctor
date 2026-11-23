@@ -1,0 +1,13 @@
+--- a/nvstore.c
++++ b/nvstore.c
+@@ -29,8 +29,9 @@
+   ext_chid = a->chid;
+   int_chid = ChannelCreate(0);
+   if (int_chid == -1) { perror("ChannelCreate"); return 1; }
+-  int flush_coid = ConnectAttach(0, 0, int_chid, _NTO_SIDE_CHANNEL, 0);
+   pthread_t t; pthread_create(&t, NULL, flusher, NULL);
++  int flush_coid = ConnectAttach(0, getpid(), int_chid, _NTO_SIDE_CHANNEL, 0);
++  if (flush_coid == -1) { perror("ConnectAttach"); return 1; }
+ 
+   for (int n = 0;; n++) {
+     usleep(100000);                               /* append one record */

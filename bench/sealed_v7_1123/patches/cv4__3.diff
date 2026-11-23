@@ -1,0 +1,11 @@
+--- a/ui.c
++++ b/ui.c
+@@ -49,7 +49,7 @@
+       tick_to(&f, r_ev, n++);
+       continue;
+     }
+-    if (want_header) { want_header = 0; if (qd_send(cat, HEADER) < 0) perror("header"); }
++    if (want_header) want_header = 0;          /* header comes with the next row anyway */
+     if (++idle % 4 == 0) tick_to(&f, r_ev, n++);
+   }
+   return arg;

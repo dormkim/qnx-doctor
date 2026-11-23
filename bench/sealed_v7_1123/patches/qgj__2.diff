@@ -1,0 +1,11 @@
+--- a/adcd.c
++++ b/adcd.c
+@@ -9,7 +9,7 @@
+ }
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+-  setprio(0, 5);
++  setprio(0, 20);
+   int chid = qd_fixed_chan(me);
+   qd_msg_t m;
+   for (int n = 0;;) {

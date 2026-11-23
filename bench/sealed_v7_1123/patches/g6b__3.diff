@@ -1,0 +1,22 @@
+--- a/hmi.c
++++ b/hmi.c
+@@ -1,12 +1,18 @@
+ /* hmi <me> <pwrmgr>: sets the backlight rail every cycle; every 7th cycle it also tells pwrmgr it is alive. */
+ #include "../common/qd.h"
++static const char *role;
++static void *status(void *x) {                   /* report progress at a steady rate */
++  for (int k = 0;; k++) { qd_tick(role, k); usleep(100000); }
++  return x;
++}
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
++  role = me;
+   int coid = qd_open(argv[2]);
++  pthread_t t; pthread_create(&t, NULL, status, NULL);
+   for (int n = 0;; n++) {
+     int v = (n % 7 == 6) ? -1 : 40 + n % 20;
+     qd_send(coid, v);
+-    qd_tick(me, n);
+     usleep(100000);
+   }
+ }

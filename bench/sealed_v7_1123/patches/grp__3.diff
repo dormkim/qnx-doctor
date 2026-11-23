@@ -1,0 +1,16 @@
+--- a/logfmt.c
++++ b/logfmt.c
+@@ -6,11 +6,13 @@
+   const char *me = argv[1];
+   setprio(0, 16);
+   sleep(1);
++  FILE *bb = fopen("/tmp/d0grpfc.log", "a");      /* mirror the control-loop heartbeat into the black box */
+   struct timespec t0, t;
+   for (int n = 0;; n++) {
+     clock_gettime(CLOCK_MONOTONIC, &t0);
+     do { chars++; clock_gettime(CLOCK_MONOTONIC, &t); }
+     while ((t.tv_sec - t0.tv_sec) * 1000 + (t.tv_nsec - t0.tv_nsec) / 1000000 < 200);
+     qd_tick(me, n);
++    if (bb) { fprintf(bb, "TICK grpfc %d\n", 10 + n * 2); fflush(bb); }
+   }
+ }

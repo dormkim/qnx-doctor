@@ -1,0 +1,24 @@
+--- a/jobd.c
++++ b/jobd.c
+@@ -1,6 +1,7 @@
+ /* jobd <me> <worker role> <worker role>: job server with two workers.
+  * A commit request is confirmed with the submitting client before it is acknowledged (two-phase commit,
+  * light). The client puts its notification chid in bits 16..30 of the request. */
++#include <time.h>
+ #include "../common/qd.h"
+ 
+ #define COMMIT 0x1000
+@@ -17,7 +18,12 @@
+       struct _msg_info info;
+       if (MsgInfo(rcvid, &info) != -1) {
+         int c = ConnectAttach(0, info.pid, (v >> 16) & 0x7fff, _NTO_SIDE_CHANNEL, 0);
+-        if (c != -1) { qd_send(c, v & 0xfff); ConnectDetach(c); }   /* phase 2: client confirms */
++        if (c != -1) {                              /* phase 2: client confirms */
++          uint64_t to = 20000000;
++          TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_SEND | _NTO_TIMEOUT_REPLY, NULL, &to, NULL);
++          qd_send(c, v & 0xfff);
++          ConnectDetach(c);
++        }
+       }
+     }
+     MsgReply(rcvid, EOK, &v, sizeof v);

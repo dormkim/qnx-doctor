@@ -1,0 +1,10 @@
+--- a/stage.c
++++ b/stage.c
+@@ -23,6 +23,7 @@
+   const char *me = argv[1], *next = argv[2];
+   int chid = ChannelCreate(0);
+   if (chid == -1) { perror("ChannelCreate"); exit(1); }
++  setprio(0, 12);                          /* keep the frame path above best-effort work */
+   ep_publish(me, chid);
+   for (int w = 0; w < 3; w++) { usleep(100000); qd_tick(me, w); }   /* warm-up: prime the local buffers */
+   int down = ep_connect(next);

@@ -1,0 +1,14 @@
+--- a/merger.c
++++ b/merger.c
+@@ -27,9 +27,9 @@
+   int next = chan_of(argv[2]);
+   qd_msg_t m;
+   for (;; blk++) {
+-    qd_send(next, blk);                        /* flush partial block first */
+-    int rcvid = qd_receive(chid, &m);
++    int rcvid = qd_receive(chid, &m);          /* take the input first: the ring needs one side to listen */
+     if (rcvid > 0) MsgReply(rcvid, EOK, &blk, sizeof blk);
++    if (qd_send(next, blk) < 0) perror("flush");   /* then pass the merged block on */
+     qd_tick(me, blk);
+   }
+ }

@@ -1,0 +1,14 @@
+--- a/kvstore.c
++++ b/kvstore.c
+@@ -27,9 +27,8 @@
+     if (rcvid == 0) {
+       if (m.pulse.code != COMMIT_CODE || !pending_write) continue;
+       journal[jlen++ & 63] = value;
+-      if (++dirty >= JOURNAL_MAX) {        /* compaction: the writer is acked by the commit after it */
+-        compact(); dirty = 0; pending_write = 0;
+-        continue;
++      if (++dirty >= JOURNAL_MAX) {        /* compaction, then ack as usual */
++        compact(); dirty = 0;
+       }
+       MsgReply(pending_write, EOK, &value, sizeof value);
+       pending_write = 0;

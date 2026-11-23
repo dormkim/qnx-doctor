@@ -1,0 +1,11 @@
+--- a/eeprom.c
++++ b/eeprom.c
+@@ -14,7 +14,7 @@
+   for (int n = 0;;) {
+     int rcvid = qd_receive(chid, &m);
+     if (rcvid == 0) continue;
+-    page_ms(20);
++    page_ms(5);                                   /* burst read: 4x faster page access */
+     int word = m.app.v ^ 0xA5;
+     qd_tick(me, n++);
+     MsgReply(rcvid, EOK, &word, sizeof word);

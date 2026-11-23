@@ -1,0 +1,30 @@
+--- a/kvstore.c
++++ b/kvstore.c
+@@ -20,15 +20,15 @@
+   struct itimerspec its = { { 0, 50000000 }, { 0, 50000000 } };
+   timer_settime(tid, 0, &its, NULL);
+ 
+-  int pending_write = 0, value = 0, dirty = 0, n = 0;
++  int pending_write = 0, value = 0, dirty = 0, n = 0, journaled = 0;
+   qd_msg_t m;
+   for (;;) {
+     int rcvid = qd_receive(a->chid, &m);
+     if (rcvid == 0) {
+       if (m.pulse.code != COMMIT_CODE || !pending_write) continue;
+-      journal[jlen++ & 63] = value;
++      if (!journaled) { journal[jlen++ & 63] = value; journaled = 1; }
+       if (++dirty >= JOURNAL_MAX) {        /* compaction: the writer is acked by the commit after it */
+-        compact(); dirty = 0; pending_write = 0;
++        compact(); dirty = 0;                /* keep pending_write for the next commit */
+         continue;
+       }
+       MsgReply(pending_write, EOK, &value, sizeof value);
+@@ -36,7 +36,7 @@
+       qd_tick(me, n++);
+       continue;
+     }
+-    if (m.app.v >= 0) { value = m.app.v; pending_write = rcvid; continue; }
++    if (m.app.v >= 0) { value = m.app.v; pending_write = rcvid; journaled = 0; continue; }
+     MsgReply(rcvid, EOK, &value, sizeof value);      /* read */
+     qd_tick(me, n++);
+   }

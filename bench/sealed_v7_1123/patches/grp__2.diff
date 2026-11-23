@@ -1,0 +1,11 @@
+--- a/imud.c
++++ b/imud.c
+@@ -9,7 +9,7 @@
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+   int chid = qd_fixed_chan(me);
+-  setprio(0, 6);
++  setprio(0, 18);                                 /* above the log formatter */
+   qd_msg_t m;
+   for (int n = 0;;) {
+     int rcvid = qd_receive(chid, &m);

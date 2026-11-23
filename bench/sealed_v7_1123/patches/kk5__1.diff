@@ -1,0 +1,11 @@
+--- a/nvstore.c
++++ b/nvstore.c
+@@ -12,7 +12,7 @@
+   pthread_setname_np(pthread_self(), r_fl);
+   qd_msg_t m;
+   for (int n = 0;;) {
+-    int rcvid = qd_receive(ext_chid, &m);
++    int rcvid = qd_receive(int_chid, &m);          /* flush requests from the writer */
+     if (rcvid <= 0) continue;
+     /* write the page */
+     MsgReply(rcvid, EOK, NULL, 0);

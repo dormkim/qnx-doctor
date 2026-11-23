@@ -1,0 +1,23 @@
+--- a/bgcrc.c
++++ b/bgcrc.c
+@@ -1,4 +1,5 @@
+ /* bgcrc <me>: background flash CRC scrub, priority 15. */
++#include <time.h>
+ #include "../common/qd.h"
+ static volatile unsigned crc;
+ int main(int argc, char **argv) {
+@@ -6,5 +7,13 @@
+   setprio(0, 15);
+   usleep(1200000);
+   qd_tick(me, 0);
+-  for (unsigned i = 0;; i++) crc = (crc >> 1) ^ (0xEDB88320u & -(int)((crc ^ i) & 1));
++  struct timespec a, b;                          /* background: run in slices, leave the CPU to lower work */
++  for (unsigned i = 0;;) {
++    clock_gettime(CLOCK_MONOTONIC, &a);
++    do {
++      for (int k = 0; k < 1024; k++, i++) crc = (crc >> 1) ^ (0xEDB88320u & -(int)((crc ^ i) & 1));
++      clock_gettime(CLOCK_MONOTONIC, &b);
++    } while ((b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000 < 5);
++    usleep(10000);
++  }
+ }

@@ -1,0 +1,16 @@
+--- a/kvstore.c
++++ b/kvstore.c
+@@ -8,7 +8,12 @@
+ #define JOURNAL_MAX 6
+ 
+ static int journal[64], jlen;
+-static void compact(void) { memmove(journal, journal + jlen / 2, (jlen - jlen / 2) * sizeof journal[0]); jlen -= jlen / 2; }
++static void compact(void) {              /* keep the newest half; jlen may have wrapped past the buffer */
++  if (jlen > 64) jlen = 64;
++  int keep = jlen - jlen / 2;
++  memmove(journal, journal + (jlen - keep), keep * sizeof journal[0]);
++  jlen = keep;
++}
+ 
+ int main(int argc, char **argv) {
+   const char *me = argv[1];

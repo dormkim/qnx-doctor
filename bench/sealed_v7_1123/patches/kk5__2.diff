@@ -1,0 +1,11 @@
+--- a/nvstore.c
++++ b/nvstore.c
+@@ -34,7 +34,7 @@
+ 
+   for (int n = 0;; n++) {
+     usleep(100000);                               /* append one record */
+-    if (n % 5 == 4 && qd_send(flush_coid, n) < 0) perror("flush");
++    if (n % 5 == 4 && MsgSendPulse(flush_coid, -1, _PULSE_CODE_MINAVAIL, n) == -1) perror("flush");   /* async flush */
+     qd_tick(me, n);
+   }
+ }

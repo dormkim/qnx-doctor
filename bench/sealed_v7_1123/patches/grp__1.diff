@@ -1,0 +1,16 @@
+--- a/imud.c
++++ b/imud.c
+@@ -8,7 +8,12 @@
+ }
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+-  int chid = qd_fixed_chan(me);
++  /* inherit the caller's priority while fusing: fc (32) must not wait behind background work */
++  int chid = ChannelCreate(_NTO_CHF_DISCONNECT | _NTO_CHF_COID_DISCONNECT);
++  if (chid == -1) { perror("ChannelCreate"); return 1; }
++  { char p[64]; snprintf(p, sizeof p, "/tmp/%s.id", me);
++    FILE *f = fopen(p, "w"); if (!f) { perror("id"); return 1; }
++    fprintf(f, "%d %d\n", getpid(), chid); fclose(f); }
+   setprio(0, 6);
+   qd_msg_t m;
+   for (int n = 0;;) {

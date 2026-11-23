@@ -1,0 +1,24 @@
+--- a/kvstore.c
++++ b/kvstore.c
+@@ -28,15 +28,17 @@
+       if (m.pulse.code != COMMIT_CODE || !pending_write) continue;
+       journal[jlen++ & 63] = value;
+       if (++dirty >= JOURNAL_MAX) {        /* compaction: the writer is acked by the commit after it */
+-        compact(); dirty = 0; pending_write = 0;
+-        continue;
++        compact(); dirty = 0;
+       }
+-      MsgReply(pending_write, EOK, &value, sizeof value);
+       pending_write = 0;
++      continue;
++    }
++    if (m.app.v >= 0) {                  /* ack now, journal on the next commit */
++      value = m.app.v; pending_write = 1;
++      MsgReply(rcvid, EOK, &value, sizeof value);
+       qd_tick(me, n++);
+       continue;
+     }
+-    if (m.app.v >= 0) { value = m.app.v; pending_write = rcvid; continue; }
+     MsgReply(rcvid, EOK, &value, sizeof value);      /* read */
+     qd_tick(me, n++);
+   }

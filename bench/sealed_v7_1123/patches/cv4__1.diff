@@ -1,0 +1,64 @@
+--- a/ui.c
++++ b/ui.c
+@@ -2,13 +2,14 @@
+  * Two request threads keep the visible rows fresh; the event thread answers catalogd's visibility queries
+  * and, when a refresh has started, fetches the new list header so the view redraws without a flicker. */
+ #include <time.h>
++#include <semaphore.h>
+ #include "../common/qd.h"
+ 
+ #define REFRESH 0x10000
+ #define HEADER  0x20000
+ static name_attach_t *att;
+ static int cat;
+-static volatile int want_header;
++static sem_t want_header;
+ static pthread_barrier_t bar;
+ static const char *r_ev;
+ 
+@@ -23,8 +24,7 @@
+   for (int n = 0;; n++) {
+     int v = n;
+     if (n == 8) {                                 /* both halves of the page refresh together */
+-      pthread_barrier_wait(&bar);
+-      want_header = 1;
++      if (pthread_barrier_wait(&bar) == PTHREAD_BARRIER_SERIAL_THREAD) sem_post(&want_header);
+       v |= REFRESH;
+     }
+     if (qd_send(cat, v) < 0) perror("row");
+@@ -34,6 +34,14 @@
+   return NULL;
+ }
+ 
++static void *header(void *arg) {                  /* fetch the new header without tying up the event thread */
++  for (;;) {
++    while (sem_wait(&want_header) == -1) ;
++    if (qd_send(cat, HEADER) < 0) perror("header");
++  }
++  return arg;
++}
++
+ static void *events(void *arg) {
+   FILE *f = NULL; qd_msg_t m;
+   pthread_setname_np(pthread_self(), r_ev);
+@@ -49,7 +57,6 @@
+       tick_to(&f, r_ev, n++);
+       continue;
+     }
+-    if (want_header) { want_header = 0; if (qd_send(cat, HEADER) < 0) perror("header"); }
+     if (++idle % 4 == 0) tick_to(&f, r_ev, n++);
+   }
+   return arg;
+@@ -60,9 +67,11 @@
+   att = qd_attach(argv[1]);
+   r_ev = argv[5];
+   pthread_barrier_init(&bar, NULL, 2);
+-  pthread_t e, a, b;
++  sem_init(&want_header, 0, 0);
++  pthread_t e, a, b, h;
+   pthread_create(&e, NULL, events, NULL);
+   cat = qd_open(argv[2]);
++  pthread_create(&h, NULL, header, NULL);
+   pthread_create(&a, NULL, rows, argv[3]);
+   pthread_create(&b, NULL, rows, argv[4]);
+   pthread_join(a, NULL); pthread_join(b, NULL); pthread_join(e, NULL);

@@ -1,0 +1,32 @@
+--- a/collector.c
++++ b/collector.c
+@@ -22,18 +22,25 @@
+   return chid;
+ }
+ 
++static const char *role;
++static volatile int batch;
++static void *sampling(void *x) {                /* local sampling keeps running between hand-overs */
++  for (;;) { usleep(150000); qd_tick(role, batch++); }
++  return x;
++}
++
+ int main(int argc, char **argv) {
+   if (argc < 3) return 2;
+   const char *me = argv[1];
++  role = me;
+   int chid = announce(me);
+-  int batch = 0;
+-  for (; batch < 3; batch++) { usleep(150000); qd_tick(me, batch); }   /* local sampling until the bank settles */
++  pthread_t s; pthread_create(&s, NULL, sampling, NULL);
++  while (batch < 3) usleep(50000);   /* until the bank settles */
+   int out = link_to(argv[2]);
+   qd_msg_t in;
+   for (;; batch++) {
+     if (qd_send(out, batch) < 0) perror("forward");
+     int rcvid = qd_receive(chid, &in);              /* now accept the next batch from upstream */
+-    if (rcvid > 0) MsgReply(rcvid, EOK, &batch, sizeof batch);
+-    qd_tick(me, batch);
++    if (rcvid > 0) { int b = batch; MsgReply(rcvid, EOK, &b, sizeof b); }
+   }
+ }

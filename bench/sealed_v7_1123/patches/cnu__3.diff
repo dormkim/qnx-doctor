@@ -1,0 +1,11 @@
+--- a/stage.c
++++ b/stage.c
+@@ -25,6 +25,8 @@
+   if (chid == -1) { perror("ChannelCreate"); exit(1); }
+   ep_publish(me, chid);
+   for (int w = 0; w < 3; w++) { usleep(100000); qd_tick(me, w); }   /* warm-up: prime the local buffers */
++  unsigned h = 0; for (const char *s = me; *s; s++) h = h * 31 + (unsigned char)*s;
++  usleep(20000 * (h % 5));                 /* stagger the stages so they don't all push at once */
+   int down = ep_connect(next);
+   qd_msg_t m;
+   for (int n = 3;; n++) {

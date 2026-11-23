@@ -1,0 +1,22 @@
+--- a/keys.c
++++ b/keys.c
+@@ -1,5 +1,6 @@
+ /* keys <me> <broker>: key service. After the key rotation (every 6th signature) it re-registers its
+  * route with the broker so new clients find the new key id. */
++#include <time.h>
+ #include "../common/qd.h"
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+@@ -10,7 +11,11 @@
+     int rcvid = qd_receive(a->chid, &m);
+     if (rcvid == 0) continue;
+     int sig = m.app.v ^ 0x5a5a;
+-    if (n % 6 == 5 && qd_send(brk, -1) < 0) perror("register");   /* rotation */
++    if (n % 6 == 5) {                             /* rotation */
++      uint64_t to = 30000000;
++      TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_SEND | _NTO_TIMEOUT_REPLY, NULL, &to, NULL);
++      if (qd_send(brk, -1) < 0) perror("register");
++    }
+     MsgReply(rcvid, EOK, &sig, sizeof sig);
+     qd_tick(me, n++);
+   }

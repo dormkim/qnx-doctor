@@ -1,0 +1,24 @@
+--- a/pwrmgr.c
++++ b/pwrmgr.c
+@@ -10,6 +10,7 @@
+   name_attach_t *a = qd_attach(me);
+   qd_msg_t m;
+   int rail = 0;
++  int held = 0;                                    /* keep-alive waiting for an answer */
+   for (int n = 0;;) {
+     int rcvid = qd_receive(a->chid, &m);
+     if (rcvid == 0) continue;
+@@ -17,10 +18,12 @@
+     switch (m.app.v) {
+     case KEEPALIVE:
+       clock_gettime(CLOCK_MONOTONIC, &last_keepalive);
+-      reply = 0;                                   /* nothing to report back */
++      held = rcvid;                                /* answered with the next setpoint */
++      reply = 0;
+       break;
+     default:
+       rail = m.app.v;
++      if (held) { MsgReply(held, EOK, &rail, sizeof rail); held = 0; }
+       break;
+     }
+     if (reply) { MsgReply(rcvid, EOK, &rail, sizeof rail); qd_tick(me, n++); }

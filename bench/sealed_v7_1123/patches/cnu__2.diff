@@ -1,0 +1,24 @@
+--- a/stage.c
++++ b/stage.c
+@@ -1,6 +1,7 @@
+ /* stage <me> <next>: one stage of the frame pipeline (acquire -> scale -> encode -> acquire).
+  * Each stage pushes its frame index downstream, then takes the frame coming from upstream.
+  * Endpoints are published as "pid chid" in /tmp/<name>.ep so stages do not wait on the name server at boot. */
++#include <time.h>
+ #include "../common/qd.h"
+ 
+ static void ep_publish(const char *me, int chid) {
+@@ -28,8 +29,12 @@
+   int down = ep_connect(next);
+   qd_msg_t m;
+   for (int n = 3;; n++) {
++    uint64_t to = 50000000;                /* don't let one slow stage stall the pipeline */
++    TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_SEND | _NTO_TIMEOUT_REPLY, NULL, &to, NULL);
+     qd_send(down, n);                      /* downstream acks as soon as the frame is queued */
+-    int rcvid = qd_receive(chid, &m);
++    to = 50000000;
++    TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, &to, NULL);
++    rcvid_t rcvid = MsgReceive(chid, &m, sizeof m, NULL);
+     if (rcvid > 0) MsgReply(rcvid, EOK, &n, sizeof n);
+     qd_tick(me, n);
+   }

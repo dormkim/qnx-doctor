@@ -1,0 +1,15 @@
+--- a/rated.c
++++ b/rated.c
+@@ -15,10 +15,11 @@
+     int rcvid = qd_receive(a->chid, &m);
+     if (rcvid == 0) continue;
+     inflight++;
+-    if (inflight > MAX_INFLIGHT) continue;           /* shed */
++    if (inflight > MAX_INFLIGHT) { inflight--; MsgError(rcvid, EBUSY); continue; }   /* shed: caller retries */
+     int r = handle(m.app.v);
+     if (r < 0) { inflight--; MsgError(rcvid, EINVAL); continue; }
+     MsgReply(rcvid, EOK, &r, sizeof r);
++    inflight--;
+     qd_tick(me, n++);
+   }
+ }

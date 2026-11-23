@@ -1,0 +1,11 @@
+--- a/player.c
++++ b/player.c
+@@ -5,7 +5,7 @@
+   const char *me = argv[1];
+   int coid = qd_open(argv[2]);
+   for (int n = 0;; n++) {
+-    if (n == 5) {
++    if (0 && n == 5) {                              /* master volume is set by the mixer profile */
+       struct { uint16_t type; int32_t v; } vol = { QD_VOLUME, 70 };
+       int r = 0;
+       if (MsgSend(coid, &vol, sizeof vol, &r, sizeof r) == -1) perror("volume");

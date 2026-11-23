@@ -1,0 +1,41 @@
+--- a/hmi.c
++++ b/hmi.c
+@@ -2,25 +2,28 @@
+  * "who owns this key" queries from the database (20 ms window). Its endpoint is in /tmp/<me>.ep. */
+ #include <time.h>
+ #include "../common/qd.h"
++static int chid;
++static void *owner_queries(void *x) {        /* dbd may ask while we wait on the gateway */
++  qd_msg_t q;
++  for (;;) {
++    int r = qd_receive(chid, &q);
++    if (r > 0) { int owner = 1; MsgReply(r, EOK, &owner, sizeof owner); }
++  }
++  return x;
++}
+ int main(int argc, char **argv) {
+   const char *me = argv[1];
+-  int chid = ChannelCreate(0);
++  chid = ChannelCreate(0);
+   if (chid == -1) { perror("ChannelCreate"); return 1; }
+   char p[64]; snprintf(p, sizeof p, "/tmp/%s.ep", me);
+   FILE *f = fopen(p, "w"); if (!f) { perror("ep"); return 1; }
+   fprintf(f, "%d %d\n", getpid(), chid); fclose(f);
++  pthread_t t;
++  if (pthread_create(&t, NULL, owner_queries, NULL) != 0) { perror("owner thread"); return 1; }
+   int gw = qd_open(argv[2]);
+-  qd_msg_t m;
+   for (int n = 0;; n++) {
+     if (qd_send(gw, n) < 0) perror("record");
+     qd_tick(me, n);
+-    for (;;) {                                    /* owner queries */
+-      uint64_t to = 20000000;
+-      TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, &to, NULL);
+-      rcvid_t r = MsgReceive(chid, &m, sizeof m, NULL);
+-      if (r == -1) break;
+-      if (r > 0) { int owner = 1; MsgReply(r, EOK, &owner, sizeof owner); }
+-    }
+-    usleep(80000);
++    usleep(100000);
+   }
+ }

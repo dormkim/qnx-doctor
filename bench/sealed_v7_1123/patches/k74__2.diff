@@ -1,0 +1,11 @@
+--- a/audiod.c
++++ b/audiod.c
+@@ -9,7 +9,7 @@
+   for (int n = 0;;) {
+     int rcvid = qd_receive(a->chid, &m);
+     if (rcvid == 0) continue;
+-    if (m.type != QD_MSG) continue;                 /* not ours */
++    if (m.type != QD_MSG) { MsgError(rcvid, ENOSYS); continue; }   /* not ours */
+     gain = m.app.v;
+     MsgReply(rcvid, EOK, &gain, sizeof gain);
+     qd_tick(me, n++);

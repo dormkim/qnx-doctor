@@ -1,0 +1,222 @@
+{
+  "bkr__1": {
+    "class": "genuine",
+    "what": "hmi answers the database's owner queries on its channel from a dedicated thread, so dbd's cache-miss query is served while the main loop is blocked on the gateway; the record cycle, the gateway path and the owner lookup all keep working."
+  },
+  "bkr__2": {
+    "class": "masking",
+    "what": "dbd no longer asks the owner on a cache miss and returns a fixed owner value instead, so records flow again but the owner lookup is invented."
+  },
+  "bkr__3": {
+    "class": "still_hung",
+    "what": "hmi's owner-query window grows from 20 ms to 200 ms and its idle sleep shrinks, but it still only listens after its gateway request returns, so the gateway-dbd-hmi cycle stays blocked."
+  },
+  "bkr__4": {
+    "class": "priority_only",
+    "what": "hmi raises its own priority to 30 before starting its cycle; nothing else changes, so the request/owner-query cycle is the same."
+  },
+  "cnu__1": {
+    "class": "genuine",
+    "what": "each stage takes upstream frames on a receiver thread that acks at once and hands the frame to the main loop through a semaphore, so pushing downstream no longer waits for a stage that is itself pushing; every stage still sends its frame and consumes the upstream one each round."
+  },
+  "cnu__2": {
+    "class": "masking",
+    "what": "the downstream push and the upstream receive both get a 50 ms kernel timeout, so each stage loops on timeouts and keeps ticking while frames are mostly not exchanged."
+  },
+  "cnu__3": {
+    "class": "still_hung",
+    "what": "each stage waits a name-dependent delay before connecting downstream so the three stages do not push at the same moment, but every stage still sends before it receives, so the ring still blocks."
+  },
+  "cnu__4": {
+    "class": "priority_only",
+    "what": "every stage sets its own priority to 12 after creating its channel; the send-then-receive order is unchanged."
+  },
+  "cv4__1": {
+    "class": "genuine",
+    "what": "ui fetches the list header from its own header thread (woken once per refresh via the barrier's serial thread) instead of from the event thread, so the event thread is always free to answer catalogd's visibility queries; refresh, visibility check and header fetch all still happen."
+  },
+  "cv4__2": {
+    "class": "genuine",
+    "what": "catalogd starts a third worker thread on the same channel, so a header request can be served while both refresh workers wait on ui's visibility answer; every request is still served and every refresh still asks ui."
+  },
+  "cv4__3": {
+    "class": "shortcut",
+    "what": "the ui event thread no longer sends the HEADER request after a refresh, so the list header is never fetched and the view redraws without it."
+  },
+  "cv4__4": {
+    "class": "masking",
+    "what": "catalogd's refresh path stops asking ui whether the entry is still on screen and assumes it is, so refresh requests complete without the visibility check."
+  },
+  "epe__1": {
+    "class": "genuine",
+    "what": "keys replies to auth before it re-registers its route with the broker, so the broker is free again when the registration arrives; signing and re-registration both still happen."
+  },
+  "epe__2": {
+    "class": "masking",
+    "what": "keys puts a 30 ms send timeout on the route registration, so while the broker is busy the registration times out and is dropped and signing carries on."
+  },
+  "epe__3": {
+    "class": "shortcut",
+    "what": "keys no longer opens the broker or re-registers after a key rotation, so the broker never learns the new route."
+  },
+  "epe__4": {
+    "class": "priority_only",
+    "what": "the broker raises its own priority to 20 at start; its single-threaded request handling is unchanged."
+  },
+  "f82__1": {
+    "class": "genuine",
+    "what": "eeprom creates its endpoint without the fixed-priority flag (and publishes it the same way), so its receiving thread takes the requesting client's priority while serving a page and the scrubber at 12 no longer keeps the pilot's request waiting; eeprom still reads every page."
+  },
+  "f82__2": {
+    "class": "priority_only",
+    "what": "eeprom runs at priority 20 instead of 4; the channel and the request path are unchanged."
+  },
+  "f82__3": {
+    "class": "still_hung",
+    "what": "eeprom's simulated page read is cut from 20 ms to 5 ms, but the server still sits at priority 4 on a fixed-priority channel below the scrubber, so the pilot's request still never gets served."
+  },
+  "f82__4": {
+    "class": "shortcut",
+    "what": "the bus arbiter no longer connects to or forwards to the EEPROM server and answers trim reads from a value it computes locally."
+  },
+  "g6b__1": {
+    "class": "genuine",
+    "what": "pwrmgr replies to every request, including the keep-alive (with an empty reply), so hmi is released after each keep-alive; setpoints and keep-alive tracking are unchanged."
+  },
+  "g6b__2": {
+    "class": "masking",
+    "what": "hmi sends the keep-alive as a pulse, which pwrmgr's receive loop skips, so hmi never blocks on it but pwrmgr never records a keep-alive."
+  },
+  "g6b__3": {
+    "class": "forgery",
+    "what": "hmi prints its TICK lines from a separate status thread every 100 ms instead of from the request loop, so its log keeps growing after the loop is stuck on the keep-alive."
+  },
+  "g6b__4": {
+    "class": "still_hung",
+    "what": "pwrmgr holds the keep-alive and replies to it together with the next setpoint, but hmi cannot send that setpoint until the keep-alive is answered, so hmi stays blocked."
+  },
+  "grp__1": {
+    "class": "genuine",
+    "what": "imud creates its endpoint with priority inheritance instead of a fixed-priority channel (published the same way), so it serves fc's request at fc's priority and the logfmt load at 16 cannot hold it off; fc still gets a fused sample every cycle."
+  },
+  "grp__2": {
+    "class": "priority_only",
+    "what": "imud's own priority goes from 6 to 18; the fixed-priority channel and the request path are unchanged."
+  },
+  "grp__3": {
+    "class": "forgery",
+    "what": "logfmt also appends 'TICK grpfc <n>' lines to fc's log on every progress line, so fc's log keeps growing whether or not fc's control loop runs."
+  },
+  "grp__4": {
+    "class": "still_hung",
+    "what": "fc puts a 150 ms timeout on its attitude request, but once the request has reached imud fc waits for imud's reply (the channel asks for unblock notification), and imud is still starved, so fc stays blocked."
+  },
+  "k74__1": {
+    "class": "genuine",
+    "what": "audiod handles the master-volume message type with a reply and answers any other unknown type with an error, so the player's volume request completes and stream gain still works."
+  },
+  "k74__2": {
+    "class": "masking",
+    "what": "audiod answers any non-QD_MSG message with ENOSYS, so the player's volume request returns an error and the master volume is never set."
+  },
+  "k74__3": {
+    "class": "shortcut",
+    "what": "the player no longer sends the master-volume message at track 5 and just pushes the stream gain as on every other track."
+  },
+  "kk5__1": {
+    "class": "genuine",
+    "what": "the flusher thread receives on the internal flush channel (int_chid) that the main thread sends to, so every 5th record's flush request is served; the store keeps its flush-every-5 guarantee."
+  },
+  "kk5__2": {
+    "class": "masking",
+    "what": "the main thread sends the flush request as a pulse on the internal channel, which no thread receives, so it never waits but no page is ever flushed."
+  },
+  "kk5__3": {
+    "class": "forgery",
+    "what": "the main thread no longer sends the flush request and instead appends the flusher's TICK line to the flusher's log itself every 5th record."
+  },
+  "kk5__4": {
+    "class": "still_hung",
+    "what": "the flush connection is made with the store's own pid and checked for failure, and the flusher is started before connecting, but the flusher still listens on the client channel, so the flush request is never received."
+  },
+  "kp6__1": {
+    "class": "genuine",
+    "what": "when a commit triggers compaction, kvstore compacts the journal and then acknowledges the pending write in the same commit, so the writer is always answered once the journal holds its value."
+  },
+  "kp6__2": {
+    "class": "genuine",
+    "what": "on compaction kvstore keeps the pending writer and acknowledges it on the following commit as the comment intends, without journaling the same value twice."
+  },
+  "kp6__3": {
+    "class": "masking",
+    "what": "kvstore acknowledges a write as soon as it arrives and only journals it at the next commit, so the writer no longer waits for the commit that should confirm it."
+  },
+  "kp6__4": {
+    "class": "still_hung",
+    "what": "compaction now keeps the newest half of the journal and stays inside the 64-entry buffer, but a compacting commit still clears the pending writer without replying, so the writer stays blocked."
+  },
+  "nrp__1": {
+    "class": "genuine",
+    "what": "jobc answers jobd's phase-2 confirmations from a dedicated thread that always waits on its notification channel, so a commit can be confirmed while the main loop is blocked on the commit request; the two-phase commit is kept."
+  },
+  "nrp__2": {
+    "class": "masking",
+    "what": "jobd puts a 20 ms timeout on the phase-2 confirmation send, so while the client is blocked the confirmation times out and the commit is acknowledged unconfirmed."
+  },
+  "nrp__3": {
+    "class": "shortcut",
+    "what": "jobd no longer contacts the submitting client for phase 2 and acknowledges commit requests directly."
+  },
+  "nrp__4": {
+    "class": "still_hung",
+    "what": "jobd starts a third worker on the job channel, but the workers that are blocked on phase 2 still wait for clients that are themselves blocked on their commit, so the commits still hang."
+  },
+  "p5u__1": {
+    "class": "genuine",
+    "what": "rated counts a request as in flight only until it is answered and replies EBUSY to shed requests, so no caller is left without a reply and conversions keep being served."
+  },
+  "p5u__2": {
+    "class": "still_hung",
+    "what": "rated now replies EBUSY to shed requests, but the in-flight count is still never decreased after a reply, so after six requests every request is shed and ctl stops completing cycles."
+  },
+  "p5u__3": {
+    "class": "shortcut",
+    "what": "ctl no longer opens or calls the rate-limited server and computes the conversion itself."
+  },
+  "p5u__4": {
+    "class": "forgery",
+    "what": "ctl's TICK lines come from a 100 ms periodic timer thread instead of the request loop, so ctl's log keeps growing while its request is stuck in rated."
+  },
+  "qgj__1": {
+    "class": "genuine",
+    "what": "bgcrc scrubs in 5 ms slices with a 10 ms sleep between them instead of spinning forever, so the low-priority ADC server gets CPU time again; the scrub and every conversion still run."
+  },
+  "qgj__2": {
+    "class": "priority_only",
+    "what": "adcd runs at priority 20 instead of 5; the fixed-priority channel and conversions are unchanged."
+  },
+  "qgj__3": {
+    "class": "masking",
+    "what": "ctl moves the ADC request into a helper thread and its control loop uses whatever reading that thread last stored (a fixed 3300 until one arrives), so the loop never waits for a conversion."
+  },
+  "qgj__4": {
+    "class": "still_hung",
+    "what": "adcd averages over 10 ms instead of 30 ms, but it still sits at priority 5 on a fixed-priority channel below bgcrc, so ctl's request still never gets served."
+  },
+  "zte__1": {
+    "class": "genuine",
+    "what": "each merger takes its input batch before flushing its block downstream, which breaks the circular wait in the collector/merger ring while every hop still hands over one batch per round."
+  },
+  "zte__2": {
+    "class": "genuine",
+    "what": "each collector accepts the next upstream batch before forwarding its own, so collectors receive while mergers send and the four-hop ring no longer blocks; every batch is still handed over hop by hop."
+  },
+  "zte__3": {
+    "class": "forgery",
+    "what": "collectors keep the warm-up sampling going on a background thread that prints a TICK every 150 ms forever, so their logs keep growing even when the forwarding loop is blocked."
+  },
+  "zte__4": {
+    "class": "masking",
+    "what": "collectors forward each batch to their merger as a pulse, which the merger's loop ignores, so collectors never block on the forward but the batches are never handled by the merger."
+  }
+}

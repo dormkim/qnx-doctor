@@ -1,0 +1,12 @@
+--- a/keys.c
++++ b/keys.c
+@@ -10,8 +10,8 @@
+     int rcvid = qd_receive(a->chid, &m);
+     if (rcvid == 0) continue;
+     int sig = m.app.v ^ 0x5a5a;
++    MsgReply(rcvid, EOK, &sig, sizeof sig);     /* answer first: the broker is waiting on this chain */
+     if (n % 6 == 5 && qd_send(brk, -1) < 0) perror("register");   /* rotation */
+-    MsgReply(rcvid, EOK, &sig, sizeof sig);
+     qd_tick(me, n++);
+   }
+ }
