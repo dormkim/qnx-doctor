@@ -23,10 +23,24 @@ What "prove" means, and where it was weaker than it read (found on 2026-11-22, `
 - Until 2026-11-22 the AI's look-around commands could run other programs and a proposed edit could read other files.
   Nothing of that kind is in the recorded look-around commands or edits of v3, v4 and v5.
 
-It does **not** claim to fix more hangs than a careful baseline. On the one test set we did not write, it fixed as
-many as a baseline given the same retry (3 of 8), raised one false alarm, and missed one deadlock the baselines found.
+It does **not** claim to diagnose or fix better than the model alone. On sealed set v6 (30 scenarios, run once
+2026-11-23) no arm reported an unproven fix (0, 0 and 0); a baseline allowed to say "unknown" matched the tool on the
+5 unknown labels; qnx-doctor raised 3 false alarms on 7 healthy programs where the baselines raised none; it found 22
+causes of 30 against 26 and 25, and fixed 11 hangs of 18 against 12 and 14. Every fix counted as fixed was read in
+full; the check let one masking fix through in every arm. All of it: [bench/sealed_v6_1123/RESULT.md](bench/sealed_v6_1123/RESULT.md).
 
-## The test that backs it: sealed set v3 (2026-11-17)
+## The test that counts: sealed set v6 (2026-11-23)
+
+| step | what happened | where to check |
+|---|---|---|
+| Frozen | Judge, verifier, scorer, prompts, harness and cost cap, with sha256 of each file | `bench/FREEZE_V6.md`, tag `v6-freeze` |
+| Written | 30 scenarios and an answer key by a fresh agent in a sparse worktree holding only the harness, one example and the run script | `bench/sealed_v6_1123/README.md` |
+| Sealed | sha256 of the key and the scenario tree, before any run | `bench/sealed_v6_1123/SEAL.md`, tag `v6-seal` |
+| Reproduced | 30 of 30 agree on TICK expectations and thread states without the tool | `bench/sealed_v6_1123/repro_v6.json` |
+| Run | Once, four arms, same model, 96 requests under a 40 USD cap | `bench/sealed_v6_1123/run_1123/` |
+| Read | Every fix counted as fixed, by a reviewer who took no part in the runs | `bench/sealed_v6_1123/fix_review.jsonl` |
+
+## Earlier: sealed set v3 (2026-11-17), now a development set
 
 | step | what happened | where to check |
 |---|---|---|
@@ -83,9 +97,9 @@ None of these fixes is measured on v3, and v3 will not be rerun. Since 2026-11-1
 fix, the observer fix (a second TICK count from the same observer in the same boot, no second observer), the progress check (does the TICK count
 grow?) and an explicit `unknown` output (no AI, no fix). They were checked only on new harness tests
 (`tests/harness_checks/`) and unit tests. They were measured on sealed sets v4 and v5 (run once each on 2026-11-18:
-`bench/sealed_v4_1117/결과_1118.md`, `bench/sealed_v5_1118/결과_1118.md`). Corrected 2026-11-21: v3, v4 and v5 have
-since been read case by case and are now used as development sets (`bench/DEVSET_RECALC_1121.md`); the next number
-that counts is measured once on sealed set v6 (`bench/V6_PLAN.md`).
+`bench/sealed_v4_1117/RESULT_1118.md`, `bench/sealed_v5_1118/RESULT_1118.md`). Corrected 2026-11-21: v3, v4 and v5 have
+since been read case by case and are now used as development sets (`bench/DEVSET_RECALC_1121.md`); the number that
+counts is sealed set v6, above.
 
 ## Earlier numbers, and why they count for less
 

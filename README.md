@@ -6,12 +6,14 @@ priority chain, a server that never replies), an AI proposes a source edit as da
 rebuilds, boots and reruns it, and reports "fixed" only when the rerun shows the stopped loop running again with the
 same message structure. If the graph shows no message-passing cause, it says it cannot tell and does not try a fix.
 
-What we claim, and only this: **it says when it cannot know, and it does not claim a fix that a rerun did not prove.**
-On a test set written by someone who never saw our code, it said "cannot tell" on 3 of 4 cases that message passing
-does not explain; two baselines using the same model said 0 of 4 and "fixed" two cases whose cause is outside the
-given sources. It did not fix more hangs than a baseline given the same retry (3 of 8 each), it raised one false
-alarm on a healthy program, and it missed one deadlock that the baselines found. Details and caveats:
-[What we measured](#what-we-measured-and-what-got-worse) and [JUDGES.md](JUDGES.md).
+What we claim, and only this: **it does not claim a fix that a rerun did not prove, and it says "unknown" when
+message passing does not explain the stop.** On sealed set v6 (30 scenarios by an author who never saw our code, run
+once on 2026-11-23), no arm reported an unproven fix: qnx-doctor 0, and the two baselines on the same model 0 as well,
+because every arm's fix went through the same rerun check. On the 5 labels message passing does not explain, a
+baseline allowed to say "unknown" matched the tool (5 of 5 each), and qnx-doctor raised 3 false alarms on 7 healthy
+programs where both baselines raised none. It found fewer causes (22 of 30 against 26 and 25) and fixed fewer hangs
+(11 of 18 against 12 and 14), and the rerun check let one masking fix through in every arm. Details:
+[bench/sealed_v6_1123/RESULT.md](bench/sealed_v6_1123/RESULT.md) and [JUDGES.md](JUDGES.md).
 
 ## At a glance
 
@@ -65,6 +67,8 @@ proposed edit could read other files):
 
 - The rerun proves what was observed in that boot: loops ticking, and the same pairs still exchanging messages. It
   does not prove that the program is correct.
+- A pulse that the receiver takes and ignores counts as a message exchange. On v6 every arm made one fix that answers
+  with an invented value instead of asking, and the check accepted it (bkr in RESULT.md).
 - The check is not tamper-proof. Programs in the guest run as root next to the observer, and on a dev target a fix
   written to forge its own message record did pass. For v6, every edit counted as fixed is read in full.
 - A priority change in a process that takes part in messaging is not compared, so raising a starved server's priority
@@ -122,7 +126,24 @@ Harness rules for steady verdicts (2026-11-17): `check.sh` runs under `hi` at pr
 
 ## What we measured, and what got worse
 
-### Sealed set v3 (2026-11-17): the first set we did not write
+### Sealed set v6 (2026-11-23): the number that counts
+
+Written by a new author who had not seen the code, sealed (`v6-seal`), 30 of 30 reproduced without the tool, run once
+with four arms on the same model. Criteria and wording were fixed before the seal ([bench/V6_PLAN.md](bench/V6_PLAN.md)).
+
+| arm | kind found | false alarm on healthy | unknown labels hit | fixed (first try / with retries) | genuine after reading | false fix |
+|---|---|---|---|---|---|---|
+| code (no AI) | 22/30 | 3/7 | 5/5 | - | - | 0 |
+| qnx-doctor | 22/30 | 3/7 | 5/5 | 11 / 11 of 18 | 10 | 0 |
+| naive (same model, one answer) | 26/30 | 0/7 | 5/5 | 12 / 12 of 18 | 9 (+2 priority only) | 0 |
+| naive_x2 (same retry as ours) | 25/30 | 0/7 | 5/5 | 12 / 14 of 18 | 11 (+1 priority only) | 0 |
+
+What got worse, and is published as found: the false alarms (two healthy programs next to a CPU load, one timer-driven
+server whose loops kept ticking), the self-send deadlock it does not name, two pool-exhaustion deadlocks it found but did
+not fix, and a masking fix the rerun check accepted in every arm (a pulse that is received and ignored counts as a
+message exchange). Every fix counted as fixed was read in full: [RESULT.md](bench/sealed_v6_1123/RESULT.md).
+
+### Sealed set v3 (2026-11-17): the first set we did not write, now a development set
 
 Note of 2026-11-22: the "fixed" counts below and in v4 and v5 come from a verifier that read the message records
 once. On dev targets that verifier also accepted fixes whose messages stopped after a few rounds
@@ -180,7 +201,7 @@ What got worse, or did not get better:
   treats "some TICKs" as running.
 
 We do not rerun v3 with any of these fixes. They were to be measured on a new sealed set (v4), written by a new author,
-sealed before the run and run once. Analysis (Korean): [docs/분석_sealed3_1117.md](docs/분석_sealed3_1117.md).
+sealed before the run and run once. Analysis: [docs/analysis_sealed3_1117.md](docs/analysis_sealed3_1117.md).
 
 ### After v3: sealed sets v4 and v5 (run 2026-11-18), now development sets
 
@@ -195,12 +216,11 @@ tests, never on v3:
   and still calls no AI and claims no fix in that case.
 
 None of this is a v3 result. v4 was written by a new author who had not seen the code, sealed and run once on
-2026-11-18 ([plan](bench/V4_PLAN.md), [result](bench/sealed_v4_1117/결과_1118.md)); v5, written by the main session
-after a harness fix, was run once the same day ([result](bench/sealed_v5_1118/결과_1118.md)). Both have been opened
+2026-11-18 ([plan](bench/V4_PLAN.md), [result](bench/sealed_v4_1117/RESULT_1118.md)); v5, written by the main session
+after a harness fix, was run once the same day ([result](bench/sealed_v5_1118/RESULT_1118.md)). Both have been opened
 and read case by case since, so (corrected 2026-11-21) **v3, v4 and v5 are now used as development sets**: changes
 are tried on their records ([bench/DEVSET_RECALC_1121.md](bench/DEVSET_RECALC_1121.md)) and none of those numbers
-is a claim. The next number that counts is measured once on sealed set v6: [bench/V6_PLAN.md](bench/V6_PLAN.md).
-The claim paragraphs above still show v3 only and will be rewritten after v6.
+is a claim. The number that counts is sealed set v6, above.
 
 ### Earlier sets (shaped by people who knew the code)
 
