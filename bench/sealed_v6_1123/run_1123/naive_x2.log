@@ -1,0 +1,62 @@
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11504, "output_tokens": 718, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 438}
+{"id": "bkr", "detected": "deadlock", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11539, "output_tokens": 490, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 279}
+{"id": "c3n", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10989, "output_tokens": 756, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 513}
+{"id": "cnu", "detected": "deadlock", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11987, "output_tokens": 1194, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 812}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12302, "output_tokens": 1664, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 1197}
+{"id": "cv4", "detected": "deadlock", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10591, "output_tokens": 239, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 91}
+{"id": "e8s", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11256, "output_tokens": 1054, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 652}
+{"id": "epe", "detected": "deadlock", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10838, "output_tokens": 330, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 179}
+{"id": "euf", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11293, "output_tokens": 274, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 135}
+{"id": "exw", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11253, "output_tokens": 1203, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 656}
+{"id": "f82", "detected": "priority_chain", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10721, "output_tokens": 612, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 371}
+{"id": "g2h", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10799, "output_tokens": 501, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 301}
+{"id": "g6b", "detected": "missing_reply", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10578, "output_tokens": 360, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 191}
+{"id": "gph", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11088, "output_tokens": 670, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 447}
+{"id": "grp", "detected": "priority_chain", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10757, "output_tokens": 565, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 298}
+{"id": "k74", "detected": "missing_reply", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10836, "output_tokens": 598, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 375}
+{"id": "kk5", "detected": "missing_reply", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11271, "output_tokens": 641, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 401}
+{"id": "kp6", "detected": "missing_reply", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10763, "output_tokens": 150, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "kts", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10624, "output_tokens": 106, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "mqj", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11363, "output_tokens": 1443, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 1030}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11901, "output_tokens": 1488, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 935}
+{"id": "nrp", "detected": "deadlock", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10749, "output_tokens": 758, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 422}
+{"id": "p5u", "detected": "missing_reply", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11069, "output_tokens": 214, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 68}
+{"id": "paa", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11021, "output_tokens": 1145, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 653}
+{"id": "qgj", "detected": "priority_chain", "solved": true}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10857, "output_tokens": 239, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 102}
+{"id": "qsa", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11037, "output_tokens": 177, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 63}
+{"id": "quy", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10881, "output_tokens": 111, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "su9", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11166, "output_tokens": 330, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 163}
+{"id": "tzy", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11244, "output_tokens": 364, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 180}
+{"id": "u7z", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11435, "output_tokens": 646, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 418}
+{"id": "vej", "detected": "unknown", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 10950, "output_tokens": 279, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 136}
+{"id": "ya8", "detected": "none", "solved": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11581, "output_tokens": 1354, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 949}
+{"id": "zte", "detected": "deadlock", "solved": true}

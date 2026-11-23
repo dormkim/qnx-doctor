@@ -1,0 +1,64 @@
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12033, "output_tokens": 336, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 293}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13916, "output_tokens": 501, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "bkr", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "dbd owes a reply to gw (which relays hmi's request) but, for keys >= 5, synchronously MsgSends to its owner hmi, which is itself REPLY-blocked on gw waiting for that very reply: hmi -> gw -> dbd -> hmi cycle."}
+{"id": "c3n", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11509, "output_tokens": 303, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 264}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13266, "output_tokens": 487, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "cnu", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "Each stage (cnuacq -> cnuscl -> cnuenc -> cnuacq) does a blocking MsgSend to its next stage before calling MsgReceive on its own channel, so all three are SEND-blocked on each other in a ring and nobody ever receives or replies."}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12607, "output_tokens": 740, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 702}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 14991, "output_tokens": 512, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12864, "output_tokens": 2714, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 2676}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 17065, "output_tokens": 663, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 70}
+{"id": "cv4", "mode": "ai", "detected": "deadlock", "solved": false, "by": "ai", "cause": null}
+{"id": "e8s", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11842, "output_tokens": 328, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 291}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13775, "output_tokens": 529, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "epe", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "keys, while still owing a reply to auth, sends the 'register' message synchronously to broker; broker is itself REPLY-blocked on auth (which waits on keys), so the send closes a cycle broker->auth->keys->broker."}
+{"id": "euf", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "exw", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12885, "output_tokens": 178, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 133}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 14511, "output_tokens": 804, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 62}
+{"id": "f82", "mode": "ai", "detected": "priority_chain", "solved": true, "by": "ai", "cause": "eeprom creates its channel with _NTO_CHF_FIXED_PRIORITY (via qd_fixed_chan), so it serves bus's prio-35 request (on behalf of pilot) at its own prio 4 and is starved by scrub's CPU loop at prio 12 (and other prio 10-21 threads); bus and pilot stay REPLY-blocked."}
+{"id": "g2h", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11278, "output_tokens": 84, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 51}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12860, "output_tokens": 392, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "g6b", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "pwrmgr receives the KEEPALIVE message (v == -1), sets reply = 0 and never calls MsgReply, so hmi stays REPLY-blocked forever on its 7th send"}
+{"id": "gph", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12594, "output_tokens": 268, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 223}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 14310, "output_tokens": 667, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "grp", "mode": "ai", "detected": "priority_chain", "solved": true, "by": "ai", "cause": "imud serves fc (prio 32) on a channel created with _NTO_CHF_FIXED_PRIORITY via qd_fixed_chan, so it stays at prio 6 and is starved by logfmt (16), if_up (10), io-sock (21) while fc is REPLY-blocked on it"}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11222, "output_tokens": 141, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 107}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12964, "output_tokens": 694, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 153}
+{"id": "k74", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "player sends a QD_VOLUME (QD_MSG+1) message at n==5; audiod receives it, sees type != QD_MSG and does `continue` without MsgReply/MsgError, so player stays REPLY-blocked on audiod forever."}
+{"id": "kk5", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11745, "output_tokens": 361, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 325}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13621, "output_tokens": 478, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "kp6", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "On the commit pulse that triggers journal compaction (dirty reaches JOURNAL_MAX), kvstore clears pending_write and continues without ever calling MsgReply, so the writer client stays REPLY-blocked forever."}
+{"id": "kts", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+{"id": "mqj", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11989, "output_tokens": 376, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 336}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13858, "output_tokens": 497, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12330, "output_tokens": 1299, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 1264}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 15271, "output_tokens": 627, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "nrp", "mode": "ai", "detected": "deadlock", "solved": false, "by": "ai", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11218, "output_tokens": 326, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 290}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13206, "output_tokens": 570, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 0}
+{"id": "p5u", "mode": "ai", "detected": "missing_reply", "solved": true, "by": "ai", "cause": "rated increments inflight for every message but only decrements it on the error path; after 6 replies inflight exceeds MAX_INFLIGHT and the server 'continue's without MsgReply/MsgError, leaving ctl REPLY-blocked forever (both logged exactly 6 TICKs)"}
+{"id": "paa", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12625, "output_tokens": 317, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 272}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 14390, "output_tokens": 800, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 67}
+{"id": "qgj", "mode": "ai", "detected": "priority_chain", "solved": true, "by": "ai", "cause": "adcd creates its channel with _NTO_CHF_FIXED_PRIORITY (via qd_fixed_chan) and runs at priority 5. ctl (priority 30) is REPLY-blocked on it. adcd does not inherit priority 30, so bgcrc's priority-15 busy loop starves adcd and ctl waits forever."}
+{"id": "qsa", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "quy", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11346, "output_tokens": 347, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 308}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13110, "output_tokens": 604, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 129}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 11434, "output_tokens": 340, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 301}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13365, "output_tokens": 602, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 105}
+{"id": "su9", "mode": "ai", "detected": "missing_reply", "solved": false, "by": "ai", "cause": null}
+{"id": "tzy", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "u7z", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "vej", "mode": "ai", "detected": "unknown", "solved": null, "by": "code", "cause": null}
+{"id": "ya8", "mode": "ai", "detected": "none", "solved": null, "by": "code", "cause": null}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 12152, "output_tokens": 184, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 148}
+qd-usage {"kind": "usage", "model": "claude-opus-5-5", "stop_reason": "end_turn", "input_tokens": 13873, "output_tokens": 749, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "thinking_tokens": 129}
+{"id": "zte", "mode": "ai", "detected": "deadlock", "solved": true, "by": "ai", "cause": "All four processes (collector a -> merger a -> collector b -> merger b -> collector a) call a blocking MsgSend to the next process before they call MsgReceive on their own channel. Each one stays SEND-blocked, so nobody ever receives and the ring deadlocks."}
