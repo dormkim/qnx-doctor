@@ -1,0 +1,49 @@
+# v6 freeze (2026-11-23)
+
+Frozen at the parent of this commit, `fe3115216ef4d3b708adc6d3f9d248809a80a068` (main). From here until the v6 run, judge, verifier, scorer, prompts,
+harness, cost cap and run script do not change. A change needs a new freeze and is reported with the result.
+
+Before this freeze:
+
+- Decisions of bench/V6_GATES_1122.md section 12 (guest forgery as a stated limit, priority-only fixes counted
+  separately, the stricter check's costs accepted) and the cost cap of section 13 are in.
+- 2-call reply check, 2026-11-23: sp01 and bo01 through `naive_hang.py --allow-unknown`, both replies parsed,
+  both "unknown", 0.0897 USD booked. Record kept outside the repository.
+- Author worktree, pool and answers live outside /tmp (V6_GATES 12.2): `~/personal/qd_v6_author`, branch
+  `sealed-v6-author`, sparse checkout with only the files section 3 of V6_PLAN lets the author open.
+
+## sha256 of the frozen files
+
+```
+8725217c0bffd3a82691fecd720d82074851f89b69979cc6c4dcf7cef39a2682 qnx_doctor/actions.py
+48c63136ad35964d1d2a7e15c402e0f9860c20c31f6038d1f623d4ce018a96ed qnx_doctor/ai.py
+947568e2f52f04651d6bb985c603f965225921bead27c4017e03b4b354cdf62d qnx_doctor/budget.py
+43cde8fb86cc31b1e7cdb8af81198c2de48d0a6ef68e3c7534b7953ea22bf96f qnx_doctor/cli.py
+5f61a4d4ae4f0de8bf2122b2211a8eee07710966c91b23570b0ad74efeea709c qnx_doctor/docs.py
+885a1f27043e5c08da1f44d89d28fece7870ab78a2f3333dd3ed3ebb916f792a qnx_doctor/doctor.py
+d52486fcc570f5f01cb551c5807802552115facfdf23421b1c7c960d17fec5de qnx_doctor/hangdoctor.py
+cdcfc6282f375d2b6e25230b18a34042cd45e2395577da366ae9e21a234d3568 qnx_doctor/hang.py
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 qnx_doctor/__init__.py
+9b01dcc71f53bfd0a0b6c75fac084ef8b027aa37e6dd6e5896322ecfcfa16603 qnx_doctor/live.py
+171469dd1acaa5c84903d245a471e46d0793ba5e343cce5eb8766e475e9ad0f2 qnx_doctor/probes.py
+d5f3afde31328d0fd0ac1f33dc7a61e5dfac23b31488aaed7d54055fb1f79872 qnx_doctor/progress.py
+ef2e1f0c42647cbcfcc5cf7dc40961d3ef4815bdf0205e4247fe88d78a0c50ea qnx_doctor/report.py
+4d87216ae742861d1f1a44a7f1a736f421f18d149a0fb43e4db586b92d1afc28 qnx_doctor/rules.py
+322fb9239fe7f843d3fd49cf3a28d8353b8633fe901b3314cac163d2dbc81e60 qnx_doctor/runner.py
+1ed195a5e9efe4eb379d2cd7506a4177fe1a8651813698ca28baa6543a5e3153 qnx_doctor/sandbox.py
+115500372445d26597db0376b768b16ab3e0970bf5505d324446f85bc372b3b3 qnx_doctor/source_check.py
+01ff6ff54792249036029462a9a50fbbac9599f5bdb34816320a4e6ed630c957 qnx_doctor/structure.py
+ae40ae0982d77370eb2b0c863d732c92482cfbf478e0392928dcce5f41b7e665 qnx_doctor/waitgraph.py
+1401c0718ff1ec401b8554459b0b1c08a59366409db74aa49cb55b09ae2e9d27 bench/run_sealed3.sh
+9446a1bdb65d39ac67f3af2cb2e7b19736266915f67b60d63ce1cb7e9ec28343 bench/naive_hang.py
+e9ab873f0e799abfa3b0fd598b74868060a079c917163ff653e5a6760327d19a bench/score_hang.py
+0bc37675ae23c6ee2f1dd7b4cf778e8993b2db494f7a209c0b51cae6a06af7bb bench/repro_v3.py
+6cf3336e5c9c70ed1ec1c3b06a200e0b8c299aa9cfdf679078dc1bcfd16e1833 bench/repro_states.py
+b6ebfdb65806de10a7db8974dfe508a6ed30c4d7464df28bf634740d0d8f5958 bench/seal_hash.py
+661dbcd4b4e8f357a6a539513a8df14590391ecd4650f01ce32a78958f7bb613 tests/sealed_hang/common/check.sh
+29399c4e58d3bce0af31ce3738f107040052f088f2b843d6e987fd8d5f5c3259 tests/sealed_hang/common/hi.c
+0709eca6f142bb7e0a5c96799a63e23c468f3b2a4c8ffa680ec683c1238fa6bf tests/sealed_hang/common/qd.h
+153dd030c9fc04e43994b4dcf27b059b13617ca95bd64c64b5508c6035991b14 tests/sealed_hang/common/qd_start.c
+2928c152bc8742d87589df8168b1ad589f48bdd1cc101e9feb07094ffa122223 tests/sealed_hang/common/qd_trace.c
+8f2e76afc3d40ab68f218cd43573088ef2cd3c6f01c850c6f6cfc7724fcfb273 tests/sealed_hang/common/snap.c
+```
