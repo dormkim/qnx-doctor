@@ -1,0 +1,456 @@
+{
+ "bkr": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0bkrhmi": 5,
+   "d0bkrgw": 5,
+   "d0bkrdb": 5
+  },
+  "later": {
+   "d0bkrhmi": 5,
+   "d0bkrgw": 5,
+   "d0bkrdb": 5
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "c3n": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0c3ndma": 5,
+   "d0c3nisr": 4
+  },
+  "later": {
+   "d0c3ndma": 5,
+   "d0c3nisr": 4
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "cnu": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0cnuenc": 3,
+   "d0cnuscl": 3,
+   "d0cnuacq": 3
+  },
+  "later": {
+   "d0cnuenc": 3,
+   "d0cnuscl": 3,
+   "d0cnuacq": 3
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "cv4": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0cv4ev": 4,
+   "d0cv4r2": 8,
+   "d0cv4r1": 8,
+   "d0cv4wb": 8,
+   "d0cv4wa": 8
+  },
+  "later": {
+   "d0cv4ev": 4,
+   "d0cv4r2": 8,
+   "d0cv4r1": 8,
+   "d0cv4wb": 8,
+   "d0cv4wa": 8
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "e8s": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0e8sprs": 6
+  },
+  "later": {
+   "d0e8sprs": 6
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "epe": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0epeui": 5,
+   "d0epekeys": 5,
+   "d0epebrk": 5,
+   "d0epeauth": 5
+  },
+  "later": {
+   "d0epeui": 5,
+   "d0epekeys": 5,
+   "d0epebrk": 5,
+   "d0epeauth": 5
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "euf": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0eufmap": 1,
+   "d0eufnav": 26,
+   "d0eufgps": 26
+  },
+  "later": {
+   "d0eufmap": 1,
+   "d0eufnav": 40,
+   "d0eufgps": 40
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "exw": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0exwfl": 15,
+   "d0exwlog": 15,
+   "d0exwbat": 16
+  },
+  "later": {
+   "d0exwfl": 24,
+   "d0exwlog": 24,
+   "d0exwbat": 25
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "f82": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0f82scr": 1,
+   "d0f82plt": 10,
+   "d0f82bus": 10,
+   "d0f82eep": 10
+  },
+  "later": {
+   "d0f82scr": 1,
+   "d0f82plt": 10,
+   "d0f82bus": 10,
+   "d0f82eep": 10
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "g2h": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0g2happ": 6,
+   "d0g2hcfg": 6
+  },
+  "later": {
+   "d0g2happ": 6,
+   "d0g2hcfg": 6
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "g6b": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0g6bhmi": 6,
+   "d0g6bpwr": 6
+  },
+  "later": {
+   "d0g6bhmi": 6,
+   "d0g6bpwr": 6
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "gph": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0gphlru": 6
+  },
+  "later": {
+   "d0gphlru": 6
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "grp": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0grplog": 14,
+   "d0grpfc": 8,
+   "d0grpimu": 8
+  },
+  "later": {
+   "d0grplog": 25,
+   "d0grpfc": 8,
+   "d0grpimu": 8
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "k74": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0k74ply": 5,
+   "d0k74aud": 5
+  },
+  "later": {
+   "d0k74ply": 5,
+   "d0k74aud": 5
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "kk5": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0kk5nv": 4
+  },
+  "later": {
+   "d0kk5nv": 4
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "kp6": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0kp6rd": 40,
+   "d0kp6wr": 5,
+   "d0kp6kv": 45
+  },
+  "later": {
+   "d0kp6rd": 61,
+   "d0kp6wr": 5,
+   "d0kp6kv": 66
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "kts": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0ktsio": 39,
+   "d0ktsapp": 39
+  },
+  "later": {
+   "d0ktsio": 60,
+   "d0ktsapp": 60
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "mqj": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0mqjpln": 11,
+   "d0mqjlid": 11
+  },
+  "later": {
+   "d0mqjpln": 17,
+   "d0mqjlid": 17
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "nrp": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0nrpwa": 6,
+   "d0nrpwb": 6,
+   "d0nrpc2": 6,
+   "d0nrpc1": 6
+  },
+  "later": {
+   "d0nrpwa": 6,
+   "d0nrpwb": 6,
+   "d0nrpc2": 6,
+   "d0nrpc1": 6
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "p5u": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0p5uctl": 6,
+   "d0p5urate": 6
+  },
+  "later": {
+   "d0p5uctl": 6,
+   "d0p5urate": 6
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "paa": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0paactl": 5
+  },
+  "later": {
+   "d0paactl": 5
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "qgj": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0qgjcrc": 1,
+   "d0qgjctl": 9,
+   "d0qgjadc": 9
+  },
+  "later": {
+   "d0qgjcrc": 1,
+   "d0qgjctl": 9,
+   "d0qgjadc": 9
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "qsa": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0qsacr": 1,
+   "d0qsahmi": 33,
+   "d0qsasen": 33
+  },
+  "later": {
+   "d0qsacr": 1,
+   "d0qsahmi": 50,
+   "d0qsasen": 50
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "quy": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0quystat": 19,
+   "d0quyseq": 5
+  },
+  "later": {
+   "d0quystat": 30,
+   "d0quyseq": 5
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "su9": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0su9mon": 13,
+   "d0su9evq": 13
+  },
+  "later": {
+   "d0su9mon": 20,
+   "d0su9evq": 20
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "tzy": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0tzyrot": 5,
+   "d0tzying": 11
+  },
+  "later": {
+   "d0tzyrot": 5,
+   "d0tzying": 11
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "u7z": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0u7zwd": 20,
+   "d0u7zrep": 4,
+   "d0u7zlog": 8
+  },
+  "later": {
+   "d0u7zwd": 31,
+   "d0u7zrep": 4,
+   "d0u7zlog": 8
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "vej": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0vejcmp": 17,
+   "d0vejupl": 6,
+   "d0vejctl": 5
+  },
+  "later": {
+   "d0vejcmp": 28,
+   "d0vejupl": 6,
+   "d0vejctl": 5
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "ya8": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0ya8snp": 10,
+   "d0ya8rd": 40
+  },
+  "later": {
+   "d0ya8snp": 16,
+   "d0ya8rd": 64
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ },
+ "zte": {
+  "agree": true,
+  "why": [],
+  "snap": {
+   "d0ztemrgb": 2,
+   "d0ztecolb": 3,
+   "d0ztemrga": 2,
+   "d0ztecola": 3
+  },
+  "later": {
+   "d0ztemrgb": 2,
+   "d0ztecolb": 3,
+   "d0ztemrga": 2,
+   "d0ztecola": 3
+  },
+  "error": null,
+  "method": "same boot (TICKS, TICKS2)"
+ }
+}

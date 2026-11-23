@@ -20,3 +20,9 @@ Tree hash: `python3 bench/seal_hash.py tree <pool> [--no-common]` (sorted «<rel
 Next, unchanged from V6_PLAN section 4: reproducibility check `bench/repro_v3.py POOL LABELS OUT --same-boot`;
 a failing scenario goes back to the author once with only the unseen state words; a second failure excludes it,
 and the key is never edited.
+
+## Reproducibility check, 2026-11-23
+
+`bench/repro_v3.py ... --same-boot` (with `bench/repro_states.py`) at the seal commit, QD_SMP=1, no doctor, no AI:
+**30 of 30 agree** on both the TICK expectation per role and the thread states named in the key. No scenario went
+back to the author and none is excluded. Record: `repro_v6.json`.
