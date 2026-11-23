@@ -35,6 +35,7 @@ ai: "AI (Claude)" {
   label.near: outside-bottom-right
   look: "Look around\nread-only probes,\nSDP docs search" { class: ai }
   fix: "Fix as data\nallow-listed actions only" { class: ai }
+  docs: "SDP docs index" { class: store }
 }
 
 verify: "Gate (no model)" {
@@ -51,7 +52,6 @@ out: "Out" {
   report: "Report\nterminal or HTML" { class: own }
 }
 
-docs: "SDP docs index" { class: store }
 
 in.patch -> verify.rerun: "verify" { class: gateflow }
 verify.verdict -> out.answer: { class: gateflow }
@@ -63,7 +63,7 @@ observe.graph -> ai.look: { class: flow }
 observe.graph -> out.named: { class: flow }
 observe.rules -> verify.rerun: "rule fix" { class: flow }
 observe.rules -> ai.look: "no rule worked" { class: flow }
-docs -> ai.look
+ai.look -> ai.docs
 ai.look -> ai.fix: { class: flow }
 ai.fix -> verify.rerun: { class: flow }
 verify.rerun -> verify.verdict: { class: gateflow }
