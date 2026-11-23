@@ -1,4 +1,4 @@
-# Sealed scenario set (외부 공개 출처 기반)
+# Sealed scenario set (built from public sources)
 
 Built 2026-11-15 from public QNX documentation, release notes and forum threads (URLs in each file's `source`).
 **Sealed:** committed before the doctor's rules/prompts were tuned. The doctor is run on this set **once**, at the end, and the result is reported as-is.

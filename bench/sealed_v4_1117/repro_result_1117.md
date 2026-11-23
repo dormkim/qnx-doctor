@@ -36,4 +36,4 @@ Representative counts (snap == later, i.e. no progress = hung as labeled):
 The single scored run (code / ours / naive / naive_x2) stays gated on explicit user confirmation and must set `QD_SMP=1`.
 
 ---
-커밋: `44d223d` (fix(bench): v4 priority_chain 재현 되살리기). 봉인 기준 커밋 6742e2d 이후의 교정이며, 변경·사유는 이 문서와 SEAL.md Correction 2에 전부 기록.
+Commit: `44d223d` (fix(bench): bring the v4 priority_chain reproduction back). A correction made after the sealing commit 6742e2d; the change and its reason are recorded in full in this document and in SEAL.md Correction 2에 전부 기록.

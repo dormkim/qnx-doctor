@@ -1,7 +1,7 @@
 # Seal: sealed hang set v4
 
 Sealed 2026-11-17T13:49:36+00:00 (KST), before any run of qnx-doctor or the baselines on this set. 24 scenarios.
-Written by an independent author (new session, own worktree on srv1) who opened only qd.h, check.sh, D01 and run_sealed3.sh; the doctor, judge, prompts, results, docs and earlier answer keys were not read.
+Written by an independent author (new session, own worktree on the build server) who opened only qd.h, check.sh, D01 and run_sealed3.sh; the doctor, judge, prompts, results, docs and earlier answer keys were not read.
 
 | What | sha256 |
 |---|---|

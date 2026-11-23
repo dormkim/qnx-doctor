@@ -68,11 +68,11 @@
  {
   "id": "X12",
   "runnable": false,
-  "status": "재현 못 함: 서버 SDP가 8.0.0 기준(패치셋 미설치)"
+  "status": "not reproduced: the server's SDP is 8.0.0 (the patch set is not installed)"
  },
  {
   "id": "X13",
   "runnable": false,
-  "status": "재현 보류: 틀린 myQNX 자격 증명을 넣어야 함(계정 잠금 위험)"
+  "status": "reproduction put off: it needs wrong myQNX credentials entered on purpose (risk of locking the account)"
  }
 ]

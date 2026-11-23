@@ -25,7 +25,7 @@ Questions, in this order:
 
 ## Who writes it
 
-A fresh agent in a new session, with no memory of this repository's work, in its own worktree on srv1. It must not
+A fresh agent in a new session, with no memory of this repository's work, in its own worktree on the build server. It must not
 open: `qnx_doctor/`, `bench/` (except `run_sealed3.sh` to see how scenarios are started), `results/`, `runs/`,
 `docs/`, `JUDGES.md`, `README.md`, this file, `tests/harness_checks/`, earlier answer keys, or the v3 pool. It gets the
 **author brief** below, plus the format files `tests/sealed_hang/common/{qd.h,check.sh}` and one example scenario

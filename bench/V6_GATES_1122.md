@@ -385,7 +385,9 @@ Criteria A to F and the way the scorer counts them are unchanged. The readings a
   check included.
 - The author's worktree, the pool and the answers go outside `/tmp` (11.3, point 1). This replaces the path in
   section 3 of the plan.
-- `runs/sealed_ai*_1115.jsonl` carry home paths. Clean them before the repository is public.
+- `runs/sealed_ai*_1115.jsonl` carry home paths. Clean them before the repository is public. Done 2026-11-23: in the
+  three `runs/sealed_*_1115.jsonl` files the home paths are replaced by `<QNX_SDP>`, `<repo>` and `<home>` and the
+  `seconds` field is removed; lines and entries are otherwise as recorded.
 
 ## 13. The cost cap (2026-11-22, on `v6/cost-cap-1122`; the first open point of 12.2)
 

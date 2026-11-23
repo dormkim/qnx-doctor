@@ -4,5 +4,5 @@
  "source": [
   "https://www.qnx.com/developers/docs/qnxeverywhere/com.qnx.doc.target_images/topic/cti/troubleshooting.html"
  ],
- "status": "재현 보류: 틀린 myQNX 자격 증명을 넣어야 함(계정 잠금 위험)"
+ "status": "reproduction put off: it needs wrong myQNX credentials entered on purpose (risk of locking the account)"
 }

@@ -6,7 +6,7 @@
 # Server only, detached; writes $S/state.$PHASE (A / B-code / B-ai / done / fail:<why>). States only (QNX 4.6(i)).
 set -u
 set -a; . ~/.config/qnx-doctor/env; set +a
-cd ~/personal/qnx-doctor
+cd "$(dirname "$0")/.."
 S=runs/st_1116; mkdir -p $S; PY=.venv/bin/python
 PHASE=${1:-all}   # A | B | all (state file per phase, so A and B can run side by side)
 fail() { echo "fail:$1" > $S/state.$PHASE; exit 1; }

@@ -4,5 +4,5 @@
  "source": [
   "https://www.qnx.com/developers/docs/relnotes8.0/com.qnx.doc.release_notes/topic/8.0.2_prod_release_notes/8.0.2_rn.html"
  ],
- "status": "재현 못 함: 서버 SDP가 8.0.0 기준(패치셋 미설치)"
+ "status": "not reproduced: the server's SDP is 8.0.0 (the patch set is not installed)"
 }

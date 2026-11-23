@@ -23,7 +23,7 @@ Key conventions:
 Nothing here was compiled or run on the target. The C files were only syntax-checked on the author's Mac
 against a stub of the QNX declarations.
 
-## Files opened by the author on srv1
+## Files opened by the author on the build server
 - tests/sealed_hang/common/qd.h
 - tests/sealed_hang/common/qd_start.c
 - tests/sealed_hang/common/qd_trace.c
