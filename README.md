@@ -1,19 +1,28 @@
 # qnx-doctor
 
-A host tool for QNX 8.0 programs that stop making progress because of message passing. It boots the program in QEMU,
-reads `pidin` on the target, and builds the wait-for graph in code. If the graph shows a cause (a send cycle, a
-priority chain, a server that never replies), an AI proposes a source edit as data; qnx-doctor applies it to a copy,
-rebuilds, boots and reruns it, and reports "fixed" only when the rerun shows the stopped loop running again with the
-same message structure. If the graph shows no message-passing cause, it says it cannot tell and does not try a fix.
+**A gate for fixes to hung QNX 8.0 programs, whoever wrote them.** A coding agent, a colleague or qnx-doctor itself
+proposes a patch for a program that stopped making progress because of message passing. `qnx-doctor verify` builds
+the program with and without the patch, boots each in QEMU, and answers `accept` only when the stopped loop runs again,
+nothing that ran stops, and the same processes still exchange messages. A patch that merely gets the loop ticking
+again by cutting a peer out, removing a thread or faking the log is rejected; a patch the rerun cannot vouch for is
+sent to a person (`review`), with the lines to read. No model is called.
 
-What we claim, and only this: **it does not claim a fix that a rerun did not prove, and it says "unknown" when
-message passing does not explain the stop.** On sealed set v6 (30 scenarios by an author who never saw our code, run
-once on 2026-11-23), no arm reported an unproven fix: qnx-doctor 0, and the two baselines on the same model 0 as well,
-because every arm's fix went through the same rerun check. On the 5 labels message passing does not explain, a
-baseline allowed to say "unknown" matched the tool (5 of 5 each), and qnx-doctor raised 3 false alarms on 7 healthy
-programs where both baselines raised none. It found fewer causes (22 of 30 against 26 and 25) and fixed fewer hangs
-(11 of 18 against 12 and 14), and the rerun check let one masking fix through in every arm. Details:
-[bench/sealed_v6_1123/RESULT.md](bench/sealed_v6_1123/RESULT.md) and [JUDGES.md](JUDGES.md).
+```sh
+python3 -m qnx_doctor.cli verify path/to/scenario fix.diff      # ACCEPT / REJECT (rule) / REVIEW (lines to read)
+```
+
+What we measured, once, on 55 patches written by an agent that never saw our code and labelled by two readers
+(53 agree): **the gate rejected 4 of 17 genuine fixes**, three because a request moved to another thread and one
+that throttled a CPU load. **It accepted 5 of 30 bad patches where a "does it run again" check accepted 19**, and
+**none of the 5 forgeries**. It cannot see what a reply means: an error returned as a reply, an early acknowledgement,
+an ignored pulse or a timeout that keeps a loop ticking can pass. Details:
+[bench/sealed_v7_1123/RESULT.md](bench/sealed_v7_1123/RESULT.md).
+
+The same engine also diagnoses hangs (`hang`): it reads `pidin` on the target and builds the wait-for graph in code,
+and an AI proposes a fix that the gate then judges. On sealed set v6 the model alone diagnosed and fixed as well or
+better (22 of 30 causes against 26 and 25, 11 of 18 fixes against 12 and 14), qnx-doctor raised 3 false alarms on 7
+healthy programs, and no arm reported a fix the rerun did not prove:
+[bench/sealed_v6_1123/RESULT.md](bench/sealed_v6_1123/RESULT.md). For judges: [JUDGES.md](JUDGES.md).
 
 ## At a glance
 
@@ -65,6 +74,12 @@ proposed edit could read other files):
 
 ### Limits of the check and of the boundary
 
+- It does not know what a reply means. On the v7 patch set it accepted a server that answers ENOSYS, a store that
+  acknowledges before it commits, collectors whose pulses the receiver passes over, and timeouts that keep a ring
+  ticking while most frames are lost. The `review` rule catches only a used reply that disappears or a request turned
+  into a pulse that the receiver explicitly drops.
+- It is strict about who talks to whom: moving a request to another thread of the same process can read as a pair that
+  stopped exchanging messages (3 genuine v7 fixes rejected), and idling a CPU load is never a fix (1 rejected).
 - The rerun proves what was observed in that boot: loops ticking, and the same pairs still exchanging messages. It
   does not prove that the program is correct.
 - A pulse that the receiver takes and ignores counts as a message exchange. On v6 every arm made one fix that answers
@@ -95,6 +110,9 @@ Environment: `QNX_SDP` (default `~/personal/qnx/qnx800`) and `QD_QEMU_ROOT` (a Q
 ## Build and run
 
 ```sh
+# Gate: judge a patch (unified diff against the scenario directory, or JSON edit_file actions)
+python3 -m qnx_doctor.cli verify scenarios/hang_demo/control_loop my_fix.diff --out verify.jsonl
+
 git clone <this repo> && cd qnx-doctor
 python3 -m qnx_doctor.cli index                       # once: index the QNX docs installed with the SDP
 
@@ -125,6 +143,21 @@ A hang scenario (the test loop) is a directory with `*.c` sources and a `run.sh`
 Harness rules for steady verdicts (2026-11-17): `check.sh` runs under `hi` at priority 50, but every scenario program starts at the normal priority 10 (`common/qd_start.c`, linked in like `qd_trace.c`), so a busy program cannot starve the serial or disk driver. `snap` writes nothing to the console while it looks: `pidin` goes to `/dev/shmem` first, and two more snapshots follow a moment later. A priority chain or a missing reply counts only if the same waiter → server pair is in all three. Only one QEMU guest runs at a time on a host (`bin/qd-target-exec` takes a lock).
 
 ## What we measured, and what got worse
+
+### Patch set v7 (2026-11-23): the gate
+
+Plan and wording rules committed before any code ([bench/V7_VERIFY_PLAN.md](bench/V7_VERIFY_PLAN.md)); patches by a
+fresh agent on the 14 v6 hang programs without a mutex wait; labels by that author and a second fresh reader; sealed
+(`v7-seal`) and run once. The first run failed in our patch loader before any patched boot and was repeated after a
+loader-only fix (`v7.1-freeze`); both runs are kept.
+
+| checker | bad patches accepted | forgeries accepted | genuine fixes not accepted |
+|---|---|---|---|
+| "the stopped loop ticks again" only | 19 of 30 | 4 of 5 | 0 of 17 |
+| structure rules (v6 gate) | 6 of 30 | 0 of 5 | 4 of 17 |
+| v7 gate (+ review rule) | 5 of 30 | 0 of 5 | 4 of 17 |
+
+Every wrong verdict is listed with its reason in [RESULT.md](bench/sealed_v7_1123/RESULT.md).
 
 ### Sealed set v6 (2026-11-23): the number that counts
 

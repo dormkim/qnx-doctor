@@ -5,8 +5,26 @@ checked from files in this repository; the full test loop needs QNX SDP 8.0 and 
 
 ## The claim
 
-qnx-doctor says when it cannot know why a QNX program stopped, and it does not claim a fix that a rerun on the target
-did not prove.
+`qnx-doctor verify` stops most patches that only make a hung QNX program run again, without reading the patch's
+intent: on 55 patches nobody on our side wrote, it accepted 5 of 30 bad patches where a "does it run again" check
+accepted 19, and no forgery. It also rejected 4 of 17 genuine fixes, and it cannot tell what a reply means. The
+diagnosis (`hang`) is not claimed to beat the model alone: on sealed set v6 it did not.
+
+## The test that counts for the gate: patch set v7 (2026-11-23)
+
+| step | what happened | where to check |
+|---|---|---|
+| Planned | Classes, checkers, criteria G1 to G4 and the wording rules, before any v7 code | `bench/V7_VERIFY_PLAN.md` |
+| Frozen | Gate, judge, structure rules, scorer; re-frozen once for a loader-only fix | `bench/FREEZE_V7.md`, tags `v7-freeze`, `v7.1-freeze` |
+| Written | 55 patches by a fresh agent in a plain folder with only the 14 programs, the harness and the brief | `bench/sealed_v7_1123/README_author.md` |
+| Labelled | By the author and by a second fresh reader who saw neither the author's labels nor the run; 53 of 55 agree | `labels_author.json`, `labels_reader.json` |
+| Sealed | sha256 of the patches and the author's labels before the run | `bench/sealed_v7_1123/SEAL.md`, tag `v7-seal` |
+| Run | Once (a first run that failed in the loader is kept) | `run_1123b/`, `run_1123_loaderbug/` |
+| Scored | By the scorer committed before the seal | `bench/score_verify.py`, `run_1123b/score.md` |
+
+Outcome by the criteria fixed in advance: G1 met (5 vs 19 bad patches accepted), G2 not met (4 genuine fixes
+rejected, 2 allowed), G3 0 forgeries accepted, G4 the v7 review rule caught 1 more masking patch than the v6 gate and
+cost no genuine fix. [bench/sealed_v7_1123/RESULT.md](bench/sealed_v7_1123/RESULT.md).
 
 What "prove" means, and where it was weaker than it read (found on 2026-11-22, `bench/V6_GATES_1122.md`):
 
