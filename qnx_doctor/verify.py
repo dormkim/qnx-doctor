@@ -14,6 +14,7 @@ directory name) or a unified diff against the scenario's directory (applied with
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -51,7 +52,11 @@ def load_patch(scen_dir: str, patch: str) -> tuple[list, str | None]:
                 break
         else:
             return [], "rejected: the diff does not apply to the scenario"
-        before, after = _sources(scen_dir, name), _sources(dst, name)
+        # hang.prepare drops /* */ comments from the copy it builds, so the edits are made against that same text
+        # (2026-11-23, after the first v7 run rejected every diff of a file with comments: "text to replace not found").
+        strip = lambda s: re.sub(r"/\*.*?\*/", "", s, flags=re.S)  # noqa: E731
+        before = {k: strip(v) for k, v in _sources(scen_dir, name).items()}
+        after = {k: strip(v) for k, v in _sources(dst, name).items()}
         acts = [{"type": "edit_file", "path": k, "find": v, "replace": after[k]}
                 for k, v in before.items() if after.get(k) is not None and after[k] != v]
         if set(after) - set(before) or set(before) - set(after):

@@ -14,7 +14,7 @@ class LoadPatch(unittest.TestCase):
         self.s = os.path.join(self.d, "s1")
         os.makedirs(self.s)
         with open(os.path.join(self.s, "a.c"), "w") as f:
-            f.write("int main(void) {\n  int v = qd_send(c, 1);\n  return v;\n}\n")
+            f.write("/* a comment, as most programs have */\nint main(void) {\n  int v = qd_send(c, 1);\n  return v;\n}\n")
         with open(os.path.join(self.s, "run.sh"), "w") as f:
             f.write("./a &\n")
 
@@ -31,11 +31,20 @@ class LoadPatch(unittest.TestCase):
         return p
 
     def test_unified_diff_becomes_a_whole_file_edit(self):
-        p = self._diff("int main(void) {\n  int v = 1;\n  return v;\n}\n")
+        p = self._diff("/* a comment, as most programs have */\nint main(void) {\n  int v = 1;\n  return v;\n}\n")
         acts, err = load_patch(self.s, p)
         self.assertIsNone(err)
         self.assertEqual([a["path"] for a in acts], ["s1/a.c"])
         self.assertIn("int v = 1;", acts[0]["replace"])
+
+    def test_the_edit_applies_to_the_copy_the_run_builds(self):
+        from qnx_doctor import actions as act, hang
+        p = self._diff("/* a comment, as most programs have */\nint main(void) {\n  int v = 1;\n  return v;\n}\n")
+        acts, err = load_patch(self.s, p)
+        self.assertIsNone(err)
+        work = hang.prepare(self.s)
+        act.apply({"argv": ["true"], "cwd": "."}, acts, work)
+        self.assertIn("int v = 1;", open(os.path.join(work, "s1", "a.c")).read())
 
     def test_json_actions_pass_through(self):
         p = os.path.join(self.d, "fix.json")

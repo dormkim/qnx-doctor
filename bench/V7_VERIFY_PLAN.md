@@ -91,3 +91,9 @@ Licence: states only (QNX licence 4.6(i)); no QNX timing.
   only the 14 base programs, the harness and the brief (`~/personal/qd_v7_patch_author`). The maintainer does not
   open the patches or the labels before `v7-freeze`; the freeze commit records that no file under `patches/` was
   read by the maintainer before it.
+- 2026-11-23, after the first v7 run: every one of the 55 diffs was rejected before its patched boot with
+  "edit_file: text to replace not found". Cause: `verify.load_patch` turned a diff into whole-file edits of the
+  original text, but `hang.prepare` drops `/* */` comments from the copy it builds. Not a judgment; no patched program
+  was booted. Fixed in the loader only (edits are now made against the comment-free text), with a unit test that fails
+  on the old code; all 55 diffs then apply. The judge, the structure rules, the review rule and the scorer are
+  unchanged. Re-frozen as `v7.1-freeze` and run once more; the failed run is kept as `run_1123_loaderbug/`.
