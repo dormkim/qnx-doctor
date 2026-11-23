@@ -167,4 +167,9 @@ The first output line is wrapped here. The exit status is 1 for a rejection. The
 `bench/sealed_v7_1123/run_1123b/verify.jsonl`; we ran this command again on 2026-11-23 (commit eec73e1, before this section
 was added) and got the same verdict and reason.
 
+A program that was not written for our harness, and the four things the gate needs around it:
+[docs/your_program.md](docs/your_program.md) (a pump driver and a controller in plain QNX calls; one patch accepted,
+one rejected, outputs included). We wrote that example ourselves, so it shows how to attach a program, not how well
+the gate judges.
+
 Only states are published (blocked or running, TICK or no TICK). No QNX timing or performance numbers (QNX licence 4.6(i)).

@@ -162,6 +162,9 @@ the test loop below. It reads only threads whose Blocked column is a pid or empt
 on a mutex can be named a missing reply here (the test loop reads every thread). Tried once so far, on our demo program built with plain `qcc` and started by the image at boot
 (`bench/live_demo.sh`); the ssh path is not tested yet.
 
+To put your own program under the gate, with a worked example that uses plain QNX calls and none of our headers:
+[docs/your_program.md](docs/your_program.md).
+
 A hang scenario (the test loop) is a directory with `*.c` sources and a `run.sh` that starts the processes. On the target, `check.sh` first starts the observer `snap` (so it is already loaded), then runs `run.sh`. When `run.sh` returns, it wakes `snap` with the shell builtin `kill`. At priority 63, `snap` counts the TICK lines in each `/tmp/d0<role>.log` and prints a `pidin` snapshot. The observer must be loaded before the scenario starts: `/var` and `/tmp` are on the disk image, and in our scenarios the CPU load runs above the disk driver's priority, so an observer loaded later could only look after the hang had cleared. A sibling `common/` directory holds `qd.h`, `snap.c`, `hi.c` and `check.sh`. See `scenarios/hang_demo/`.
 
 Harness rules for steady verdicts (2026-11-17): `check.sh` runs under `hi` at priority 50, but every scenario program starts at the normal priority 10 (`common/qd_start.c`, linked in like `qd_trace.c`), so a busy program cannot starve the serial or disk driver. `snap` writes nothing to the console while it looks: `pidin` goes to `/dev/shmem` first, and two more snapshots follow a moment later. A priority chain or a missing reply counts only if the same waiter → server pair is in all three. Only one QEMU guest runs at a time on a host (`bin/qd-target-exec` takes a lock).
@@ -256,6 +259,7 @@ bench/       scorers, baseline arms, plans and freezes
              sealed_v3_1117/, sealed_v4_1117/, sealed_v5_1118/ (earlier sealed sets, now development sets)
 results/     the recorded v3 run, which can be re-scored (sealed3_20261117/)
 scenarios/   hang_demo/control_loop (sensor → control → actuator)
+examples/    your_program/ (a pump driver and a controller in plain QNX calls, with one accepted and one rejected patch)
 ```
 
 Licence: Apache-2.0.

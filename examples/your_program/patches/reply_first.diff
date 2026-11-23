@@ -1,0 +1,18 @@
+--- a/pump.c
++++ b/pump.c
+@@ -25,6 +25,7 @@
+     if (in.type == _IO_CONNECT) { MsgReply(rcvid, EOK, NULL, 0); continue; }
+     if (in.type != SET_SPEED) { MsgError(rcvid, ENOSYS); continue; }
+     int speed = in.m.value;
++    MsgReply(rcvid, EOK, &speed, sizeof speed);     /* reply first: the controller must be free to read the report */
+     if (n % 3 == 2) {                              /* report the speed we reached */
+       int coid = ConnectAttach(0, info.pid, in.m.chid, _NTO_SIDE_CHANNEL, 0);
+       if (coid != -1) {
+@@ -33,7 +34,6 @@
+         ConnectDetach(coid);
+       }
+     }
+-    MsgReply(rcvid, EOK, &speed, sizeof speed);
+     printf("TICK %s %d\n", argv[1], n++); fflush(stdout);
+   }
+ }
