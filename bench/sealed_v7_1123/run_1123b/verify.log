@@ -1,0 +1,110 @@
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "bkr", "patch": "bkr__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/bkr/dbd bkrdb bkrhmi -> /var/qd/bkr/hmi bkrhmi bkrgw (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "bkr", "patch": "bkr__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: still hung: DEADLOCK: 204820(var/qd/bkr/dbd, SEND-blocked on 204822) -> 204822(var/qd/bkr/hmi, REPLY-blocked on 204821) -> 204821(var/qd/bkr/gw, REPLY-blocked on 204820) -> 204820
+{"id": "bkr", "patch": "bkr__3.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: still hung: DEADLOCK: 204820(var/qd/bkr/dbd, SEND-blocked on 204822) -> 204822(var/qd/bkr/hmi, REPLY-blocked on 204821) -> 204821(var/qd/bkr/gw, REPLY-blocked on 204820) -> 204820
+{"id": "bkr", "patch": "bkr__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "cnu", "patch": "cnu__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "cnu", "patch": "cnu__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: still hung: DEADLOCK: 204820(var/qd/cnu/stage, SEND-blocked on 204821) -> 204821(var/qd/cnu/stage, SEND-blocked on 204822) -> 204822(var/qd/cnu/stage, SEND-blocked on 204820) -> 204820
+{"id": "cnu", "patch": "cnu__3.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: still hung: DEADLOCK: 204820(var/qd/cnu/stage, SEND-blocked on 204821) -> 204821(var/qd/cnu/stage, SEND-blocked on 204822) -> 204822(var/qd/cnu/stage, SEND-blocked on 204820) -> 204820
+{"id": "cnu", "patch": "cnu__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/cv4/catalogd cv4cat cv4ui cv4wa cv4wb -> /var/qd/cv4/ui cv4ui cv4cat cv4r1 cv4r2 cv4ev (no new completed sends between the rerun's two counts)
+{"id": "cv4", "patch": "cv4__1.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/cv4/catalogd cv4cat cv4ui cv4wa cv4wb -> /var/qd/cv4/ui cv4ui cv4cat cv4r1 cv4r2 cv4ev (no new completed sends between the rerun's two counts)
+{"id": "cv4", "patch": "cv4__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/cv4/catalogd cv4cat cv4ui cv4wa cv4wb -> /var/qd/cv4/ui cv4ui cv4cat cv4r1 cv4r2 cv4ev (no new completed sends between the rerun's two counts)
+{"id": "cv4", "patch": "cv4__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/cv4/catalogd cv4cat cv4ui cv4wa cv4wb -> /var/qd/cv4/ui cv4ui cv4cat cv4r1 cv4r2 cv4ev (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "cv4", "patch": "cv4__4.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "epe", "patch": "epe__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/epe/keys epekeys epebrk -> /var/qd/epe/broker epebrk epeauth (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "epe", "patch": "epe__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/epe/keys epekeys epebrk -> /var/qd/epe/broker epebrk epeauth (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "epe", "patch": "epe__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: still hung: DEADLOCK: 204820(var/qd/epe/auth, REPLY-blocked on 204822) -> 204822(var/qd/epe/keys, SEND-blocked on 204821) -> 204821(var/qd/epe/broker, REPLY-blocked on 204820) -> 204820; waiting behind the cycle: 204823(var/qd/epe/ui, REPLY-blocked on 204821)
+{"id": "epe", "patch": "epe__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "f82", "patch": "f82__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "f82", "patch": "f82__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: still hung: PRIORITY CHAIN: 204821(var/qd/f82/bus) prio 35 REPLY-blocked on 204820(var/qd/f82/eeprom) which is READY at prio 4 while 163853(system/bin/io-sock) prio 21, 172047(system/bin/if_up) prio 10, 204823(var/qd/f82/scrub) prio 12 is runnable (RUNNING/READY)
+{"id": "f82", "patch": "f82__3.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: not proven alive: a loop that had printed TICKs prints none in the rerun (d0f82eep)
+{"id": "f82", "patch": "f82__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "g6b", "patch": "g6b__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REVIEW: the fix adds pulses and g6b/pwrmgr.c drops pulses it receives; a request sent as a pulse there may be read and ignored
+{"id": "g6b", "patch": "g6b__2.diff", "verdict": "review", "liveness_only": true, "structure_rule": true}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/g6b/hmi g6bhmi g6bpwr -> /var/qd/g6b/pwrmgr g6bpwr (no new completed sends between the rerun's two counts)
+{"id": "g6b", "patch": "g6b__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: still hung: MISSING REPLY: 204821(var/qd/g6b/hmi) REPLY-blocked on 204820(var/qd/g6b/pwrmgr), whose threads are all RECEIVE-blocked (it took the message and never replied)
+{"id": "g6b", "patch": "g6b__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "grp", "patch": "grp__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "grp", "patch": "grp__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/grp/fc grpfc grpimu -> /var/qd/grp/imud grpimu (no new completed sends between the rerun's two counts)
+{"id": "grp", "patch": "grp__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: still hung: PRIORITY CHAIN: 204821(var/qd/grp/fc) prio 32 REPLY-blocked on 204820(var/qd/grp/imud) which is READY at prio 6 while 163853(system/bin/io-sock) prio 21, 172047(system/bin/if_up) prio 10, 204822(var/qd/grp/logfmt) prio 16 is runnable (RUNNING/READY)
+{"id": "grp", "patch": "grp__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "k74", "patch": "k74__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "k74", "patch": "k74__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "k74", "patch": "k74__3.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "kk5", "patch": "kk5__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/kk5/nvstore kk5nv kk5fl -> /var/qd/kk5/nvstore kk5nv kk5fl (after the fix: 12 completed sends, 0 received; need 2 each)
+{"id": "kk5", "patch": "kk5__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/kk5/nvstore kk5nv kk5fl -> /var/qd/kk5/nvstore kk5nv kk5fl (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "kk5", "patch": "kk5__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: not proven alive: no cycle or chain in the rerun, but no stopped loop printed at least 2 more TICKs than before (TICK counts before -> after: d0kk5nv 4 -> 4)
+{"id": "kk5", "patch": "kk5__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "kp6", "patch": "kp6__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "kp6", "patch": "kp6__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "kp6", "patch": "kp6__3.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: still hung: MISSING REPLY: 204821(var/qd/kp6/kvclient) REPLY-blocked on 204820(var/qd/kp6/kvstore), whose threads are all RECEIVE-blocked (it took the message and never replied)
+{"id": "kp6", "patch": "kp6__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/nrp/jobd nrpjob nrpwa nrpwb -> /var/qd/nrp/jobc nrpc1 nrpjob (after the fix: 1 completed sends, 1 received; need 2 each); pair no longer exchanges messages: /var/qd/nrp/jobd nrpjob nrpwa nrpwb -> /var/qd/nrp/jobc nrpc2 nrpjob (after the fix: 1 completed sends, 1 received; need 2 each)
+{"id": "nrp", "patch": "nrp__1.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/nrp/jobd nrpjob nrpwa nrpwb -> /var/qd/nrp/jobc nrpc1 nrpjob (after the fix: 0 completed sends, 0 received; need 2 each); pair no longer exchanges messages: /var/qd/nrp/jobd nrpjob nrpwa nrpwb -> /var/qd/nrp/jobc nrpc2 nrpjob (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "nrp", "patch": "nrp__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair no longer exchanges messages: /var/qd/nrp/jobd nrpjob nrpwa nrpwb -> /var/qd/nrp/jobc nrpc1 nrpjob (after the fix: 0 completed sends, 0 received; need 2 each); pair no longer exchanges messages: /var/qd/nrp/jobd nrpjob nrpwa nrpwb -> /var/qd/nrp/jobc nrpc2 nrpjob (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "nrp", "patch": "nrp__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: still hung: DEADLOCK: 204820(var/qd/nrp/jobd, SEND-blocked on 204821) -> 204821(var/qd/nrp/jobc, REPLY-blocked on 204820) -> 204820; 204820(var/qd/nrp/jobd, SEND-blocked on 204821) -> 204822(var/qd/nrp/jobc, REPLY-blocked on 204820) -> 204820
+{"id": "nrp", "patch": "nrp__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "p5u", "patch": "p5u__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: not proven alive: no cycle or chain in the rerun, but no stopped loop printed at least 2 more TICKs than before (TICK counts before -> after: d0p5uctl 6 -> 6, d0p5urate 6 -> 6)
+{"id": "p5u", "patch": "p5u__2.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: not proven alive: a loop that had printed TICKs prints none in the rerun (d0p5urate)
+{"id": "p5u", "patch": "p5u__3.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/p5u/ctl p5uctl p5urate -> /var/qd/p5u/rated p5urate (no new completed sends between the rerun's two counts)
+{"id": "p5u", "patch": "p5u__4.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: alive again but the message structure changed: non-messaging process changed its threads' priority or load: /var/qd/qgj/bgcrc qgjcrc [[15, True]] -> [[15, False]]
+{"id": "qgj", "patch": "qgj__1.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "qgj", "patch": "qgj__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: alive again but the message structure changed: pair stopped exchanging messages: /var/qd/qgj/ctl qgjctl qgjadc -> /var/qd/qgj/adcd qgjadc (no new completed sends between the rerun's two counts)
+{"id": "qgj", "patch": "qgj__3.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+REJECT: still hung: PRIORITY CHAIN: 204821(var/qd/qgj/ctl) prio 30 REPLY-blocked on 204820(var/qd/qgj/adcd) which is READY at prio 5 while 163853(system/bin/io-sock) prio 21, 172047(system/bin/if_up) prio 10, 204822(var/qd/qgj/bgcrc) prio 15 is runnable (RUNNING/READY)
+{"id": "qgj", "patch": "qgj__4.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "zte", "patch": "zte__1.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "zte", "patch": "zte__2.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
+REJECT: still hung: DEADLOCK: 204820(var/qd/zte/collector, SEND-blocked on 204821) -> 204821(var/qd/zte/merger, SEND-blocked on 204822) -> 204822(var/qd/zte/collector, SEND-blocked on 204823) -> 204823(var/qd/zte/merger, SEND-blocked on 204820) -> 204820
+{"id": "zte", "patch": "zte__3.diff", "verdict": "reject", "liveness_only": false, "structure_rule": false}
+ACCEPT: the stopped loop runs again with the same message structure
+{"id": "zte", "patch": "zte__4.diff", "verdict": "accept", "liveness_only": true, "structure_rule": true}
