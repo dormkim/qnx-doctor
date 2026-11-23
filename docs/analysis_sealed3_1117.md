@@ -1,6 +1,6 @@
 # Sealed v3 failure analysis: false alarm on a healthy scenario (q19), missed deadlock (q10) (2026-11-17)
 
-Translated from docs/분석_sealed3_1117.md on 2026-11-23; the source is the record.
+Translated on 2026-11-23 from the Korean working note `docs/분석_sealed3_1117.md`, which is kept unchanged beside it because sealed files cite it by name. This English text is the version we submit.
 
 What was read: `runs/sealed3_20261117/` (score.md, excluded.json, labels.json, and the jsonl and log files of the four arms),
 `bench/sealed_v3_1117/` (README, SEAL.md, repro_20261117.json), the scenario sources q10, q13, q16 and q19,

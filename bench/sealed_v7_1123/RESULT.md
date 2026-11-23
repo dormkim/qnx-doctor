@@ -8,7 +8,7 @@ The patch set was written by a fresh agent and labelled by its author and, indep
 ("text to replace not found"): the patch loader edited the original text while the run builds a copy without
 comments. No patched program was booted, so that run says nothing about any patch. Only the loader was fixed (a unit
 test fails on the old code), re-frozen as `v7.1-freeze`, and the run was made once more. The failed run is kept in
-`run_1123_loaderbug/`.
+`run_1123/`.
 
 ## Headline (G2 failed, so the false rejections come first; then G1, G3, G4)
 

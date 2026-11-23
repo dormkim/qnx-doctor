@@ -1,6 +1,6 @@
 # Sealed set v5: result of the single scoring run (2026-11-18)
 
-Translated from bench/sealed_v5_1118/결과_1118.md on 2026-11-23; the source is the record.
+Translated on 2026-11-23 from the Korean working note `bench/sealed_v5_1118/결과_1118.md`, which is kept unchanged beside it because sealed files cite it by name. This English text is the version we submit.
 
 After the harness fix (the `/dev/shmem` rename bug, 647c90d), the **priority-inversion detector was measured again on a new sealed set**. Single core, 4 arms, one run only. The seal, the repro check (12/12) and the hashes are in `SEAL.md`.
 

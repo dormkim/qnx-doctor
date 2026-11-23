@@ -6,9 +6,14 @@ checked from files in this repository; the full test loop needs QNX SDP 8.0 and 
 ## The claim
 
 `qnx-doctor verify` stops most patches that only make a hung QNX program run again, without reading the patch's
-intent: on 55 patches nobody on our side wrote, it accepted 5 of 30 bad patches where a "does it run again" check
+intent: on 55 patches written by a fresh agent that saw only the 14 programs, the test harness and a brief, it accepted 5 of 30 bad patches where a "does it run again" check
 accepted 19, and no forgery. It also rejected 4 of 17 genuine fixes, and it cannot tell what a reply means. The
 diagnosis (`hang`) is not claimed to beat the model alone: on sealed set v6 it did not.
+
+Where QNX is used, by API and file: [README, "How qnx-doctor uses QNX"](README.md#how-qnx-doctor-uses-qnx-api-map).
+The recorder that the gate reads wraps `MsgSend*`, `MsgSendPulse*` and `MsgReceive*` on the target
+(`tests/sealed_hang/common/qd_trace.c`). Tutorial written during the contest (QNX SDP 8.0 on a server with no
+desktop, QEMU target, first program): [docs/tutorial/headless-sdp8-qemu.md](docs/tutorial/headless-sdp8-qemu.md).
 
 ## The test that counts for the gate: patch set v7 (2026-11-23)
 
@@ -19,7 +24,7 @@ diagnosis (`hang`) is not claimed to beat the model alone: on sealed set v6 it d
 | Written | 55 patches by a fresh agent in a plain folder with only the 14 programs, the harness and the brief | `bench/sealed_v7_1123/README_author.md` |
 | Labelled | By the author and by a second fresh reader who saw neither the author's labels nor the run; 53 of 55 agree | `labels_author.json`, `labels_reader.json` |
 | Sealed | sha256 of the patches and the author's labels before the run | `bench/sealed_v7_1123/SEAL.md`, tag `v7-seal` |
-| Run | Once (a first run that failed in the loader is kept) | `run_1123b/`, `run_1123_loaderbug/` |
+| Run | Once (a first run that failed in the loader is kept) | `run_1123b/`, `run_1123/` (the failed first run) |
 | Scored | By the scorer committed before the seal | `bench/score_verify.py`, `run_1123b/score.md` |
 
 Outcome by the criteria fixed in advance: G1 met (5 vs 19 bad patches accepted), G2 not met (4 genuine fixes
@@ -55,7 +60,7 @@ full; the check let one masking fix through in every arm. All of it: [bench/seal
 | Written | 30 scenarios and an answer key by a fresh agent in a sparse worktree holding only the harness, one example and the run script | `bench/sealed_v6_1123/README.md` |
 | Sealed | sha256 of the key and the scenario tree, before any run | `bench/sealed_v6_1123/SEAL.md`, tag `v6-seal` |
 | Reproduced | 30 of 30 agree on TICK expectations and thread states without the tool | `bench/sealed_v6_1123/repro_v6.json` |
-| Run | Once, four arms, same model, 96 requests under a 40 USD cap | `bench/sealed_v6_1123/run_1123/` |
+| Run | Once, four arms, same model, 96 requests under a spending cap set before the run (`bench/run_sealed3.sh`; ledger `budget.jsonl`) | `bench/sealed_v6_1123/run_1123/` |
 | Read | Every fix counted as fixed, by a reviewer who took no part in the runs | `bench/sealed_v6_1123/fix_review.jsonl` |
 
 ## Earlier: sealed set v3 (2026-11-17), now a development set
@@ -131,8 +136,35 @@ recorder bug does not touch them.
 
 ## Checking without QNX
 
-- Unit tests (wait graph, structure check, scorer, verdicts): `python3 -m unittest discover tests/unit`.
+These need Python 3.10+ and nothing else (no SDP, no QEMU, no key, no package to install).
+
+- **Re-score the v7 gate run** from its recorded rows: `python3 bench/score_verify.py bench/sealed_v7_1123/labels_author.json bench/sealed_v7_1123/labels_reader.json bench/sealed_v7_1123/run_1123b/verify.jsonl`.
+  The output is the table in `bench/sealed_v7_1123/run_1123b/score.md`, character for character: the `v7 gate` row
+  reads `bad accepted 5/30`, `forgery accepted 0/5`, `genuine not accepted 4/17`, and the `liveness only` row reads
+  `19/30`.
+- **Re-score the v6 diagnosis run**: `python3 bench/score_structure.py bench/sealed_v6_1123/run_1123/labels.json --fresh code=bench/sealed_v6_1123/run_1123/code.jsonl ai=bench/sealed_v6_1123/run_1123/ai.jsonl naive=bench/sealed_v6_1123/run_1123/naive.jsonl naive_x2=bench/sealed_v6_1123/run_1123/naive_x2.jsonl`.
+  The output is `bench/sealed_v6_1123/run_1123/score.md`. The arm printed as `ai` is the one this page calls ours.
+- Unit tests (wait graph, structure check, scorer, verdicts): `python3 -m unittest discover tests/unit`. It ends with
+  `OK`; the tests that need the `anthropic` package are reported as skipped when it is not installed.
 - Read-only analysis of a recorded `pidin` capture: `python3 -m qnx_doctor.cli hang --pidin tests/unit/fixtures/pidin_dl2_1115.txt`.
-- Re-score the recorded v3 run from its files: `python3 bench/score_structure.py results/sealed3_20261117/labels.json --exclude-file results/sealed3_20261117/excluded.json --fresh code=results/sealed3_20261117/code.jsonl ai=results/sealed3_20261117/ai.jsonl naive=results/sealed3_20261117/naive.jsonl naive_x2=results/sealed3_20261117/naive_x2.jsonl`.
+  It prints `DEADLOCK:` with the two processes of the cycle and exits with status 3, which means "a hang was named"
+  (0 means none).
+- Re-score the recorded v3 run (a development set) from its files; `ai` is ours: `python3 bench/score_structure.py results/sealed3_20261117/labels.json --exclude-file results/sealed3_20261117/excluded.json --fresh code=results/sealed3_20261117/code.jsonl ai=results/sealed3_20261117/ai.jsonl naive=results/sealed3_20261117/naive.jsonl naive_x2=results/sealed3_20261117/naive_x2.jsonl`.
+
+## Checking with the SDP and QEMU
+
+One patch through the gate, with a program and a patch that are in this repository (two builds and two boots, no
+model call):
+
+```text
+$ python3 -m qnx_doctor.cli verify bench/sealed_v6_1123/pool/bkr bench/sealed_v7_1123/patches/bkr__2.diff
+REJECT: alive again but the message structure changed: pair no longer exchanges messages:
+  /var/qd/bkr/dbd bkrdb bkrhmi -> /var/qd/bkr/hmi bkrhmi bkrgw (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "bkr", "patch": "bkr__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+```
+
+The first output line is wrapped here. The exit status is 1 for a rejection. The same row is line 2 of
+`bench/sealed_v7_1123/run_1123b/verify.jsonl`; we ran this command again on 2026-11-23 (commit eec73e1, before this section
+was added) and got the same verdict and reason.
 
 Only states are published (blocked or running, TICK or no TICK). No QNX timing or performance numbers (QNX licence 4.6(i)).

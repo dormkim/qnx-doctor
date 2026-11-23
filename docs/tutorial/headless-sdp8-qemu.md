@@ -1,6 +1,6 @@
 # QNX SDP 8.0 on a headless Linux server: install, boot an x86_64 target in QEMU, run your first program
 
-*Draft, 2026-11-15. Written from a real install on an Ubuntu x86_64 server with no desktop and no root/sudo for QEMU. Every command below was run; where it failed the first time, the failure is shown with the fix.*
+*Written 2026-11-15 from a real install on an Ubuntu x86_64 server with no desktop and no root/sudo for QEMU. Every command below was run; where it failed the first time, the failure is shown with the fix.*
 
 **You will end with:** QNX SDP 8.0 installed under your home directory, a QNX 8.0 x86_64 image booting in QEMU (with KVM if available), and a C program you cross-compiled with `qcc` printing on the target.
 

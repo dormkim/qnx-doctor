@@ -1,6 +1,6 @@
 # sealed hang v4: scored result (2026-11-18)
 
-Translated from bench/sealed_v4_1117/결과_1118.md on 2026-11-23; the source is the record.
+Translated on 2026-11-23 from the Korean working note `bench/sealed_v4_1117/결과_1118.md`, which is kept unchanged beside it because sealed files cite it by name. This English text is the version we submit.
 
 Single scored run, 4 arms (code / ours=ai / naive / naive_x2), same model, one QEMU at a time, `QD_SMP=1`.
 Run output frozen in `scored_1118/*.jsonl`. States only (QNX licence 4.6(i)); no timing numbers.

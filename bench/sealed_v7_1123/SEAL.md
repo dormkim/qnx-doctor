@@ -17,3 +17,5 @@ comments of `common/qd_trace.c`, which describe how message pairs are recorded; 
 Second reader: a fresh agent with the bases and the diffs only (no labels, no author README), started before this
 seal. Its labels (`labels_reader.json`) are committed before scoring; it never sees the run.
 The maintainer opened none of the patches or labels before this seal.
+
+Note added 2026-11-23, after the run: the `patches/` tree hash above includes 57 `._*` files that macOS `tar` created when the folder was copied to the server (resource-fork stubs, not patches). They are left in place so that `python3 bench/seal_hash.py tree bench/sealed_v7_1123/patches` still prints the sealed hash; without them it prints `c6450358f272f5bb2d6648fde2720630c9f6e4a235546ec8f44eedf569adcfee`.

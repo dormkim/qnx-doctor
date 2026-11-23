@@ -11,7 +11,22 @@ sent to a person (`review`), with the lines to read. No model is called.
 python3 -m qnx_doctor.cli verify path/to/scenario fix.diff      # ACCEPT / REJECT (rule) / REVIEW (lines to read)
 ```
 
-What we measured, once, on 55 patches written by an agent that never saw our code and labelled by two readers
+One recorded case, with files that are in this repository (program `bkr`, patch `bkr__2`). On a cache miss the
+database server asks the dashboard who owns a key, and that query is part of a deadlock. The patch stops asking and
+answers with a made-up owner. All three loops tick again, so a "does it run again" check passes it
+(`"liveness_only": true`). The gate does not (the first output line is wrapped here):
+
+```text
+$ python3 -m qnx_doctor.cli verify bench/sealed_v6_1123/pool/bkr bench/sealed_v7_1123/patches/bkr__2.diff
+REJECT: alive again but the message structure changed: pair no longer exchanges messages:
+  /var/qd/bkr/dbd bkrdb bkrhmi -> /var/qd/bkr/hmi bkrhmi bkrgw (after the fix: 0 completed sends, 0 received; need 2 each)
+{"id": "bkr", "patch": "bkr__2.diff", "verdict": "reject", "liveness_only": true, "structure_rule": false}
+```
+
+In the recorded run `bkr__1`, which answers the same query from a second thread, was accepted.
+
+What we measured, once, on 55 patches written by a fresh agent that saw only the 14 programs, the test harness and a
+brief, and labelled by two readers
 (53 agree): **the gate rejected 4 of 17 genuine fixes**, three because a request moved to another thread and one
 that throttled a CPU load. **It accepted 5 of 30 bad patches where a "does it run again" check accepted 19**, and
 **none of the 5 forgeries**. It cannot see what a reply means: an error returned as a reply, an early acknowledgement,
@@ -106,14 +121,20 @@ proposed edit could read other files):
 | AI | `pip install anthropic`, plus `ANTHROPIC_API_KEY` in the environment (no child process gets it). Model: `QD_MODEL`, default `claude-opus-5-5`. Not needed with `--no-ai` |
 
 Environment: `QNX_SDP` (default `~/personal/qnx/qnx800`) and `QD_QEMU_ROOT` (a QEMU install root; default `~/personal/qemu_local/root`).
+The defaults are the paths of our own server, so set both on any other machine.
+
+Installing the SDP on a server with no desktop and booting the QEMU target, step by step, with the errors we hit:
+[docs/tutorial/headless-sdp8-qemu.md](docs/tutorial/headless-sdp8-qemu.md).
 
 ## Build and run
 
 ```sh
-# Gate: judge a patch (unified diff against the scenario directory, or JSON edit_file actions)
-python3 -m qnx_doctor.cli verify scenarios/hang_demo/control_loop my_fix.diff --out verify.jsonl
+git clone https://github.com/dormkim/qnx-doctor.git && cd qnx-doctor
 
-git clone <this repo> && cd qnx-doctor
+# Gate: judge a patch (unified diff against the scenario directory, or JSON edit_file actions).
+# This program and patch are in the repository; the recorded verdict is REJECT (exit status 1).
+python3 -m qnx_doctor.cli verify bench/sealed_v6_1123/pool/bkr bench/sealed_v7_1123/patches/bkr__2.diff --out verify.jsonl
+
 python3 -m qnx_doctor.cli index                       # once: index the QNX docs installed with the SDP
 
 # Hang on a running target, no harness: three pidin snapshots + pidin arg over ssh → wait graph (read-only)
@@ -272,9 +293,10 @@ Scoring code: `bench/score_hang.py`, `bench/score_structure.py` (the only code t
 `bench/fake_fix_check.py` attacks the verifier with shortcut fixes on dev scenarios. Only states are reported
 (blocked or running, TICK or no TICK); no QNX timing or performance numbers are published (QNX licence 4.6(i)).
 
-Unit tests (no SDP needed): `python3 -m unittest discover tests/unit`.
+Unit tests (no SDP needed): `python3 -m unittest discover tests/unit`. Tests that need the `anthropic` package are
+skipped when it is not installed.
 
-## How qnx-doctor uses QNX (API map, draft)
+## How qnx-doctor uses QNX (API map)
 
 | QNX API or tool | Where | What it is used for |
 |---|---|---|
@@ -294,15 +316,19 @@ Unit tests (no SDP needed): `python3 -m unittest discover tests/unit`.
 ## Layout
 
 ```
-qnx_doctor/  waitgraph.py (pidin → graph → verdict, pure)  structure.py (same message structure, pure)  hang.py / hangdoctor.py (target loop)
+qnx_doctor/  verify.py (the gate: build, boot and judge a patch, no model)  gate.py (accept / reject / review rules)
+             waitgraph.py (pidin → graph → verdict, pure)  structure.py (same message structure, pure)  hang.py / hangdoctor.py (target loop)
              live.py (running target, no harness: pidin over a transport → graph)
              ai.py (look-around loop)  probes.py (look-around allow-list)  actions.py (fix allow-list)
              sandbox.py (kernel boundary)  source_check.py (text check of edits)  docs.py (SDP docs index)  report.py (timeline)
              doctor.py / rules.py / runner.py (build/boot doctor)  cli.py
 bin/         qd-target-exec (boot image in QEMU, run one command, return its status)  qd-boot
 tests/       unit/  sealed_hang/  gen_hang/  sealed/ (build/boot set)
-bench/       scorers, baseline arms, sealed_v3_1117/ (the independent sealed set: pool, answer key, SEAL.md)
-results/     recorded runs judges can re-score (sealed3_20261117/)
+bench/       scorers, baseline arms, plans and freezes
+             sealed_v7_1123/ (the patch set for the gate: patches, two label files, SEAL.md, run_1123b/)
+             sealed_v6_1123/ (the scenario set for diagnosis: pool, answer key, SEAL.md, run_1123/)
+             sealed_v3_1117/, sealed_v4_1117/, sealed_v5_1118/ (earlier sealed sets, now development sets)
+results/     the recorded v3 run, which can be re-scored (sealed3_20261117/)
 scenarios/   hang_demo/control_loop (sensor → control → actuator)
 ```
 
