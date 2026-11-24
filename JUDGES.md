@@ -3,6 +3,8 @@
 This page says what qnx-doctor claims, where each number comes from, and what went wrong. Everything below can be
 checked from files in this repository; the full test loop needs QNX SDP 8.0 and QEMU, which we cannot redistribute.
 
+Demo video (2:29): https://youtu.be/bk8DK5-EF7k
+
 ## The claim
 
 `qnx-doctor verify` stops most patches that only make a hung QNX program run again, without reading the patch's

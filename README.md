@@ -7,6 +7,8 @@ nothing that ran stops, and the same processes still exchange messages. A patch 
 again by cutting a peer out, removing a thread or faking the log is rejected; a patch the rerun cannot vouch for is
 sent to a person (`review`), with the lines to read. No model is called.
 
+Demo video (2:29): https://youtu.be/bk8DK5-EF7k
+
 ```sh
 python3 -m qnx_doctor.cli verify path/to/scenario fix.diff      # ACCEPT / REJECT (rule) / REVIEW (lines to read)
 ```
